@@ -56,7 +56,7 @@ npm start          # Expo dev server: press a for Android, i for iOS, w for web
 
 With the [Expo Go](https://expo.dev/go) app you can scan the QR code, but voice
 recording needs a development build (`npx expo run:android` /
-`npx expo run:ios`) or the debug APK below.
+`npx expo run:ios`) or the APK below.
 
 ### Point it at your own server
 
@@ -88,12 +88,13 @@ TARGET=https://workbench.example.com node scripts/dev-proxy.mjs
 (`scripts/mock-api.mjs`, no account needed); add `MOCK_HOLD=1` to leave
 answers half-written.
 
-### Android debug APK (no Android Studio)
+### Android APK (no Android Studio)
 
 ```sh
-scripts/build-android.sh      # Docker: expo prebuild + gradlew assembleDebug
-# -> build-out/workbench-debug.apk
-adb install build-out/workbench-debug.apk
+scripts/build-android.sh      # Docker: expo prebuild + gradlew assembleRelease (JS bundle inside)
+# -> build-out/workbench-release.apk
+adb install build-out/workbench-release.apk
+# VARIANT=debug gives a debug APK, which loads its JS from Metro - not for handing out
 ```
 
 ## Develop
