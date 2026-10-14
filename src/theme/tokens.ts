@@ -71,6 +71,3 @@ export const type = {
 export const radius = { sm: 5, md: 6, lg: 8, bubble: 10 } as const;
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
-
-/** Every animation in the app is at most this long (and none at all with reduced motion). */
-export const MOTION_MS = 160;
