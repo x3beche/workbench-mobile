@@ -26,7 +26,6 @@ export function Composer({
   onStop: () => void;
 }) {
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
   const input = useRef<TextInput>(null);
   const voice = useVoiceRecorder(client, lang, 'chat', (got) => {
     if (!got) return;
@@ -34,13 +33,15 @@ export function Composer({
     input.current?.focus();
   });
 
-  const send = async () => {
+  // The box empties at once; `onSend` resolves only when the answer is
+  // written, and a line that could not be sent comes back to the box.
+  const send = () => {
     const t = text.trim();
-    if (!t || sending) return;
-    setSending(true);
-    const ok = await onSend(t);
-    setSending(false);
-    if (ok) setText('');
+    if (!t) return;
+    setText('');
+    onSend(t).then((ok) => {
+      if (!ok) setText((now) => now || t);
+    });
   };
 
   if (voice.phase !== 'idle') {
@@ -74,7 +75,7 @@ export function Composer({
         <Button label="Voice" variant="quiet" onPress={voice.start} testID="voice-start" accessibilityLabel="Record a voice message" />
         <View style={s.flex} />
         {writing ? <Button label="Stop" onPress={onStop} testID="stop" accessibilityLabel="Stop the answer" /> : null}
-        <Button label="Send" variant="primary" onPress={send} busy={sending} disabled={!text.trim()} testID="send" />
+        <Button label="Send" variant="primary" onPress={send} disabled={!text.trim()} testID="send" />
       </View>
     </View>
   );

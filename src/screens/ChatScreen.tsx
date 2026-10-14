@@ -144,6 +144,10 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
     setChat(got);
   };
 
+  // After the frame that laid the new content out (the footer, an answer
+  // being written, is measured late on the web).
+  const toEnd = () => setTimeout(() => list.current?.scrollToEnd({ animated: false }), 50);
+
   const refresh = async () => {
     setRefreshing(true);
     await load();
@@ -169,7 +173,9 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
           data={view.messages}
           keyExtractor={(m, i) => m.id || String(i)}
           renderItem={({ item }) => <MessageItem m={item} mine={!!user && item.by?.id === user.id} />}
-          onContentSizeChange={() => list.current?.scrollToEnd({ animated: false })}
+          onContentSizeChange={toEnd}
+          // The composer growing or the keyboard opening shrinks the list: keep the newest line in view.
+          onLayout={toEnd}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.inkDim} colors={[colors.ink]} progressBackgroundColor={colors.surface2} />}
           ListEmptyComponent={
             loaded && !view.writing ? (

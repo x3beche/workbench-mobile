@@ -26,7 +26,6 @@ export function VoiceNoteSheet({
   onSend: (text: string) => Promise<boolean>;
 }) {
   const [text, setText] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
   const voice = useVoiceRecorder(client, lang, 'note', (got) => setText(got ?? ''));
   const { start, cancel, phase, finish } = voice;
 
@@ -40,12 +39,11 @@ export function VoiceNoteSheet({
     onClose();
   };
 
-  const send = async () => {
+  // Sent into the conversation, which follows the answer; the sheet closes at once.
+  const send = () => {
     if (!text?.trim()) return;
-    setSending(true);
-    const ok = await onSend(text.trim());
-    setSending(false);
-    if (ok) onClose();
+    onSend(text.trim());
+    onClose();
   };
 
   return (
@@ -78,7 +76,7 @@ export function VoiceNoteSheet({
               <View style={s.row}>
                 <Button label="Discard" variant="quiet" onPress={close} />
                 <Button label="Record again" onPress={() => { setText(null); start(); }} />
-                <Button label="Send" variant="primary" busy={sending} disabled={!text.trim()} onPress={send} testID="voice-note-send" />
+                <Button label="Send" variant="primary" disabled={!text.trim()} onPress={send} testID="voice-note-send" />
               </View>
             </>
           ) : (

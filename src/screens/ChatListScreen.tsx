@@ -9,6 +9,7 @@ import type { Chat } from '../api/types';
 import { AccountSheet } from '../components/AccountSheet';
 import { Header } from '../components/Header';
 import { Button, ErrorText } from '../components/ui';
+import { previewText } from '../lib/markdown';
 import { shortTime } from '../lib/time';
 import { useSession } from '../state/session';
 import { colors, fonts, type } from '../theme/tokens';
@@ -109,7 +110,7 @@ export function ChatListScreen({
 }
 
 function Row({ chat, onPress }: { chat: Chat; onPress: () => void }) {
-  const last = chat.last?.text?.replace(/\s+/g, ' ').trim();
+  const last = chat.last?.text ? previewText(chat.last.text) : '';
   const who = chat.last?.role === 'user' && chat.last.by ? `${chat.last.by}: ` : '';
   return (
     <Pressable

@@ -198,3 +198,16 @@ function findEmphasisEnd(src: string, from: number, mark: string): number {
 export function inlineText(nodes: Inline[]): string {
   return nodes.map((n) => ('children' in n ? inlineText(n.children) : n.text)).join('');
 }
+
+/** One line of plain words from Markdown, for a list's preview of the last line. */
+export function previewText(src: string): string {
+  return src
+    .replace(/```[\w+#.-]*\n?/g, ' ')
+    .split('\n')
+    .map((l) => l.replace(/^\s{0,3}(#{1,6}\s+|>\s?|[-*+]\s+|\d{1,9}[.)]\s+)/, ''))
+    .join(' ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__|`)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
