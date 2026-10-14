@@ -17,6 +17,7 @@ Then you sign in with the same e-mail address and password as on the web.
 <p>
   <img src="docs/screenshots/06-voice-recording.png" width="200" alt="Recording a voice message">
   <img src="docs/screenshots/07-voice-review.png" width="200" alt="Reviewing a voice note before sending">
+  <img src="docs/screenshots/08-model-picker.png" width="200" alt="Choosing the model">
   <img src="docs/screenshots/09-account.png" width="200" alt="Account, voice language, sign out">
 </p>
 
@@ -80,8 +81,12 @@ server, so both come from one origin:
 ```sh
 npx expo export --platform web
 TARGET=https://workbench.example.com node scripts/dev-proxy.mjs
-# open http://localhost:8090 and enter http://localhost:8090 as the server
+# open http://localhost:8090 and enter localhost:8090 as the server
 ```
+
+`MOCK=1 node scripts/dev-proxy.mjs` answers from a made-up server instead
+(`scripts/mock-api.mjs`, no account needed); add `MOCK_HOLD=1` to leave
+answers half-written.
 
 ### Android debug APK (no Android Studio)
 
@@ -100,9 +105,11 @@ npm test
 npm run check      # all three
 ```
 
-Screenshots in `docs/screenshots` are made with `scripts/shots.mjs` (headless
-Chrome at 390 x 844, against a mocked server; the sign-in error is the live
-server's own answer).
+Screenshots in `docs/screenshots` are made with `scripts/shots.sh` (headless
+Chrome in Docker at 390 x 844, against the made-up server; with
+`TARGET=https://your.server` it also takes the server and sign-in screens
+against that server, whose own wrong-password error is shown). App icons are
+drawn by `scripts/make-icons.js` from the web app's section mark.
 
 ### How it talks to the server
 
