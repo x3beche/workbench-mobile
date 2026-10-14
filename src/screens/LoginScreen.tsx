@@ -33,6 +33,14 @@ export function LoginScreen() {
     try {
       const user = await client.login(email, password);
       await prefs.rememberEmail(server, email.trim());
+      // An admin-set password must be replaced first, which the app does not do.
+      const state = await client.authState().catch(() => null);
+      if (state?.must_change_password) {
+        await client.logout().catch(() => undefined);
+        setError('This account must choose a new password first. Do that in the web app, then sign in here.');
+        setBusy(false);
+        return;
+      }
       setPassword('');
       signedIn(user);
     } catch (e) {
