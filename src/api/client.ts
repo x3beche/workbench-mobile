@@ -9,7 +9,23 @@
  * every mutating cookie request (backend/auth.py, csrf_ok).
  */
 import { streamSse, type StreamResult, type XhrLike } from './sse';
-import type { AuthState, Chat, ChatEvent, Ideas, Model, Provider, Queued, Transcript, User } from './types';
+import type {
+  AuthState,
+  Chat,
+  ChatEvent,
+  ChatScope,
+  FileFolder,
+  Ideas,
+  Model,
+  Provider,
+  Queued,
+  StoredFile,
+  Transcript,
+  TrashFile,
+  UploadPart,
+  User,
+  VirtualTree,
+} from './types';
 
 export const CSRF_HEADER = 'x-redline-csrf';
 const TIMEOUT_MS = 20_000;
@@ -56,6 +72,33 @@ export interface ClientDeps {
 export type AudioFile = { uri: string; name: string; type: string } | { blob: Blob; name: string };
 
 export type VoiceLang = 'auto' | 'tr' | 'en';
+
+/** A row's small picture (GET /api/files/{id}/mini): ready, still being made, or none for this file. */
+export type Mini = { state: 'ready'; uri: string } | { state: 'later'; seconds: number } | { state: 'none' };
+
+/** The first part of a file as text, and whether there is more of it. */
+export interface TextHead {
+  text: string;
+  cut: boolean;
+}
+
+export interface TableData {
+  sheets: string[];
+  sheet: number;
+  rows: string[][];
+  total: number;
+  truncated: boolean;
+}
+
+/** A Blob as a data: URI (FileReader works the same on a phone and in a browser). */
+export function blobToDataUri(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error('The file could not be read.'));
+    r.readAsDataURL(blob);
+  });
+}
 
 export interface SayHandlers {
   onEvent: (ev: ChatEvent) => void;
@@ -148,10 +191,15 @@ export class WorkbenchClient {
 
   // ---- conversations ----------------------------------------------------
 
-  /** The conversations, newest first (pinned on top). `q` also searches what was said in them. */
-  listChats(q = ''): Promise<Chat[]> {
+  /**
+   * The conversations, newest first (pinned on top). `q` also searches what
+   * was said in them. `scope` is the live ones, the archived ones, or the
+   * trash (newest deleted first).
+   */
+  listChats(q = '', scope: ChatScope = 'live'): Promise<Chat[]> {
     const find = q.trim() ? `&q=${encodeURIComponent(q.trim())}` : '';
-    return this.request<Chat[]>('GET', `/api/cc/chats?archived=0${find}`);
+    const which = scope === 'trash' ? 'trash=1' : scope === 'archived' ? 'archived=1' : 'archived=0';
+    return this.request<Chat[]>('GET', `/api/cc/chats?${which}${find}`);
   }
 
   getChat(id: string): Promise<Chat> {
@@ -170,14 +218,34 @@ export class WorkbenchClient {
     return this.request<Chat>('PATCH', `/api/cc/chats/${encodeURIComponent(id)}`, { title: title.trim() });
   }
 
-  /** Out of the list; the web app's Archived view still has it. */
-  archive(id: string): Promise<Chat> {
-    return this.request<Chat>('PATCH', `/api/cc/chats/${encodeURIComponent(id)}`, { archived: true });
+  /** Out of the list, into Archived; `false` brings it back. */
+  archive(id: string, archived = true): Promise<Chat> {
+    return this.request<Chat>('PATCH', `/api/cc/chats/${encodeURIComponent(id)}`, { archived });
+  }
+
+  /** Pinned conversations stay at the top of the list. */
+  pin(id: string, pinned: boolean): Promise<Chat> {
+    return this.request<Chat>('PATCH', `/api/cc/chats/${encodeURIComponent(id)}`, { pinned });
   }
 
   /** Into the server's trash, which deletes it for good after its days (`days` in the answer). */
   remove(id: string): Promise<{ deleted: string; trash?: boolean; days?: number }> {
     return this.request('DELETE', `/api/cc/chats/${encodeURIComponent(id)}`);
+  }
+
+  /** Out of the trash, as it was (pinned, archived, every line). */
+  restoreChat(id: string): Promise<Chat> {
+    return this.request<Chat>('POST', `/api/cc/chats/${encodeURIComponent(id)}/restore`, {});
+  }
+
+  /** Gone for good, from the trash or straight away. */
+  removeForever(id: string): Promise<{ deleted: string; forever: boolean }> {
+    return this.request('DELETE', `/api/cc/chats/${encodeURIComponent(id)}?forever=1`);
+  }
+
+  /** Everything in the trash one may delete, gone for good; `kept` counts the rest. */
+  emptyTrash(): Promise<{ deleted: number; kept: number }> {
+    return this.request('POST', '/api/cc/chats/empty-trash', {});
   }
 
   /** Example questions for an empty conversation (null when the server has none to give). */
@@ -247,6 +315,164 @@ export class WorkbenchClient {
       throw new ApiError(res.status, errorMessage(res.status, res.text));
     }
     return res;
+  }
+
+  // ---- files --------------------------------------------------------------
+
+  /** Every upload of the workspace; the app's own (In the app) carry `where`. */
+  listFiles(): Promise<StoredFile[]> {
+    return this.request<StoredFile[]>('GET', '/api/files');
+  }
+
+  folders(): Promise<FileFolder[]> {
+    return this.request<FileFolder[]>('GET', '/api/files/folders');
+  }
+
+  /** The read-only folders: Projects, Chat, Parts, Agents, Taste. */
+  virtualTree(): Promise<VirtualTree> {
+    return this.request<VirtualTree>('GET', '/api/files/virtual');
+  }
+
+  filesTrash(): Promise<{ days: number; files: TrashFile[] }> {
+    return this.request('GET', '/api/files/trash');
+  }
+
+  restoreFiles(
+    ids: string[],
+  ): Promise<{ restored: StoredFile[]; refused: { id: string; name: string; why: string }[] }> {
+    return this.request('POST', '/api/files/trash/restore', { files: ids });
+  }
+
+  purgeFiles(ids: string[]): Promise<{ purged: string[] }> {
+    return this.request('POST', '/api/files/trash/purge', { files: ids });
+  }
+
+  renameFile(id: string, name: string): Promise<StoredFile> {
+    return this.request<StoredFile>('PATCH', `/api/files/${encodeURIComponent(id)}`, { name: name.trim() });
+  }
+
+  /** Into Deleted files, kept there for the server's days (30 by default). */
+  deleteFile(id: string): Promise<{ deleted: string }> {
+    return this.request('DELETE', `/api/files/${encodeURIComponent(id)}`);
+  }
+
+  moveFiles(files: string[], folders: string[], to: string): Promise<{ files: number; folders: number }> {
+    return this.request('POST', '/api/files/move', { files, folders, to });
+  }
+
+  /** A copy of any file - one the app made, too - into one's own folders: the one way it reaches My files. */
+  copyToMine(id: string, folder = ''): Promise<StoredFile> {
+    return this.request<StoredFile>('POST', `/api/files/${encodeURIComponent(id)}/copy`, { folder });
+  }
+
+  makeFolder(name: string, parent: string): Promise<FileFolder> {
+    return this.request<FileFolder>('POST', '/api/files/folders', { name: name.trim(), parent });
+  }
+
+  renameFolder(id: string, name: string): Promise<FileFolder> {
+    return this.request<FileFolder>('PATCH', `/api/files/folders/${encodeURIComponent(id)}`, { name: name.trim() });
+  }
+
+  /** A folder and, with `contents`, everything in it (only if every file in it is one's to delete). */
+  deleteFolder(id: string, contents: boolean): Promise<{ deleted: string; files?: number; folders?: number }> {
+    return this.request('DELETE', `/api/files/folders/${encodeURIComponent(id)}?contents=${contents}`);
+  }
+
+  /** Files from the phone into a folder of My files ("" the top). */
+  async upload(parts: UploadPart[], folder: string): Promise<StoredFile[]> {
+    const form = new FormData();
+    for (const p of parts) {
+      if ('blob' in p) form.append('upload', p.blob, p.name);
+      // React Native's FormData takes a {uri, name, type} part for a file on disk.
+      else form.append('upload', { uri: p.uri, name: p.name, type: p.type } as unknown as Blob);
+    }
+    form.append('context', JSON.stringify({ room: 'files' }));
+    form.append('note', '');
+    form.append('folder', folder);
+    const res = await this.send(
+      '/api/files',
+      { method: 'POST', body: form, headers: { [CSRF_HEADER]: '1' } },
+      UPLOAD_TIMEOUT_MS,
+    );
+    return this.read<StoredFile[]>(res, '/api/files');
+  }
+
+  /** The address of a file's bytes (`inline` to show it rather than save it). */
+  fileUrl(id: string, inline = false): string {
+    return this.url(`/api/files/${encodeURIComponent(id)}${inline ? '?inline=1' : ''}`);
+  }
+
+  /** Page n (from 1) of a PDF as a picture, drawn by the server. */
+  pdfPageUrl(id: string, n: number, dpi = 110): string {
+    return this.url(`/api/files/${encodeURIComponent(id)}/pdf/page/${n}.png?dpi=${dpi}`);
+  }
+
+  /** How many pages a PDF has (its first page's text comes with the count). */
+  async pdfPages(id: string): Promise<number> {
+    const got = await this.request<{ count: number }>('GET', `/api/files/${encodeURIComponent(id)}/pdf?pages=1`);
+    return got.count;
+  }
+
+  table(id: string): Promise<TableData> {
+    return this.request<TableData>('GET', `/api/files/${encodeURIComponent(id)}/table`);
+  }
+
+  /** The first `max` bytes of a file as text (an HTTP Range request). */
+  async fileText(id: string, max = 256 * 1024): Promise<TextHead> {
+    const path = `/api/files/${encodeURIComponent(id)}?inline=1`;
+    const res = await this.send(path, { headers: { Range: `bytes=0-${max - 1}` } });
+    if (!res.ok) return this.read<TextHead>(res, path);
+    const text = await res.text();
+    const total = Number((res.headers.get('content-range') || '').split('/')[1]);
+    return { text, cut: res.status === 206 && Number.isFinite(total) && total > max };
+  }
+
+  /** A file's bytes, to hand to another app or keep on the phone. */
+  async fileBlob(id: string): Promise<Blob> {
+    const path = `/api/files/${encodeURIComponent(id)}`;
+    const res = await this.send(path, {}, UPLOAD_TIMEOUT_MS);
+    if (!res.ok) return this.read<Blob>(res, path);
+    return res.blob();
+  }
+
+  /**
+   * A row's small picture, as a data: URI. The server makes it the first
+   * time it is asked for (202 while it does: ask again after `seconds`);
+   * 404 is a file that keeps its icon.
+   */
+  async mini(id: string): Promise<Mini> {
+    const path = `/api/files/${encodeURIComponent(id)}/mini?wait=1.5`;
+    const res = await this.send(path, { headers: { Accept: 'image/webp,image/*' } });
+    if (res.status === 202) {
+      const after = Number(res.headers.get('retry-after'));
+      return { state: 'later', seconds: Number.isFinite(after) && after > 0 ? Math.min(after, 30) : 2 };
+    }
+    if (!res.ok) {
+      if (res.status === 401) this.deps.onUnauthorized?.();
+      return { state: 'none' };
+    }
+    return { state: 'ready', uri: await blobToDataUri(await res.blob()) };
+  }
+
+  /** A raw request with the session, the timeout and the app's own errors - for answers that are not JSON. */
+  private async send(path: string, init: RequestInit, timeoutMs = TIMEOUT_MS): Promise<Response> {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeoutMs);
+    try {
+      return await this.fetchImpl(this.url(path), {
+        method: 'GET',
+        credentials: 'include',
+        ...init,
+        signal: ctl.signal,
+      });
+    } catch {
+      throw new ApiError(
+        0,
+        ctl.signal.aborted ? 'The server took too long to answer.' : 'The server could not be reached.',
+      );
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   // ---- voice --------------------------------------------------------------

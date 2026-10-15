@@ -15,7 +15,9 @@
         "NSMicrophoneUsageDescription": "Workbench records your voice only while you hold a recording open, to turn it into text for a chat message.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "NSCameraUsageDescription": "Workbench uses the camera only when you take a photo to upload to Files.",
+        "NSPhotoLibraryUsageDescription": "Workbench reads the photos you pick, to upload them to Files."
       },
       "buildNumber": "3"
     },
@@ -64,7 +66,16 @@
             "backgroundColor": "#09090b"
           }
         }
-      ]
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Workbench reads the photos you pick, to upload them to Files.",
+          "cameraPermission": "Workbench uses the camera only when you take a photo to upload to Files.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-sharing"
     ]
   }
 }

@@ -12,6 +12,8 @@ export interface AuthState {
   needs_setup?: boolean;
   user: User | null;
   role: string | null;
+  /** What this role may do (backend/access.py ACTIONS): view, draw, run, edit, delete, ... */
+  can?: string[];
   must_change_password?: boolean;
 }
 
@@ -70,7 +72,14 @@ export interface Chat {
   last?: { role: string; text: string; by?: string };
   /** The answer being written in it, if any. */
   gen?: string | null;
+  /** In the trash: when it was deleted, and the whole days left before it goes for good. */
+  deleted_at?: string;
+  purge_at?: string;
+  days_left?: number;
 }
+
+/** Which conversations a list shows: the live ones, the archived ones, or the trash. */
+export type ChatScope = 'live' | 'archived' | 'trash';
 
 export interface Provider {
   id: string;
@@ -125,3 +134,59 @@ export interface Transcript {
   model: string;
   seconds: number;
 }
+
+// ---- Files (backend/files_api.py, backend/files_virtual.py) ---------------
+
+/** How the server previews a file (files.preview_of). */
+export type Preview =
+  'image' | 'video' | 'audio' | 'pdf' | 'markdown' | 'table' | 'archive' | 'mesh' | 'step' | 'text' | 'none';
+
+export interface StoredFile {
+  id: string;
+  name: string;
+  bytes: number;
+  kind: string;
+  content_type?: string;
+  preview: Preview;
+  folder: string;
+  created_at: string;
+  by?: Who;
+  note?: string;
+  sha256?: string;
+  context?: Record<string, string>;
+  /** One of what the app keeps (In the app): read-only here; `where` is the area that changes it. */
+  ro?: boolean;
+  where?: string;
+}
+
+export interface FileFolder {
+  id: string;
+  name: string;
+  parent: string;
+  path?: string;
+  by?: Who;
+  created_at?: string;
+  /** A read-only folder (In the app); `root` for Projects, Chat, Parts, Agents and Taste. */
+  ro?: boolean;
+  root?: boolean;
+  where?: string;
+}
+
+/** GET /api/files/virtual: the read-only folders, their own files, and which uploads they refer to. */
+export interface VirtualTree {
+  folders: FileFolder[];
+  files: StoredFile[];
+  links: { folder: string; file: string }[];
+}
+
+/** A file in Files' trash (GET /api/files/trash). */
+export interface TrashFile extends StoredFile {
+  deleted_at: string;
+  deleted_by?: Who;
+  purge_at: string;
+  folder_path: string;
+  days_left: number | null;
+}
+
+/** A file picked on the phone to upload: a uri on Android and iOS, a Blob in a browser. */
+export type UploadPart = { uri: string; name: string; type: string } | { blob: Blob; name: string };
