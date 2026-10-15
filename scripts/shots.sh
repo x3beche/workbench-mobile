@@ -5,11 +5,12 @@
 set -e
 cd "$(dirname "$0")/.."
 mkdir -p docs/screenshots
-LIVE_PID=
+# Without TARGET the server and sign-in screens come from a made-up server
+# that starts signed out (MOCK_SIGNIN=1).
 if [ -n "$TARGET" ]; then
   PORT=8090 node scripts/dev-proxy.mjs & LIVE_PID=$!
 else
-  export SKIP_LIVE=1
+  MOCK=1 MOCK_SIGNIN=1 PORT=8090 node scripts/dev-proxy.mjs & LIVE_PID=$!
 fi
 MOCK=1 MOCK_HOLD=1 PORT=8091 node scripts/dev-proxy.mjs & MOCK_PID=$!
 trap 'kill $MOCK_PID $LIVE_PID 2>/dev/null' EXIT

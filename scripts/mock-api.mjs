@@ -3,6 +3,8 @@
  * without an account: the routes the app uses, answering as the real server
  * does (backend/cc_chat.py). Used by `MOCK=1 node scripts/dev-proxy.mjs`.
  * MOCK_HOLD=1 keeps an answer's stream open half-written (for screenshots).
+ * MOCK_SIGNIN=1 starts signed out; the password "mock" signs in, any other
+ * gets a wrong-password answer (for the sign-in screenshots).
  */
 import { Buffer } from 'node:buffer';
 
@@ -70,6 +72,8 @@ function readBody(req) {
   });
 }
 
+let signedIn = process.env.MOCK_SIGNIN !== '1';
+
 export async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
@@ -78,9 +82,21 @@ export async function handle(req, res) {
     return json(res, 403, { detail: 'that change did not come from the app' });
   }
   if (p === '/api/health') return json(res, 200, { ok: true, db: 'mock' });
-  if (p === '/api/auth/state') return json(res, 200, { mode: 'on', needs_setup: false, user: me, role: 'owner', must_change_password: false });
-  if (p === '/api/auth/login') return json(res, 200, { user: me, remembered: false });
-  if (p === '/api/auth/logout') return json(res, 200, { signed_out: true });
+  if (p === '/api/auth/state') {
+    const user = signedIn ? me : null;
+    return json(res, 200, { mode: 'on', needs_setup: false, user, role: user ? 'owner' : null, must_change_password: false });
+  }
+  if (p === '/api/auth/login') {
+    if (process.env.MOCK_SIGNIN === '1' && JSON.parse(body.toString() || '{}').password !== 'mock') {
+      return json(res, 401, { detail: 'Wrong email address or password.' });
+    }
+    signedIn = true;
+    return json(res, 200, { user: me, remembered: false });
+  }
+  if (p === '/api/auth/logout') {
+    signedIn = false;
+    return json(res, 200, { signed_out: true });
+  }
   if (p === '/api/cc/chats' && req.method === 'GET') {
     return json(res, 200, chats.map(({ messages, ...c }) => {
       const last = messages?.at(-1);

@@ -2,6 +2,7 @@
  * Screenshots of the web build at phone size, in headless Chrome.
  * Needs two dev proxies running (scripts/dev-proxy.mjs):
  *   LIVE: TARGET=<a real Workbench server> PORT=8090   (server and sign-in screens; one wrong-password try)
+ *         or MOCK=1 MOCK_SIGNIN=1 PORT=8090            (the same against the made-up server)
  *   MOCK: MOCK=1 MOCK_HOLD=1 PORT=8091                 (everything after sign-in, made-up data)
  * Run with scripts/shots.sh. Writes docs/screenshots/*.png (OUT).
  * The sign-in check uses a made-up address and password: never real ones.
@@ -62,6 +63,8 @@ async function connect(page, base, address) {
     await shot(page, '01-server');
     await go();
     await page.waitForSelector(tid('login-email'), { timeout: 20000 });
+    await sleep(400);
+    await shot(page, '10-login');
     await page.type(tid('login-email'), 'mobile-app-check@example.invalid');
     await page.type(tid('login-password'), 'not-a-real-password');
     await page.click(tid('login-submit'));
@@ -97,6 +100,43 @@ async function connect(page, base, address) {
   await page.click(tid('send'));
   await sleep(2500); // the made-up answer stops half-way and stays open
   await shot(page, '05-chat');
+
+  // Typing a long line: the box grows to six lines, then scrolls inside.
+  await page.type(
+    tid('composer-input'),
+    'The bead heats up at the burst current. Next steps:\n1. scope TP7 with the radio sending\n2. swap in the 1 A bead\n3. add 47 uF next to the module\n4. measure the dip again\n5. compare with the old board\n6. write it down in the log',
+  );
+  await sleep(300);
+  await shot(page, '11-chat-typing');
+
+  // The keyboard, as the web can show it: the window gets shorter by its
+  // height (336 px, a phone keyboard). The composer and the newest lines
+  // must stay in view above it.
+  await page.setViewport({ width: 390, height: 844 - 336, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await sleep(600);
+  const fit = await page.evaluate(() => {
+    const box = document.querySelector('[data-testid="composer-input"]').getBoundingClientRect();
+    return { composerBottom: Math.round(box.bottom), viewport: window.innerHeight };
+  });
+  console.log('KEYBOARD', JSON.stringify(fit));
+  await shot(page, '12-chat-keyboard');
+  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await page.$eval(tid('composer-input'), (e) => {
+    const set = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+    set.call(e, '');
+    e.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await sleep(300);
+
+  // Scrolled up to read: the list stays put and offers the way back.
+  await page.$eval(tid('chat-list'), (e) => {
+    e.scrollTop = 0;
+    e.dispatchEvent(new Event('scroll'));
+  });
+  await page.waitForSelector(tid('jump-to-latest'), { timeout: 5000 });
+  await shot(page, '13-chat-scrolled-up');
+  await page.click(tid('jump-to-latest'));
+  await sleep(600);
 
   await page.click(tid('voice-start'));
   await page.waitForSelector(tid('recording-bar'), { timeout: 10000 });

@@ -10,6 +10,7 @@ Then you sign in with the same e-mail address and password as on the web.
 
 <p>
   <img src="docs/screenshots/01-server.png" width="200" alt="Choosing a server">
+  <img src="docs/screenshots/10-login.png" width="200" alt="Signing in">
   <img src="docs/screenshots/03-login-error.png" width="200" alt="Signing in, with the server's error">
   <img src="docs/screenshots/04-chats.png" width="200" alt="Conversation list">
   <img src="docs/screenshots/05-chat.png" width="200" alt="A conversation with an answer being written">
@@ -19,6 +20,11 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/07-voice-review.png" width="200" alt="Reviewing a voice note before sending">
   <img src="docs/screenshots/08-model-picker.png" width="200" alt="Choosing the model">
   <img src="docs/screenshots/09-account.png" width="200" alt="Account, voice language, sign out">
+</p>
+<p>
+  <img src="docs/screenshots/11-chat-typing.png" width="200" alt="A long message being typed: the box grows to six lines">
+  <img src="docs/screenshots/12-chat-keyboard.png" width="200" alt="With the keyboard open: the composer and the newest lines stay above it">
+  <img src="docs/screenshots/13-chat-scrolled-up.png" width="200" alt="Scrolled up while an answer is written, with the way back to the latest">
 </p>
 
 ## What it does
@@ -33,7 +39,11 @@ Then you sign in with the same e-mail address and password as on the web.
   it with Markdown (headings, lists, code, links), send a line and watch the
   answer being written, stop it, start a new conversation, choose the model.
   A conversation in which someone else's answer is being written is followed
-  live.
+  live. The list follows the newest line and the answer as it is written,
+  unless you scroll up to read; then **Latest** brings you back.
+- **Typing**: the box sits right above the keyboard, the conversation shrinks
+  above it with the newest lines in view, and the box grows with what you
+  write up to six lines (16 px text), then scrolls inside.
 - **Voice**: the composer's Voice button records, the server transcribes
   (`POST /api/voice/transcribe`), and the text lands in the box to read and
   correct - nothing is sent by itself. Voice note (in a conversation's top
@@ -86,7 +96,8 @@ TARGET=https://workbench.example.com node scripts/dev-proxy.mjs
 
 `MOCK=1 node scripts/dev-proxy.mjs` answers from a made-up server instead
 (`scripts/mock-api.mjs`, no account needed); add `MOCK_HOLD=1` to leave
-answers half-written.
+answers half-written, or `MOCK_SIGNIN=1` to start signed out (the password
+`mock` signs in, any other is refused).
 
 ### Android APK (no Android Studio)
 
@@ -108,8 +119,10 @@ npm run check      # all three
 
 Screenshots in `docs/screenshots` are made with `scripts/shots.sh` (headless
 Chrome in Docker at 390 x 844, against the made-up server; with
-`TARGET=https://your.server` it also takes the server and sign-in screens
-against that server, whose own wrong-password error is shown). App icons are
+`TARGET=https://your.server` the server and sign-in screens are taken against
+that server, whose own wrong-password error is shown). The keyboard shot
+makes the window 336 px shorter, as a phone keyboard does, and checks the
+composer is still on screen. App icons are
 drawn by `scripts/make-icons.js` from the web app's section mark.
 
 ### How it talks to the server
@@ -152,9 +165,28 @@ The theme is the web app's Spartan Dark token for token
 (`src/theme/tokens.ts`, from redline-studio's `frontend/src/styles.css`), set
 in IBM Plex Sans and Plex Mono like the web app. Flat surfaces with 1 px
 hairlines; a chosen option is shown by weight and ink, not a fill; no coloured
-stripes, no emoji; recording is a small red dot and a timer. Screens and
-sheets appear without animation, so nothing moves for longer than 200 ms and
-a reduced-motion setting has nothing to turn off.
+stripes, no emoji; recording is a small red dot and a timer. The wordmark is
+the web app's section mark (a vector, `components/Mark.tsx`) beside the name.
+
+Every screen keeps a 16 px side gutter and the safe-area insets (status bar,
+cutout, gesture bar); controls are at least 44 px tall. Motion is short and
+moves only opacity and transform: the native splash (the mark on the theme's
+ground) fades into the first screen, a conversation slides in 12 px from the
+right in 220 ms, sheets rise in 180 ms - and with the system's reduced-motion
+setting on, none of it moves (`components/Appear.tsx`).
+
+### Keyboard
+
+The app draws edge to edge (Android 15 requires it), and then Android's
+`adjustResize` no longer shrinks the window for the keyboard.
+[react-native-keyboard-controller](https://github.com/kirillzyusko/react-native-keyboard-controller)
+reports the keyboard frame by frame, and `components/KeyboardSpacer.tsx`
+takes that room at the bottom of the chat and of the sheets, so the list
+shrinks and the composer sits on the keyboard. The server and sign-in screens
+scroll the focused field clear of it (`KeyboardAwareScrollView`). The
+manifest keeps `windowSoftInputMode="adjustResize"`
+(`android.softwareKeyboardLayoutMode: "resize"` in app.json), which the
+library expects.
 
 ## Licence
 
