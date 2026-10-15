@@ -9,22 +9,25 @@ server - yours, your team's, anyone's - and the app remembers the last few.
 Then you sign in with the same e-mail address and password as on the web.
 
 <p>
-  <img src="docs/screenshots/01-server.png" width="200" alt="Choosing a server">
-  <img src="docs/screenshots/10-login.png" width="200" alt="Signing in">
-  <img src="docs/screenshots/03-login-error.png" width="200" alt="Signing in, with the server's error">
-  <img src="docs/screenshots/04-chats.png" width="200" alt="Conversation list">
-  <img src="docs/screenshots/05-chat.png" width="200" alt="A conversation with an answer being written">
+  <img src="docs/screenshots/04-new-chat.png" width="200" alt="A new conversation: greeting and example questions">
+  <img src="docs/screenshots/05-drawer.png" width="200" alt="The drawer: search, New chat, conversations by day, the account">
+  <img src="docs/screenshots/06-chat.png" width="200" alt="A conversation with the tools it ran and a code block">
+  <img src="docs/screenshots/07c-chat-streaming.png" width="200" alt="An answer being written">
 </p>
 <p>
-  <img src="docs/screenshots/06-voice-recording.png" width="200" alt="Recording a voice message">
-  <img src="docs/screenshots/07-voice-review.png" width="200" alt="Reviewing a voice note before sending">
+  <img src="docs/screenshots/07-chat-waiting.png" width="200" alt="Waiting for the first words">
   <img src="docs/screenshots/08-model-picker.png" width="200" alt="Choosing the model">
-  <img src="docs/screenshots/09-account.png" width="200" alt="Account, voice language, sign out">
+  <img src="docs/screenshots/09-account.png" width="200" alt="Account, from the drawer">
+  <img src="docs/screenshots/14-chat-actions.png" width="200" alt="Rename, archive or delete a conversation">
 </p>
 <p>
-  <img src="docs/screenshots/11-chat-typing.png" width="200" alt="A long message being typed: the box grows to six lines">
   <img src="docs/screenshots/12-chat-keyboard.png" width="200" alt="With the keyboard open: the composer and the newest lines stay above it">
-  <img src="docs/screenshots/13-chat-scrolled-up.png" width="200" alt="Scrolled up while an answer is written, with the way back to the latest">
+  <img src="docs/screenshots/16-voice-review.png" width="200" alt="Reviewing a voice note before sending">
+  <img src="docs/screenshots/10-login.png" width="200" alt="Signing in">
+  <img src="docs/screenshots/01-server.png" width="200" alt="Choosing a server">
+</p>
+<p>
+  <img src="docs/screenshots/21-wide-chat.png" width="520" alt="On a wide screen the drawer is a column that stays open">
 </p>
 
 ## What it does
@@ -35,24 +38,49 @@ Then you sign in with the same e-mail address and password as on the web.
   The last five servers are listed for one-tap switching.
 - **Sign in** with e-mail and password. A server running without sign-in
   (local mode) goes straight to the chat.
-- **Chat**: the workspace's conversations (pull to refresh), open one, read
-  it with Markdown (headings, lists, code, links), send a line and watch the
-  answer being written, stop it, start a new conversation, choose the model.
-  A conversation in which someone else's answer is being written is followed
-  live. The list follows the newest line and the answer as it is written,
-  unless you scroll up to read; then **Latest** brings you back.
-- **Typing**: the box sits right above the keyboard, the conversation shrinks
-  above it with the newest lines in view, and the box grows with what you
-  write up to six lines (16 px text), then scrolls inside.
-- **Voice**: the composer's Voice button records, the server transcribes
+- **Straight into a conversation.** The app opens on the conversation that
+  was open last, or on a new one: the mark, a greeting and four example
+  questions - the ones the server writes from your own projects
+  (`GET /api/cc/ideas`), or hand-written ones when it has none. A question
+  tapped goes into the box to edit or send. A new conversation is made on
+  the server with its first line.
+- **The drawer** slides in from the left (the button at the top left, or a
+  swipe to the right), follows the finger and springs open or shut; the
+  conversation dims behind it. A tap on the dimmed side, a swipe to the
+  left or Back puts it away. At its top: search (titles at once, what was
+  said in them from the server) and New chat; then the conversations by
+  Pinned, Today, Yesterday, Previous 7 days and Older, one line each, the
+  open one in heavier, brighter ink (pull to refresh). A long press on one
+  offers Rename, Archive and Delete (into the server's trash). At the
+  bottom, the account opens Account: the server, the voice language,
+  Change server and Sign out. On a screen 860 px or wider the drawer is a
+  column that stays open.
+- **A conversation**: the model's name at the top, tapped to choose another;
+  New chat at the right. Your lines are bubbles on the right; answers run the
+  full width under the model's name, with Markdown (headings, lists, code
+  with a Copy button, links) and the tools the answer ran as compact rows
+  where they ran, each opening to what it found. A long press on a line
+  copies it or opens it to select a part. Your line shows the moment it is
+  sent, three dots wait for the first words, and the answer is written in
+  place - laid out as it will stay, so nothing jumps when it is done. A
+  conversation in which someone else's answer is being written is followed
+  live. The list follows the newest line unless you scroll up to read; then
+  a round arrow brings you back.
+- **Typing**: a rounded box floats right above the keyboard, the conversation
+  shrinks above it with the newest lines in view, and the box grows with
+  what you write up to six lines (16 px text), then scrolls inside. Its round
+  button is Send when there is text, Stop while an answer is written, and
+  Voice note otherwise. Sending and New chat give a light haptic tick.
+- **Voice**: the microphone in the box records, the server transcribes
   (`POST /api/voice/transcribe`), and the text lands in the box to read and
-  correct - nothing is sent by itself. Voice note (in a conversation's top
-  bar) records, shows the transcript for review, then sends it. The language
-  is Auto, Türkçe or English (Account).
-- **Sign out**, or change server, from Account.
+  correct - nothing is sent by itself. Voice note (the round button, with
+  nothing typed) records, shows the transcript for review, then sends it.
+  The language is Auto, Türkçe or English (Account).
+- **Back** (Android) closes a sheet, then the drawer, then goes back to the
+  conversation open before, then leaves the app.
 
-The device keeps only the server list, the last e-mail address per server and
-the voice language. Never a password. The session is the server's own
+The device keeps only the server list, the last e-mail address and the last
+open conversation per server, and the voice language. Never a password. The session is the server's own
 HttpOnly cookie, kept by the platform's cookie store.
 
 ## Run it
@@ -118,11 +146,12 @@ npm run check      # all three
 ```
 
 Screenshots in `docs/screenshots` are made with `scripts/shots.sh` (headless
-Chrome in Docker at 390 x 844, against the made-up server; with
+Chrome in Docker at 390 x 844, and 900 px wide for the side column, against
+the made-up server, which also runs tools and writes an answer slowly; with
 `TARGET=https://your.server` the server and sign-in screens are taken against
 that server, whose own wrong-password error is shown). The keyboard shot
 makes the window 336 px shorter, as a phone keyboard does, and checks the
-composer is still on screen. App icons are
+composer is still on screen. `SHOTS_DIR=/some/dir` writes them elsewhere. App icons are
 drawn by `scripts/make-icons.js` from the web app's section mark.
 
 ### How it talks to the server
@@ -131,8 +160,9 @@ drawn by `scripts/make-icons.js` from the web app's section mark.
 |---|---|
 | Is it Workbench? | `GET /api/health`, `GET /api/auth/state` |
 | Sign in / out | `POST /api/auth/login` `{email, password}` (sets `redline_session`), `POST /api/auth/logout` |
-| Conversations | `GET /api/cc/chats`, `POST /api/cc/chats`, `GET /api/cc/chats/{id}`, `PATCH .../{id}` (model) |
-| Send and stream | `POST /api/cc/chats/{id}/messages` answers with `text/event-stream`: `user`, `thinking`, `text` (with `at`), `error`, `done`, `title`; `202` JSON when the line was queued |
+| Conversations | `GET /api/cc/chats` (`q=` searches what was said), `POST /api/cc/chats`, `GET /api/cc/chats/{id}`, `PATCH .../{id}` (model, `title`, `archived`), `DELETE .../{id}` (into the trash) |
+| Example questions | `GET /api/cc/ideas?lang=en\|tr` (`items`, `source`, `start`: the model a new conversation begins with) |
+| Send and stream | `POST /api/cc/chats/{id}/messages` answers with `text/event-stream`: `user`, `thinking`, `text` (with `at`), `steps` (the tools run so far), `error`, `done`, `title`; `202` JSON when the line was queued |
 | Follow someone's answer | `GET /api/cc/chats/{id}/live` (`hello`, `start`, `text`, ..., `end`, `bye`) |
 | Stop | `POST /api/cc/chats/{id}/stop` |
 | Models | `GET /api/llm/settings` (providers with a key), `GET /api/llm/models?provider=` |
@@ -151,9 +181,10 @@ src/
   api/                  server address, HTTP client, SSE reader, types
   state/session.tsx     server -> sign-in -> app
   storage/prefs.ts      recent servers, last e-mail, voice language
-  screens/              Server, Login, ChatList, Chat
-  components/           Markdown, MessageItem, Composer, RecordingBar, sheets, controls
-  lib/                  Markdown parser, answer-stream reducer, times
+  screens/              Server, Login, Workspace (drawer + conversation), Chat
+  components/           Drawer, DrawerPanel, Markdown, MessageItem, Composer, RecordingBar,
+                        sheets and dialogs, icons (Lucide), controls
+  lib/                  Markdown parser, answer-stream reducer, day groups, tool steps, times
   voice/                recorder hook and its pure helpers
   theme/tokens.ts       Spartan Dark, copied from the web app's styles.css
 scripts/                dev proxy, screenshots, Android build
@@ -163,17 +194,23 @@ scripts/                dev proxy, screenshots, Android build
 
 The theme is the web app's Spartan Dark token for token
 (`src/theme/tokens.ts`, from redline-studio's `frontend/src/styles.css`), set
-in IBM Plex Sans and Plex Mono like the web app. Flat surfaces with 1 px
-hairlines; a chosen option is shown by weight and ink, not a fill; no coloured
-stripes, no emoji; recording is a small red dot and a timer. The wordmark is
-the web app's section mark (a vector, `components/Mark.tsx`) beside the name.
+in IBM Plex Sans and Plex Mono like the web app. Type: titles 17-20, body 16,
+meta 12-13. Flat surfaces with 1 px hairlines; a chosen option or the open
+conversation is shown by weight and ink, not a fill; no coloured stripes, no
+emoji; recording is a small red dot and a timer. Icons are Lucide line icons
+(`components/icons.ts`), the same family of plain line drawings as the web
+app, drawn as vectors. The wordmark is the web app's section mark (a vector,
+`components/Mark.tsx`) beside the name.
 
 Every screen keeps a 16 px side gutter and the safe-area insets (status bar,
 cutout, gesture bar); controls are at least 44 px tall. Motion is short and
 moves only opacity and transform: the native splash (the mark on the theme's
-ground) fades into the first screen, a conversation slides in 12 px from the
-right in 220 ms, sheets rise in 180 ms - and with the system's reduced-motion
-setting on, none of it moves (`components/Appear.tsx`).
+ground) fades into the first screen, the drawer follows the finger and
+settles in a spring without overshoot (240 ms when opened by its button), its
+rows come in a little behind its edge, a conversation fades in, lines and
+the answer fade in in 160 ms, sheets rise in 180 ms - and with the system's
+reduced-motion setting on, none of it moves (`components/Appear.tsx`,
+`components/Drawer.tsx`, `components/motion.ts`).
 
 ### Keyboard
 
