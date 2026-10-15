@@ -25,7 +25,7 @@ import { ApiError, type VoiceLang } from '../api/client';
 import type { Chat, ChatEvent, ChatMessage } from '../api/types';
 import { Appear } from '../components/Appear';
 import { Composer, type ComposerHandle } from '../components/Composer';
-import { ArrowDown, ChevronDown, Copy, Menu, SquarePen, TextSelect } from '../components/icons';
+import { ArrowDown, ChevronDown, Copy, Ellipsis, Menu, SquarePen, TextSelect } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Mark } from '../components/Mark';
 import { MessageItem, modelName, PendingItem, WritingItem } from '../components/MessageItem';
@@ -76,6 +76,7 @@ export function ChatScreen({
   onCreated,
   onChanged,
   onGone,
+  onMore,
 }: {
   /** The conversation to show, or null for a new one. */
   initial: Chat | null;
@@ -93,6 +94,8 @@ export function ChatScreen({
   onChanged?: () => void;
   /** The conversation is not on the server (any more). */
   onGone?: () => void;
+  /** The "…" in the top bar: rename, pin, archive, export, delete (once it is on the server). */
+  onMore?: (chat: { id: string; title: string }) => void;
 }) {
   const { client, user } = useSession();
   const [id, setId] = useState<string | null>(initial?.id ?? null);
@@ -338,6 +341,8 @@ export function ChatScreen({
         ) : (
           <View style={st.side} />
         )}
+        {/* As wide as the two buttons on the right, so the model sits in the middle. */}
+        {onMore ? <View style={st.side} /> : null}
         <View style={st.mid}>
           <Pressable
             testID="open-models"
@@ -352,6 +357,15 @@ export function ChatScreen({
             <Glyph icon={ChevronDown} size={16} color={colors.inkDim} />
           </Pressable>
         </View>
+        {onMore ? (
+          <IconButton
+            icon={Ellipsis}
+            label="More: rename, pin, archive, export, delete"
+            onPress={() => id && onMore({ id, title: view.title })}
+            testID="header-more"
+            disabled={!id}
+          />
+        ) : null}
         {onNew ? (
           <IconButton icon={SquarePen} label="New chat" onPress={onNew} testID="header-new-chat" disabled={empty} />
         ) : (
@@ -360,6 +374,7 @@ export function ChatScreen({
       </View>
       <View style={st.flex}>
         <FlatList
+          indicatorStyle="white"
           ref={list}
           testID="chat-list"
           data={view.messages}
@@ -533,7 +548,7 @@ function SelectText({ text, onClose }: { text: string; onClose: () => void }) {
             <Text style={st.selTitle}>Select text</Text>
             <Button label="Done" variant="quiet" onPress={onClose} testID="select-done" />
           </View>
-          <ScrollView contentContainerStyle={st.selBody}>
+          <ScrollView contentContainerStyle={st.selBody} indicatorStyle="white">
             <Text style={st.selText} selectable>
               {text}
             </Text>

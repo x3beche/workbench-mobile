@@ -10,6 +10,7 @@
  * motion it still follows the finger but opens and closes without moving.
  *
  * On a wide screen (`wide`) the panel is a side column that stays open.
+ * A row that opens on a swipe (SwipeRow) takes the swipe to the left first.
  */
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
@@ -26,6 +27,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import { colors, motion } from '../theme/tokens';
 import { useReduceMotion } from './motion';
+import { DrawerGesture } from './SwipeRow';
 
 /** How far the finger must go sideways before the drawer follows it (and how far up or down before it never does). */
 const SLOP_X = 14;
@@ -150,7 +152,10 @@ export function Drawer({
             importantForAccessibility={open ? 'auto' : 'no-hide-descendants'}
             accessibilityElementsHidden={!open}
           >
-            <Reanimated.View style={[s.flex, innerStyle]}>{panel}</Reanimated.View>
+            <Reanimated.View style={[s.flex, innerStyle]}>
+              {/* A swipe on a row opens the row's buttons rather than shutting the drawer. */}
+              <DrawerGesture.Provider value={gestures.push}>{panel}</DrawerGesture.Provider>
+            </Reanimated.View>
           </Reanimated.View>
         </View>
       </GestureDetector>

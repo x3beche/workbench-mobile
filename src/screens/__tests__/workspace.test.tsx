@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { BackHandler } from 'react-native';
 
-import type { Chat, Ideas } from '../../api/types';
+import type { Chat, ChatScope, Ideas } from '../../api/types';
+import * as share from '../../lib/share';
 import { STARTERS, suggestionsFrom, Workspace } from '../Workspace';
 
 jest.mock(
@@ -11,6 +12,12 @@ jest.mock(
 );
 // The spacer follows the native keyboard frame; there is none here.
 jest.mock('../../components/KeyboardSpacer', () => ({ KeyboardSpacer: () => null }));
+jest.mock('../../lib/share', () => ({
+  shareFile: jest.fn(async () => undefined),
+  sharePdf: jest.fn(async () => undefined),
+  saveFile: jest.fn(async () => 'Downloads'),
+  canSave: false,
+}));
 jest.mock('expo-audio', () => ({
   RecordingPresets: { HIGH_QUALITY: {} },
   requestRecordingPermissionsAsync: jest.fn(async () => ({ granted: true, status: 'granted' })),
@@ -55,12 +62,17 @@ const full = (c: Chat): Chat => ({
   ],
 });
 
-/** The server's list: what the tests made, archived or deleted changes it. */
+/** The server's lists: what the tests made, archived or deleted changes them. */
 let mockChats: Chat[] = [];
+let mockArchived: Chat[] = [];
+let mockTrash: Chat[] = [];
 
 const mockClient = {
-  listChats: jest.fn(async (q = '') =>
-    mockChats.filter((c) => !q || c.title.toLowerCase().includes(String(q).toLowerCase())),
+  authState: jest.fn(async () => ({ mode: 'on', user: null, role: 'owner', can: ['view', 'draw', 'delete'] })),
+  listChats: jest.fn(async (q = '', scope: ChatScope = 'live') =>
+    (scope === 'trash' ? mockTrash : scope === 'archived' ? mockArchived : mockChats).filter(
+      (c) => !q || c.title.toLowerCase().includes(String(q).toLowerCase()),
+    ),
   ),
   ideas: jest.fn(async (): Promise<Ideas | null> => IDEAS),
   getChat: jest.fn(async (id: string) => full(CHATS.find((c) => c.id === id) ?? listed(id, 'Gone', 1))),
@@ -72,14 +84,41 @@ const mockClient = {
   }),
   say: jest.fn(async () => ({ queued: null })),
   rename: jest.fn(async (id: string, title: string) => ({ ...CHATS.find((c) => c.id === id)!, title })),
-  archive: jest.fn(async (id: string) => {
-    mockChats = mockChats.filter((c) => c.id !== id);
-    return CHATS.find((c) => c.id === id)!;
+  archive: jest.fn(async (id: string, on = true) => {
+    const c = [...mockChats, ...mockArchived].find((x) => x.id === id)!;
+    mockChats = mockChats.filter((x) => x.id !== id);
+    mockArchived = mockArchived.filter((x) => x.id !== id);
+    if (on) mockArchived.push({ ...c, archived: true });
+    else mockChats.push({ ...c, archived: false });
+    return c;
   }),
+  pin: jest.fn(async (id: string, pinned: boolean) => ({ ...CHATS.find((c) => c.id === id)!, pinned })),
   remove: jest.fn(async (id: string) => {
-    mockChats = mockChats.filter((c) => c.id !== id);
+    const c = [...mockChats, ...mockArchived].find((x) => x.id === id);
+    mockChats = mockChats.filter((x) => x.id !== id);
+    mockArchived = mockArchived.filter((x) => x.id !== id);
+    if (c) mockTrash.push({ ...c, deleted_at: ago(0), days_left: 30 });
     return { deleted: id, trash: true, days: 30 };
   }),
+  restoreChat: jest.fn(async (id: string) => {
+    const c = mockTrash.find((x) => x.id === id)!;
+    mockTrash = mockTrash.filter((x) => x.id !== id);
+    mockChats.push(c);
+    return c;
+  }),
+  removeForever: jest.fn(async (id: string) => {
+    mockTrash = mockTrash.filter((x) => x.id !== id);
+    return { deleted: id, forever: true };
+  }),
+  emptyTrash: jest.fn(async () => {
+    const n = mockTrash.length;
+    mockTrash = [];
+    return { deleted: n, kept: 0 };
+  }),
+  listFiles: jest.fn(async () => []),
+  folders: jest.fn(async () => []),
+  virtualTree: jest.fn(async () => ({ folders: [], files: [], links: [] })),
+  filesTrash: jest.fn(async () => ({ days: 30, files: [] })),
   stop: jest.fn(async () => ({ stopped: true })),
 };
 jest.mock('../../state/session', () => ({
@@ -110,6 +149,8 @@ async function start() {
 beforeEach(async () => {
   jest.clearAllMocks();
   mockChats = [...CHATS];
+  mockArchived = [listed('a1', 'Old enclosure', 60 * 24 * 20, { archived: true })];
+  mockTrash = [listed('t1', 'Scratch idea', 60 * 24 * 2, { deleted_at: ago(60), days_left: 29 })];
   await AsyncStorage.clear();
   jest.spyOn(BackHandler, 'addEventListener');
 });
@@ -240,7 +281,7 @@ describe('workspace', () => {
 
     await fireEvent(screen.getByTestId('chat-c3'), 'longPress');
     await fireEvent.press(screen.getByTestId('action-archive'));
-    expect(mockClient.archive).toHaveBeenCalledWith('c3');
+    expect(mockClient.archive).toHaveBeenCalledWith('c3', true);
     expect(screen.queryByTestId('chat-c3')).toBeNull();
 
     await fireEvent(screen.getByTestId('chat-c1'), 'longPress');
@@ -264,7 +305,7 @@ describe('workspace', () => {
       await act(async () => {
         jest.advanceTimersByTime(400);
       });
-      expect(mockClient.listChats).toHaveBeenCalledWith('stepper');
+      expect(mockClient.listChats).toHaveBeenCalledWith('stepper', 'live');
     } finally {
       jest.useRealTimers();
     }
@@ -278,5 +319,108 @@ describe('workspace', () => {
     expect(screen.getByTestId('account-sheet')).toBeTruthy();
     expect(screen.getByText('Voice language')).toBeTruthy();
     expect(screen.getByText('Sign out')).toBeTruthy();
+  });
+
+  it('swipe actions on a row archive or delete it (delete asks first)', async () => {
+    await start();
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    await fireEvent.press(screen.getByTestId('swipe-c3-archive'));
+    expect(mockClient.archive).toHaveBeenCalledWith('c3', true);
+    expect(screen.queryByTestId('chat-c3')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('swipe-c2-delete'));
+    expect(screen.getByText('Delete this conversation?')).toBeTruthy();
+    expect(mockClient.remove).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('dialog-confirm'));
+    expect(mockClient.remove).toHaveBeenCalledWith('c2');
+    expect(screen.queryByTestId('chat-c2')).toBeNull();
+  });
+
+  it('shows Archived: an archived conversation is brought back with Unarchive', async () => {
+    await start();
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    await fireEvent.press(screen.getByTestId('chat-scope-archived'));
+    expect(await screen.findByTestId('chat-a1')).toBeTruthy();
+    expect(screen.queryByTestId('chat-c1')).toBeNull();
+    expect(mockClient.listChats).toHaveBeenCalledWith('', 'archived');
+    await fireEvent.press(screen.getByTestId('swipe-a1-unarchive'));
+    expect(mockClient.archive).toHaveBeenCalledWith('a1', false);
+    expect(screen.queryByTestId('chat-a1')).toBeNull();
+    await fireEvent.press(screen.getByTestId('chat-scope-live'));
+    expect(await screen.findByTestId('chat-a1')).toBeTruthy();
+  });
+
+  it('shows Trash: restore, delete forever and empty the trash', async () => {
+    mockTrash.push(listed('t2', 'Another scratch', 60 * 24 * 3, { deleted_at: ago(90), days_left: 28 }));
+    await start();
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    await fireEvent.press(screen.getByTestId('chat-scope-trash'));
+    expect(await screen.findByText('29 d left')).toBeTruthy();
+
+    // A tap on a deleted conversation offers what can be done with it.
+    await fireEvent.press(screen.getByTestId('chat-t1'));
+    await fireEvent.press(screen.getByTestId('action-restore'));
+    expect(mockClient.restoreChat).toHaveBeenCalledWith('t1');
+    expect(screen.queryByTestId('chat-t1')).toBeNull();
+
+    await fireEvent.press(screen.getByTestId('swipe-t2-forever'));
+    expect(screen.getByText('Delete forever?')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('dialog-confirm'));
+    expect(mockClient.removeForever).toHaveBeenCalledWith('t2');
+
+    mockTrash.push(listed('t3', 'Third', 60, { deleted_at: ago(5), days_left: 30 }));
+    await fireEvent.press(screen.getByTestId('chat-scope-live'));
+    await fireEvent.press(screen.getByTestId('chat-scope-trash'));
+    await fireEvent.press(await screen.findByTestId('empty-trash'));
+    await fireEvent.press(screen.getByTestId('dialog-confirm'));
+    expect(mockClient.emptyTrash).toHaveBeenCalled();
+    expect(await screen.findByText(/The trash is empty/)).toBeTruthy();
+  });
+
+  it('the top bar’s “…” renames, pins, archives, exports and deletes the open conversation', async () => {
+    await AsyncStorage.setItem('workbench.lastChat', JSON.stringify({ 'https://wb.example.com': 'c1' }));
+    await start();
+    await screen.findByText('Answer in Rail sag');
+    await fireEvent.press(screen.getByTestId('header-more'));
+    const sheet = within(screen.getByTestId('chat-actions'));
+    for (const a of ['Rename', 'Pin', 'Archive', 'Export as Markdown', 'Export as PDF', 'Delete'])
+      expect(sheet.getByText(a)).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('action-pin'));
+    expect(mockClient.pin).toHaveBeenCalledWith('c1', true);
+    await fireEvent.press(screen.getByTestId('header-more'));
+    expect(within(screen.getByTestId('chat-actions')).getByText('Unpin')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('action-export-md'));
+    expect(share.shareFile).toHaveBeenCalledWith(expect.stringContaining('# Rail sag'), 'Rail sag.md', 'text/markdown');
+    await fireEvent.press(screen.getByTestId('header-more'));
+    await fireEvent.press(screen.getByTestId('action-export-pdf'));
+    expect(share.sharePdf).toHaveBeenCalledWith(expect.stringContaining('<h1>Rail sag</h1>'), 'Rail sag.pdf');
+
+    await fireEvent.press(screen.getByTestId('header-more'));
+    await fireEvent.press(screen.getByTestId('action-delete'));
+    await fireEvent.press(screen.getByTestId('dialog-confirm'));
+    expect(mockClient.remove).toHaveBeenCalledWith('c1');
+    expect(await screen.findByTestId('new-chat-screen')).toBeTruthy();
+  });
+
+  it('a new conversation has no “…” until it is on the server', async () => {
+    await start();
+    expect(screen.getByTestId('header-more').props.accessibilityState.disabled).toBe(true);
+  });
+
+  it('opens Files from the drawer, and Back comes back to the conversation', async () => {
+    await start();
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    await fireEvent.press(screen.getByTestId('open-files'));
+    expect(await screen.findByTestId('files-screen')).toBeTruthy();
+    expect(mockClient.listFiles).toHaveBeenCalled();
+    let handled: boolean | undefined;
+    await act(async () => {
+      handled = back();
+    });
+    expect(handled).toBe(true);
+    expect(screen.queryByTestId('files-screen')).toBeNull();
+    expect(screen.getByTestId('new-chat-screen')).toBeTruthy();
   });
 });

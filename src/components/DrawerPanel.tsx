@@ -1,7 +1,10 @@
 /**
- * What the drawer holds: search and New chat at the top, the conversations
- * by day (one line each, the open one in heavier, brighter ink), and the
- * account at the bottom, which opens Account.
+ * What the drawer holds: search and New chat at the top, then Chats,
+ * Archived and Trash as three tabs over the conversations (by day, one line
+ * each, the open one in heavier, brighter ink). A swipe to the left on a
+ * row shows its buttons (Archive and Delete; Unarchive; Restore and Delete
+ * forever in the trash). At the bottom: Files, and the account, which opens
+ * Account.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -19,11 +22,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { WorkbenchClient } from '../api/client';
 import { displayServer } from '../api/server';
-import type { Chat, User } from '../api/types';
+import type { Chat, ChatScope, User } from '../api/types';
 import { filterChats, groupChats, groupOf, initials, rowTime } from '../lib/groups';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
-import { ChevronRight, Search, SquarePen, X } from './icons';
+import { ChevronRight, FolderOpen, Search, SquarePen, X } from './icons';
+import { SwipeRow, type SwipeAction } from './SwipeRow';
+import { Tabs } from './Tabs';
 import { Button, ErrorText, Glyph } from './ui';
+
+const SCOPES: { id: ChatScope; label: string }[] = [
+  { id: 'live', label: 'Chats' },
+  { id: 'archived', label: 'Archived' },
+  { id: 'trash', label: 'Trash' },
+];
 
 /** Typing stops this long before the server is asked to search what was said. */
 const SEARCH_WAIT = 300;
@@ -40,6 +51,12 @@ export function DrawerPanel({
   onRefresh,
   onActions,
   onAccount,
+  scope = 'live',
+  onScope,
+  swipeActions,
+  onEmptyTrash,
+  onFiles,
+  filesOn = false,
 }: {
   client: WorkbenchClient | null;
   server: string | null;
@@ -52,9 +69,18 @@ export function DrawerPanel({
   onRefresh: () => Promise<void>;
   onActions: (chat: Chat) => void;
   onAccount: () => void;
+  /** Which conversations the list shows: Chats, Archived or Trash. */
+  scope?: ChatScope;
+  onScope?: (scope: ChatScope) => void;
+  /** The buttons a swipe to the left shows on a row. */
+  swipeActions?: (chat: Chat) => SwipeAction[];
+  onEmptyTrash?: () => void;
+  onFiles?: () => void;
+  /** Files is what is open. */
+  filesOn?: boolean;
 }) {
   const [q, setQ] = useState('');
-  const [found, setFound] = useState<{ q: string; chats: Chat[] } | null>(null);
+  const [found, setFound] = useState<{ q: string; scope: ChatScope; chats: Chat[] } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [focused, setFocused] = useState(false);
   const input = useRef<TextInput>(null);
@@ -65,28 +91,31 @@ export function DrawerPanel({
     if (words.length < 2 || !client) return;
     let live = true;
     const t = setTimeout(() => {
-      client.listChats(words).then(
-        (got) => live && setFound({ q: words, chats: got }),
+      client.listChats(words, scope).then(
+        (got) => live && setFound({ q: words, scope, chats: got }),
         // Not found on the server: what the titles matched is all there is.
-        () => live && setFound({ q: words, chats: [] }),
+        () => live && setFound({ q: words, scope, chats: [] }),
       );
     }, SEARCH_WAIT);
     return () => {
       live = false;
       clearTimeout(t);
     };
-  }, [q, client]);
+  }, [q, client, scope]);
 
-  const searching = q.trim().length >= 2 && found?.q !== q.trim();
+  const searching = q.trim().length >= 2 && (found?.q !== q.trim() || found?.scope !== scope);
   const sections = useMemo(() => {
     const all = chats ?? [];
-    if (!q.trim()) return groupChats(all).map((g) => ({ title: g.name as string, data: g.chats }));
+    if (!q.trim()) {
+      if (scope === 'trash') return all.length ? [{ title: 'Deleted, newest first', data: all }] : [];
+      return groupChats(all).map((g) => ({ title: g.name as string, data: g.chats }));
+    }
     const here = filterChats(all, q);
-    const there = found && found.q === q.trim() ? found.chats : [];
+    const there = found && found.q === q.trim() && found.scope === scope ? found.chats : [];
     const seen = new Set(here.map((c) => c.id));
     const data = [...here, ...there.filter((c) => !seen.has(c.id))];
     return data.length ? [{ title: 'Results', data }] : [];
-  }, [chats, q, found]);
+  }, [chats, q, found, scope]);
 
   const refresh = async () => {
     setRefreshing(true);
@@ -144,7 +173,9 @@ export function DrawerPanel({
           </>
         )}
       </Pressable>
+      {onScope ? <Tabs tabs={SCOPES} value={scope} onChange={onScope} testID="chat-scope" /> : null}
       <SectionList
+        indicatorStyle="white"
         testID="drawer-list"
         style={s.flex}
         sections={sections}
@@ -156,7 +187,15 @@ export function DrawerPanel({
         keyboardDismissMode="on-drag"
         renderSectionHeader={({ section }) => <Text style={s.group}>{section.title}</Text>}
         renderItem={({ item }) => (
-          <Row chat={item} on={item.id === openId} onPress={() => onOpen(item)} onLongPress={() => onActions(item)} />
+          <SwipeRow actions={swipeActions?.(item) ?? []} testID={`swipe-${item.id}`}>
+            <Row
+              chat={item}
+              on={item.id === openId && !filesOn}
+              trash={scope === 'trash'}
+              onPress={() => (scope === 'trash' ? onActions(item) : onOpen(item))}
+              onLongPress={() => onActions(item)}
+            />
+          </SwipeRow>
         )}
         refreshControl={
           <RefreshControl
@@ -173,6 +212,11 @@ export function DrawerPanel({
               <ErrorText>{error}</ErrorText>
               <Button label="Try again" onPress={refresh} testID="chats-retry" />
             </View>
+          ) : scope === 'trash' && chats?.length && !q.trim() && onEmptyTrash ? (
+            <View style={s.trashHead}>
+              <Text style={s.trashNote}>Kept 30 days, then deleted for good.</Text>
+              <Button label="Empty trash" variant="danger" onPress={onEmptyTrash} testID="empty-trash" />
+            </View>
           ) : null
         }
         ListEmptyComponent={
@@ -183,11 +227,34 @@ export function DrawerPanel({
           ) : q.trim() ? (
             <Text style={s.empty}>Nothing found for “{q.trim()}”.</Text>
           ) : !error ? (
-            <Text style={s.empty}>No conversations yet. Conversations started on the web show here too.</Text>
+            <Text style={s.empty}>
+              {scope === 'trash'
+                ? 'The trash is empty. Deleted conversations stay here 30 days.'
+                : scope === 'archived'
+                  ? 'Nothing archived. A swipe to the left on a conversation archives it.'
+                  : 'No conversations yet. Conversations started on the web show here too.'}
+            </Text>
           ) : null
         }
         contentContainerStyle={s.listPad}
       />
+      {onFiles ? (
+        <Pressable
+          testID="open-files"
+          onPress={onFiles}
+          accessibilityRole="button"
+          accessibilityLabel="Files"
+          accessibilityState={{ selected: filesOn }}
+          style={s.filesRow}
+        >
+          {({ pressed }) => (
+            <>
+              <Glyph icon={FolderOpen} size={20} color={pressed ? colors.inkDim : colors.ink} />
+              <Text style={[s.newText, filesOn && s.titleOn, pressed && s.dimText]}>Files</Text>
+            </>
+          )}
+        </Pressable>
+      ) : null}
       <Pressable
         testID="open-account"
         onPress={onAccount}
@@ -219,11 +286,13 @@ export function DrawerPanel({
 function Row({
   chat,
   on,
+  trash,
   onPress,
   onLongPress,
 }: {
   chat: Chat;
   on: boolean;
+  trash?: boolean;
   onPress: () => void;
   onLongPress: () => void;
 }) {
@@ -236,7 +305,9 @@ function Row({
       accessibilityRole="button"
       accessibilityState={{ selected: on }}
       accessibilityLabel={chat.title}
-      accessibilityHint="Long press for rename, archive and delete"
+      accessibilityHint={
+        trash ? 'Restore or delete forever' : 'Swipe left, or long press, for archive, delete and more'
+      }
       style={s.row}
     >
       {({ pressed }) => (
@@ -244,7 +315,9 @@ function Row({
           <Text style={[s.title, on && s.titleOn, pressed && s.dimText]} numberOfLines={1}>
             {chat.title}
           </Text>
-          <Text style={s.when}>{rowTime(chat, groupOf(chat))}</Text>
+          <Text style={s.when}>
+            {trash ? (chat.days_left == null ? '' : `${chat.days_left} d left`) : rowTime(chat, groupOf(chat))}
+          </Text>
         </>
       )}
     </Pressable>
@@ -297,6 +370,7 @@ const s = StyleSheet.create({
     color: colors.inkDim,
   },
   row: {
+    backgroundColor: colors.surface,
     minHeight: touch,
     flexDirection: 'row',
     alignItems: 'center',
@@ -315,6 +389,25 @@ const s = StyleSheet.create({
     fontSize: type.small,
     lineHeight: 20,
     color: colors.inkDim,
+  },
+  trashHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.sm,
+    paddingLeft: gutter,
+    paddingRight: space.sm,
+    paddingTop: space.xs,
+  },
+  trashNote: { flex: 1, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  filesRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: gutter,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
   },
   account: {
     minHeight: 64,
