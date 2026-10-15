@@ -2,9 +2,11 @@
 # Screenshots of the web build at phone size (see scripts/shots.js).
 #   TARGET=https://your.workbench.server sh scripts/shots.sh
 # Needs Docker (zenika/alpine-chrome:with-puppeteer) and a web build in dist/.
+# SHOTS_DIR (default docs/screenshots) is where the pictures go.
 set -e
 cd "$(dirname "$0")/.."
-mkdir -p docs/screenshots
+SHOTS_DIR="${SHOTS_DIR:-$PWD/docs/screenshots}"
+mkdir -p "$SHOTS_DIR"
 # Without TARGET the server and sign-in screens come from a made-up server
 # that starts signed out (MOCK_SIGNIN=1).
 if [ -n "$TARGET" ]; then
@@ -16,5 +18,5 @@ MOCK=1 MOCK_HOLD=1 PORT=8091 node scripts/dev-proxy.mjs & MOCK_PID=$!
 trap 'kill $MOCK_PID $LIVE_PID 2>/dev/null' EXIT
 sleep 1
 docker run --rm --network host -e SKIP_LIVE \
-  -v "$PWD/scripts/shots.js:/usr/src/app/shots.js:ro" -v "$PWD/docs/screenshots:/out" \
+  -v "$PWD/scripts/shots.js:/usr/src/app/shots.js:ro" -v "$SHOTS_DIR:/out" \
   --entrypoint node zenika/alpine-chrome:with-puppeteer /usr/src/app/shots.js

@@ -25,7 +25,10 @@ async function shot(page, name) {
 
 async function byText(page, text) {
   const h = await page.waitForFunction(
-    (t) => [...document.querySelectorAll('[role="button"],[role="radio"],button')].find((e) => e.textContent.trim() === t && e.offsetWidth),
+    (t) =>
+      [...document.querySelectorAll('[role="button"],[role="radio"],button')].find(
+        (e) => e.textContent.trim() === t && e.offsetWidth,
+      ),
     { timeout: 15000 },
     text,
   );
@@ -82,24 +85,100 @@ async function connect(page, base, address) {
   const page = await newPage(browser);
   const go = await connect(page, MOCK, new URL(MOCK).host);
   await go();
-  await page.waitForSelector(tid('chat-c1'), { timeout: 20000 });
-  await shot(page, '04-chats');
+  // A first start opens on a new conversation: greeting and example questions.
+  await page.waitForSelector(tid('new-chat-screen'), { timeout: 20000 });
+  await page.waitForFunction(() => document.body.innerText.includes('watchdog'), { timeout: 10000 });
+  await shot(page, '04-new-chat');
+
+  // A suggestion fills the composer, ready to edit or send.
+  await page.click(tid('suggestion-1'));
+  await sleep(300);
+  await shot(page, '04b-suggestion');
+  await page.$eval(tid('composer-input'), (e) => {
+    const set = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+    set.call(e, '');
+    e.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await sleep(300);
+
+  // With nothing typed, the round button records a voice note to read over before sending.
+  await page.click(tid('open-voice-note'));
+  await page.waitForSelector(tid('voice-done'), { timeout: 10000 });
+  await sleep(2200);
+  await shot(page, '15-voice-note-recording');
+  await page.click(tid('voice-done'));
+  await page.waitForSelector(tid('voice-note-text'), { timeout: 15000 });
+  await shot(page, '16-voice-review');
+  await (await byText(page, 'Discard')).click();
+  await sleep(300);
+
+  // The drawer: search, New chat, the conversations by day, the account.
+  await page.click(tid('open-drawer'));
+  await page.waitForSelector(tid('chat-c1'), { visible: true, timeout: 10000 });
+  await shot(page, '05-drawer');
+
+  // A long press on a conversation: rename, archive, delete.
+  const row = await page.$(tid('chat-c2'));
+  const box = await row.boundingBox();
+  await page.mouse.move(box.x + 60, box.y + box.height / 2);
+  await page.mouse.down();
+  await sleep(700);
+  await page.mouse.up();
+  await page.waitForSelector(tid('chat-actions'), { timeout: 5000 });
+  await shot(page, '14-chat-actions');
+  await page.click('[aria-label="Close"]');
+  await sleep(300);
 
   await page.click(tid('open-account'));
-  await sleep(300);
+  await page.waitForSelector(tid('account-sheet'), { timeout: 5000 });
   await (await byText(page, 'Türkçe')).click();
   await shot(page, '09-account');
   await (await byText(page, 'Auto')).click();
   await page.click('[aria-label="Close"]');
   await sleep(300);
 
+  // A conversation with tools run and a code block.
   await page.click(tid('chat-c1'));
-  await page.waitForSelector(tid('composer-input'));
-  await sleep(800);
+  await page.waitForFunction(() => document.body.innerText.includes('BLM18PG221SN1'), { timeout: 10000 });
+  await sleep(500);
+  await page.$eval(tid('chat-list'), (e) => {
+    e.scrollTop = 0;
+    e.dispatchEvent(new Event('scroll'));
+  });
+  await sleep(300);
+  await shot(page, '06-chat');
+  // A tool step opened, and the code block copied.
+  await page.click(tid('step-s2'));
+  await page.$eval(tid('chat-list'), (e) => {
+    e.scrollTop = e.scrollHeight;
+    e.dispatchEvent(new Event('scroll'));
+  });
+  await sleep(300);
+  await page.click(tid('copy-code')).catch(() => undefined);
+  await sleep(200);
+  await shot(page, '06b-chat-code');
+
+  // A wide window (a tablet, a desktop browser): the drawer is a column that stays open.
+  const wide = await newPage(browser);
+  await wide.setViewport({ width: 900, height: 860, deviceScaleFactor: 1 });
+  const goWide = await connect(wide, MOCK, new URL(MOCK).host);
+  await goWide();
+  await wide.waitForSelector(tid('new-chat-screen'), { timeout: 20000 });
+  await sleep(400);
+  await shot(wide, '20-wide-new-chat');
+  await wide.click(tid('chat-c1'));
+  await wide.waitForFunction(() => document.body.innerText.includes('BLM18PG221SN1'), { timeout: 10000 });
+  await shot(wide, '21-wide-chat');
+
+  // Sending: the line goes up at once, three dots wait for the answer, a tool runs, then the text comes.
   await page.type(tid('composer-input'), 'Would a 1 A bead be enough, or do I need a different layout?');
   await page.click(tid('send'));
-  await sleep(2500); // the made-up answer stops half-way and stays open
-  await shot(page, '05-chat');
+  await sleep(120);
+  await shot(page, '07-chat-waiting');
+  await page.waitForFunction(() => document.body.innerText.includes('Checking FB2'), { timeout: 5000 });
+  await shot(page, '07b-chat-tool-running');
+  await sleep(2600); // the made-up answer stops half-way and stays open
+  await shot(page, '07c-chat-streaming');
 
   // Typing a long line: the box grows to six lines, then scrolls inside.
   await page.type(
@@ -119,6 +198,7 @@ async function connect(page, base, address) {
     return { composerBottom: Math.round(box.bottom), viewport: window.innerHeight };
   });
   console.log('KEYBOARD', JSON.stringify(fit));
+  if (fit.composerBottom > fit.viewport) console.log('WARN the composer is under the keyboard');
   await shot(page, '12-chat-keyboard');
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   await page.$eval(tid('composer-input'), (e) => {
@@ -141,17 +221,8 @@ async function connect(page, base, address) {
   await page.click(tid('voice-start'));
   await page.waitForSelector(tid('recording-bar'), { timeout: 10000 });
   await sleep(3200);
-  await shot(page, '06-voice-recording');
+  await shot(page, '15b-voice-dictation');
   await page.click(tid('voice-cancel'));
-  await sleep(300);
-
-  await page.click(tid('open-voice-note'));
-  await page.waitForSelector(tid('voice-done'), { timeout: 10000 });
-  await sleep(2200);
-  await page.click(tid('voice-done'));
-  await page.waitForSelector(tid('voice-note-text'), { timeout: 15000 });
-  await shot(page, '07-voice-review');
-  await (await byText(page, 'Discard')).click();
   await sleep(300);
 
   await page.click(tid('open-models'));
