@@ -175,14 +175,76 @@ conversations, and Files from `scripts/mock-files.mjs`); add `MOCK_HOLD=1` to le
 answers half-written, or `MOCK_SIGNIN=1` to start signed out (the password
 `mock` signs in, any other is refused).
 
-### Android APK (no Android Studio)
+### Android APK and AAB (no Android Studio)
 
 ```sh
-scripts/build-android.sh      # Docker: expo prebuild + gradlew assembleRelease (JS bundle inside)
-# -> build-out/workbench-release.apk
+WORKERS=2 scripts/build-android.sh   # Docker: expo prebuild + gradlew assembleRelease bundleRelease (JS bundle inside)
+# -> build-out/workbench-release.apk   to install by hand, or to publish on the server
+# -> build-out/workbench-release.aab   to upload to the Play Store
 adb install build-out/workbench-release.apk
-# VARIANT=debug gives a debug APK, which loads its JS from Metro - not for handing out
+# AAB=0 builds the APK only; VARIANT=debug gives a debug APK, which loads its JS from Metro - not for handing out
 ```
+
+At the end the script prints who signed the APK: the certificate's name
+(DN) and its SHA-256 digest, as `apksigner verify --print-certs` reads them.
+
+### Signing
+
+From 1.2.1 the release APK and the AAB are signed with the app's own
+**upload key**, which is kept outside the repositories:
+
+```
+~/.secrets/workbench-mobile/          (0700)
+  upload.keystore                      (0600)  PKCS12, RSA 4096, alias workbench-upload, valid 30 years
+  keystore.properties                  (0600)  storeFile, storePassword, keyAlias, keyPassword
+```
+
+`scripts/build-android.sh` mounts that folder read-only into the build
+container and signs the release through a Gradle init script
+(`scripts/android-signing.gradle`) - the generated `android/` project is not
+edited, and the passwords are never on a command line, in the repository
+or in the build log. Another folder: `SIGNING_DIR=/path scripts/build-android.sh`.
+Without the two files the build still works, signed with the debug key, and
+says so with a warning; such a build is for trying out only.
+
+To make a new key on another machine (only if there was never one - see
+below):
+
+```sh
+mkdir -p ~/.secrets/workbench-mobile && chmod 700 ~/.secrets ~/.secrets/workbench-mobile
+# keystore.properties: storeFile=upload.keystore, storePassword=<random>, keyAlias=workbench-upload,
+# keyPassword=<the same; PKCS12 has one password>; then:
+keytool -genkeypair -storetype PKCS12 -keystore ~/.secrets/workbench-mobile/upload.keystore \
+  -alias workbench-upload -keyalg RSA -keysize 4096 -validity 10950 -dname "CN=Workbench Mobile, O=Workbench"
+chmod 600 ~/.secrets/workbench-mobile/*
+```
+
+**Uninstall the old app once.** Versions 1.0.0 to 1.2.0 were signed with
+the debug key. Android installs an update only when it is signed with the
+same key as the app on the phone, so 1.2.1 cannot be installed over them
+("App not installed" / "package conflicts with an existing package").
+Uninstall Workbench once, then install 1.2.1; from then on every build
+signed with the upload key installs over the one before, as an update. The
+app keeps nothing that cannot be typed again: the server list and the last
+e-mail address are gone, the conversations and files are on the server.
+
+**Back up the key - losing it means no more updates.** An installed app,
+and an app on the Play Store, takes updates only from the same key (with
+Play App Signing, Google can reset a lost upload key after a support
+request, but only once the app is enrolled; outside the Play Store there is
+no way back - everyone has to uninstall again). So:
+
+- copy both files, `upload.keystore` and `keystore.properties`, somewhere
+  safe off this machine - an encrypted backup or a USB stick in a drawer;
+- store the password (the `storePassword` line) and the alias in your
+  password manager, with a note of where the keystore copy is - and attach
+  the keystore file itself to that entry if the password manager takes
+  files;
+- never commit them: `*.keystore`, `*.jks` and `keystore.properties` belong
+  in no repository.
+
+Check a copy with `keytool -list -v -keystore upload.keystore` (it asks for
+the password): the SHA-256 fingerprint must match the one the build prints.
 
 ## Develop
 

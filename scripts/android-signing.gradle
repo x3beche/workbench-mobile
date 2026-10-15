@@ -1,0 +1,37 @@
+// Signs the release build (APK and AAB) with the upload key, for the Play
+// Store and for updates over an installed release. scripts/build-android.sh
+// passes it with --init-script when it finds the key outside the repository
+// (WB_SIGNING_PROPS: the keystore.properties beside the keystore, mounted
+// read-only). The generated android/ project is never edited: this changes
+// the release build type's signing as Gradle reads it.
+//
+// keystore.properties holds storeFile (beside it), storePassword, keyAlias
+// and keyPassword. Nothing of it is printed.
+
+def propsPath = System.getenv('WB_SIGNING_PROPS')
+if (propsPath) {
+    def propsFile = new File(propsPath)
+    if (!propsFile.isFile()) throw new GradleException("WB_SIGNING_PROPS: no file at ${propsPath}")
+    def props = new Properties()
+    propsFile.withInputStream { props.load(it) }
+    def store = new File(propsFile.parentFile, props.getProperty('storeFile', 'upload.keystore'))
+    for (k in ['storePassword', 'keyAlias', 'keyPassword']) {
+        if (!props.getProperty(k)) throw new GradleException("keystore.properties has no ${k}")
+    }
+    if (!store.isFile()) throw new GradleException("no keystore at ${store}")
+
+    gradle.allprojects { project ->
+        project.plugins.withId('com.android.application') {
+            // Once the build script's own android {} is read, before it is locked.
+            project.extensions.getByName('androidComponents').finalizeDsl { android ->
+                def upload = android.signingConfigs.maybeCreate('upload')
+                upload.storeFile = store
+                upload.storePassword = props.getProperty('storePassword')
+                upload.keyAlias = props.getProperty('keyAlias')
+                upload.keyPassword = props.getProperty('keyPassword')
+                android.buildTypes.getByName('release').signingConfig = upload
+            }
+            project.logger.lifecycle("release signed with the upload key (${props.getProperty('keyAlias')})")
+        }
+    }
+}

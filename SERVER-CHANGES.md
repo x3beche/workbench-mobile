@@ -187,3 +187,22 @@ Made in redline-studio (October 2026, `backend/files_api.py`,
 (`cc_chat.TRASH_DAYS`), and keeps the list's shape. The app's "Kept N
 days" lines and the delete question follow it once the trash was listed;
 an older server's trash is said to keep them 30 days, as before.
+
+## 7. Settings > Mobile app: the new signing key (text change, needed with 1.2.1)
+
+From 1.2.1 the APK is signed with the app's own upload key (README,
+"Signing") instead of the debug key. Android does not install an update
+signed with another key, so a phone with 1.0.0-1.2.0 must uninstall the app
+once before installing 1.2.1. `frontend/src/app/mobile-settings.ts`, the
+Install card, says today that the APK is signed with a debug key and that an
+update installs over the old one. Proposed text:
+
+```diff
+-      <p><b>{{ 'Updating' | t }}</b> · {{ 'download the new APK the same way and install it over the old one; you stay signed in.' | t }}</p>
+-      <p><b>{{ 'Not from the Play Store' | t }}</b> · {{ 'the APK is signed with a debug key, so Android asks once whether to allow installing it. Play Protect may ask to scan it.' | t }}</p>
++      <p><b>{{ 'Updating' | t }}</b> · {{ 'download the new APK the same way and install it over the old one; you stay signed in.' | t }}</p>
++      <p><b>{{ 'From 1.2.0 or older' | t }}</b> · {{ 'uninstall Workbench once, then install this one: versions up to 1.2.0 were signed with a test key, and Android installs an update only from the same key ("App not installed"). Type the server address and sign in again; conversations and files are on the server. Later updates install over it.' | t }}</p>
++      <p><b>{{ 'Not from the Play Store' | t }}</b> · {{ 'Android asks once whether to allow installing apps from the browser or Files. Play Protect may ask to scan it.' | t }}</p>
+```
+
+with the Turkish lines for `frontend/src/app/i18n.ts`.

@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
-# Build a debug APK of Workbench mobile, in Docker only: no Android Studio, no
+# Build Workbench mobile for Android, in Docker only: no Android Studio, no
 # emulator, nothing installed on the host. Runs as your own uid.
 #
-#   scripts/build-android.sh                  # release APK, arm64-v8a (phones of the last ~8 years)
+#   scripts/build-android.sh                  # release APK + AAB, arm64-v8a (phones of the last ~8 years)
 #   ARCHS=arm64-v8a,x86_64 scripts/build-android.sh   # also runs on an x86_64 emulator
+#   AAB=0 scripts/build-android.sh            # the APK only
 #   VARIANT=debug scripts/build-android.sh    # debug APK: loads the JS from Metro, not for handing out
 #
-# A release APK carries the JS bundle inside it, so it runs on its own. It is
-# signed with the debug key (Expo's template does that): fine to install by
-# hand, not for a store - a store build needs your own upload key.
+# A release APK carries the JS bundle inside it, so it runs on its own. The
+# release APK and the AAB (the Play Store's upload) are signed with the
+# upload key in $SIGNING_DIR (default ~/.secrets/workbench-mobile:
+# upload.keystore and keystore.properties - see README, "Signing"), outside
+# the repository and read-only in the container, through
+# scripts/android-signing.gradle. Without it they are signed with the debug
+# key, with a warning: fine to install by hand, not for a store, and not
+# installable over a build signed with the upload key (nor the other way).
 #
 # Caches (SDK pieces, Gradle, npm) live in $CACHE, not in the repository.
-# The APK is copied to build-out/workbench-debug.apk.
+# The results are copied to build-out/workbench-$VARIANT.apk (and .aab).
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,7 +26,24 @@ NODE_IMAGE="${NODE_IMAGE:-node:22-bookworm}"
 ANDROID_IMAGE="${ANDROID_IMAGE:-reactnativecommunity/react-native-android:v22.0}"
 ARCHS="${ARCHS:-arm64-v8a}"
 VARIANT="${VARIANT:-release}"
-case "$VARIANT" in release) TASK=assembleRelease ;; debug) TASK=assembleDebug ;; *) echo "VARIANT is release or debug"; exit 1 ;; esac
+AAB="${AAB:-1}"
+case "$VARIANT" in
+  release) TASKS=(assembleRelease); [ "$AAB" = 1 ] && TASKS+=(bundleRelease) ;;
+  debug) TASKS=(assembleDebug); AAB=0 ;;
+  *) echo "VARIANT is release or debug"; exit 1 ;;
+esac
+SIGNING_DIR="${SIGNING_DIR:-$HOME/.secrets/workbench-mobile}"
+SIGN=()
+if [ "$VARIANT" = release ]; then
+  if [ -f "$SIGNING_DIR/keystore.properties" ] && [ -f "$SIGNING_DIR/upload.keystore" ]; then
+    SIGN=(-v "$SIGNING_DIR:/signing:ro" -e WB_SIGNING_PROPS=/signing/keystore.properties)
+    echo "signing with the upload key in $SIGNING_DIR"
+  else
+    echo "WARNING: no upload key in $SIGNING_DIR (keystore.properties + upload.keystore):" >&2
+    echo "WARNING: the release is signed with the DEBUG key - not for the Play Store, and it" >&2
+    echo "WARNING: cannot be installed over a build signed with the upload key." >&2
+  fi
+fi
 WORKERS="${WORKERS:-4}"
 HEAP="${HEAP:-3g}"
 USER_ID="$(id -u):$(id -g)"
@@ -61,9 +84,9 @@ docker run --rm -u "$USER_ID" -e HOME=/tmp -v "$CACHE/sdk:/sdk" "$ANDROID_IMAGE"
 # 3. The APK.
 start=$(date +%s)
 docker run --rm -u "$USER_ID" -e HOME=/tmp \
-  -e ANDROID_HOME=/sdk -e ANDROID_SDK_ROOT=/sdk -e GRADLE_USER_HOME=/gradle \
+  -e ANDROID_HOME=/sdk -e ANDROID_SDK_ROOT=/sdk -e GRADLE_USER_HOME=/gradle "${SIGN[@]}" \
   -v "$REPO:/app" -v "$CACHE/sdk:/sdk" -v "$CACHE/gradle:/gradle" -w /app/android "$ANDROID_IMAGE" \
-  ./gradlew "$TASK" --no-daemon --max-workers="$WORKERS" \
+  ./gradlew "${TASKS[@]}" --no-daemon --max-workers="$WORKERS" --init-script /app/scripts/android-signing.gradle \
     -Dorg.gradle.jvmargs="-Xmx$HEAP -XX:MaxMetaspaceSize=1g" \
     -PreactNativeArchitectures="$ARCHS"
 echo "gradle took $(( $(date +%s) - start )) s"
@@ -75,5 +98,18 @@ cp "$APK" "$OUT"
 if [ "$VARIANT" = release ] && ! python3 -c 'import sys,zipfile; sys.exit(0 if "assets/index.android.bundle" in zipfile.ZipFile(sys.argv[1]).namelist() else 1)' "$OUT"; then
   echo "the release APK has no assets/index.android.bundle"; exit 1
 fi
-ls -lh "$OUT"
+if [ "$AAB" = 1 ]; then
+  cp "$REPO/android/app/build/outputs/bundle/release/app-release.aab" "$REPO/build-out/workbench-release.aab"
+fi
+
+# Who signed it: the certificate's name and SHA-256 digest (public; nothing secret).
+docker run --rm -u "$USER_ID" -e HOME=/tmp -v "$CACHE/sdk:/sdk" -v "$REPO/build-out:/out:ro" "$ANDROID_IMAGE" \
+  bash -c "/sdk/build-tools/$BUILD_TOOLS/apksigner verify --print-certs /out/workbench-$VARIANT.apk" \
+  | grep -E 'certificate DN|certificate SHA-256 digest'
+if [ "$VARIANT" = release ] && [ ${#SIGN[@]} -eq 0 ]; then
+  echo "WARNING: signed with the DEBUG key (no upload key found)" >&2
+fi
+ls -lh "$OUT" "$REPO/build-out/workbench-release.aab" 2>/dev/null || ls -lh "$OUT"
 echo "APK: $OUT"
+[ "$AAB" = 1 ] && echo "AAB: $REPO/build-out/workbench-release.aab"
+true
