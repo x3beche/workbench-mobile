@@ -136,6 +136,48 @@ describe('Composer', () => {
   });
 });
 
+describe('Composer round button', () => {
+  const noop = jest.fn(async () => true);
+
+  it('records a voice note when nothing is typed, sends when there is text, stops while an answer is written', async () => {
+    const onVoiceNote = jest.fn();
+    const onStop = jest.fn();
+    const { rerender } = await render(
+      <Composer client={null} lang="auto" writing={false} onSend={noop} onStop={onStop} onVoiceNote={onVoiceNote} />,
+    );
+    await fireEvent.press(screen.getByTestId('open-voice-note'));
+    expect(onVoiceNote).toHaveBeenCalled();
+    expect(screen.queryByTestId('send')).toBeNull();
+
+    await fireEvent.changeText(screen.getByTestId('composer-input'), 'A line');
+    expect(screen.getByTestId('send')).toBeTruthy();
+    expect(screen.queryByTestId('open-voice-note')).toBeNull();
+
+    // While an answer is written: Stop, unless a next line is typed (it waits in the queue).
+    await rerender(
+      <Composer client={null} lang="auto" writing onSend={noop} onStop={onStop} onVoiceNote={onVoiceNote} />,
+    );
+    expect(screen.getByTestId('send')).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('composer-input'), '');
+    await fireEvent.press(screen.getByTestId('stop'));
+    expect(onStop).toHaveBeenCalled();
+  });
+
+  it('cannot send an empty box', async () => {
+    await render(<Composer client={null} lang="auto" writing={false} onSend={noop} onStop={jest.fn()} />);
+    expect(screen.getByTestId('send')).toBeDisabled();
+  });
+
+  it('takes a suggestion into the box without sending it', async () => {
+    const { createRef } = jest.requireActual('react');
+    const ref = createRef();
+    await render(<Composer ref={ref} client={null} lang="auto" writing={false} onSend={noop} onStop={jest.fn()} />);
+    await act(async () => ref.current.fill('Why does the rail sag?'));
+    expect(screen.getByTestId('composer-input')).toHaveDisplayValue('Why does the rail sag?');
+    expect(noop).not.toHaveBeenCalled();
+  });
+});
+
 describe('Composer box', () => {
   it('is readable while typing: 16 px text, growing to six lines and scrolling after', async () => {
     const { StyleSheet } = jest.requireActual('react-native');

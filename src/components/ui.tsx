@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 
 import { colors, fonts, radius, touch, type } from '../theme/tokens';
+import type { LucideIcon } from './icons';
 import { Mark } from './Mark';
 
 /** IBM Plex Sans caps stand at 0.698 em; the web wordmark draws its mark at about 1.1 cap heights. */
@@ -89,6 +90,53 @@ export function Button({
   );
 }
 
+/** One of the app's line icons (components/icons.ts) at the app's stroke and ink. */
+export function Glyph({ icon: I, size = 20, color = colors.ink }: { icon: LucideIcon; size?: number; color?: string }) {
+  return <I size={size} color={color} strokeWidth={1.75} aria-hidden />;
+}
+
+/**
+ * A control that is only an icon: 44 px to touch, no box; pressing it shows
+ * a soft round ground under the icon for as long as the finger is down.
+ */
+export function IconButton({
+  icon,
+  label,
+  onPress,
+  onLongPress,
+  size = 22,
+  color = colors.ink,
+  disabled,
+  testID,
+  style,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onPress: () => void;
+  onLongPress?: () => void;
+  size?: number;
+  color?: string;
+  disabled?: boolean;
+  testID?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      hitSlop={4}
+      style={({ pressed }) => [s.iconBtn, pressed && s.iconPressed, disabled && s.disabled, style]}
+    >
+      <Glyph icon={icon} size={size} color={color} />
+    </Pressable>
+  );
+}
+
 export const Field = forwardRef<TextInput, TextInputProps & { label: string; error?: boolean }>(function Field(
   { label, error, style, ...rest },
   ref,
@@ -152,6 +200,8 @@ const s = StyleSheet.create({
   quiet: { borderColor: 'transparent', backgroundColor: 'transparent', paddingHorizontal: 8 },
   pressed: { backgroundColor: colors.pressed },
   disabled: { opacity: 0.45 },
+  iconBtn: { width: touch, height: touch, borderRadius: touch / 2, alignItems: 'center', justifyContent: 'center' },
+  iconPressed: { backgroundColor: colors.hover },
   label: { fontFamily: fonts.sansMedium, fontSize: 15, color: colors.ink },
   quietLabel: { color: colors.inkDim },
   dangerLabel: { color: colors.danger },

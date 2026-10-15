@@ -110,8 +110,8 @@ const s = StyleSheet.create({
   scrim: { flex: 1, backgroundColor: colors.scrim },
   sheet: {
     backgroundColor: colors.surface2,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     paddingHorizontal: gutter,
     paddingTop: gutter,
     paddingBottom: 8,

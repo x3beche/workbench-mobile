@@ -5,16 +5,29 @@
  * from GET /api/llm/models. The choice is kept on the conversation.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type WorkbenchClient } from '../api/client';
 import type { Model, Provider } from '../api/types';
-import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
 import { Appear } from './Appear';
 import { Choice } from './Choice';
+import { Check, Search, X } from './icons';
 import { KeyboardSpacer } from './KeyboardSpacer';
-import { Button, ErrorText } from './ui';
+import { modelName } from './MessageItem';
+import { ErrorText, Glyph, IconButton } from './ui';
 
 export function ModelSheet({
   client,
@@ -36,6 +49,7 @@ export function ModelSheet({
   const [q, setQ] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const { height } = useWindowDimensions();
 
   useEffect(() => {
     if (!client) return;
@@ -77,12 +91,21 @@ export function ModelSheet({
   };
 
   return (
-    <Modal visible animationType="none" onRequestClose={onClose}>
-      <SafeAreaView style={s.safe}>
-        <Appear from="below">
+    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+      <Pressable style={s.scrim} onPress={onClose} accessibilityLabel="Close" />
+      <Appear from="below" fill={false} duration={motion.sheet}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={[s.sheet, { height: Math.round(height * 0.82) }]}>
+          <View style={s.grip} aria-hidden />
           <View style={s.head}>
-            <Text style={s.title}>Model</Text>
-            <Button label="Close" variant="quiet" onPress={onClose} />
+            <View style={s.flex}>
+              <Text style={s.title}>Model</Text>
+              {model ? (
+                <Text style={s.now} numberOfLines={1}>
+                  Now: {modelName(model)}
+                </Text>
+              ) : null}
+            </View>
+            <IconButton icon={X} label="Close" onPress={onClose} testID="models-close" color={colors.inkDim} />
           </View>
           <View style={s.body}>
             {providers && providers.length > 1 ? (
@@ -93,20 +116,25 @@ export function ModelSheet({
                 onChange={setProv}
               />
             ) : null}
-            <TextInput
-              style={s.search}
-              value={q}
-              onChangeText={setQ}
-              placeholder="Find a model"
-              placeholderTextColor={colors.inkDim}
-              autoCapitalize="none"
-              autoCorrect={false}
-              accessibilityLabel="Find a model"
-            />
+            <View style={s.search}>
+              <Glyph icon={Search} size={18} color={colors.inkDim} />
+              <TextInput
+                style={s.searchInput}
+                value={q}
+                onChangeText={setQ}
+                placeholder="Find a model"
+                placeholderTextColor={colors.inkDim}
+                selectionColor={colors.inkDim}
+                autoCapitalize="none"
+                autoCorrect={false}
+                accessibilityLabel="Find a model"
+              />
+            </View>
             {error ? <ErrorText>{error}</ErrorText> : null}
           </View>
           {models === null && !error ? <ActivityIndicator style={s.wait} color={colors.inkDim} /> : null}
           <FlatList
+            style={s.flex}
             data={shown}
             keyExtractor={(m) => m.id}
             keyboardShouldPersistTaps="handled"
@@ -118,62 +146,91 @@ export function ModelSheet({
                   onPress={() => pick(item)}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: on }}
-                  style={({ pressed }) => [s.row, pressed && s.pressed]}
+                  style={s.row}
                 >
-                  <Text style={[s.name, on && s.on]} numberOfLines={1}>
-                    {item.name || item.id}
-                  </Text>
-                  <Text style={s.id} numberOfLines={1}>
-                    {saving === item.id ? 'Saving' : item.id}
-                  </Text>
+                  {({ pressed }) => (
+                    <>
+                      <View style={s.flex}>
+                        <Text style={[s.name, on && s.on, pressed && s.dim]} numberOfLines={1}>
+                          {item.name || item.id}
+                        </Text>
+                        <Text style={s.id} numberOfLines={1}>
+                          {saving === item.id ? 'Saving' : item.id}
+                        </Text>
+                      </View>
+                      {on ? <Glyph icon={Check} size={18} color={colors.inkBright} /> : null}
+                    </>
+                  )}
                 </Pressable>
               );
             }}
           />
           <KeyboardSpacer />
-        </Appear>
-      </SafeAreaView>
+        </SafeAreaView>
+      </Appear>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.surface },
+  scrim: { flex: 1, backgroundColor: colors.scrim },
+  flex: { flex: 1, minWidth: 0 },
+  sheet: {
+    backgroundColor: colors.surface2,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingTop: space.sm,
+  },
+  grip: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.pressed,
+  },
   head: {
-    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingLeft: gutter,
-    paddingRight: space.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
+    paddingRight: space.xs,
+    paddingTop: space.xs,
   },
   title: { fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.ink },
-  body: { paddingHorizontal: gutter, paddingVertical: space.md, gap: 10 },
+  now: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim, marginTop: 2 },
+  body: { paddingHorizontal: gutter, paddingTop: space.sm, paddingBottom: space.md, gap: 10 },
   search: {
     minHeight: touch,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
     paddingHorizontal: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.field,
+  },
+  searchInput: {
+    flex: 1,
+    minHeight: touch - 2,
     fontFamily: fonts.sans,
     fontSize: type.input,
     color: colors.ink,
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.sm,
+    paddingVertical: 0,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
   },
   wait: { marginTop: 24 },
   row: {
     minHeight: 56,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     paddingHorizontal: gutter,
     paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-    gap: 2,
+    borderTopWidth: 1,
+    borderTopColor: colors.line,
   },
-  pressed: { backgroundColor: colors.hover },
-  name: { fontFamily: fonts.sans, fontSize: type.body, color: colors.inkDim },
+  name: { fontFamily: fonts.sans, fontSize: type.body, color: colors.ink },
   on: { fontFamily: fonts.sansSemi, color: colors.inkBright },
-  id: { fontFamily: fonts.mono, fontSize: type.tiny - 1, color: colors.inkDim },
+  dim: { color: colors.inkDim },
+  id: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim, marginTop: 2 },
 });

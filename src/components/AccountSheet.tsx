@@ -1,15 +1,16 @@
-/** Who is signed in where, the voice language, and the ways out. */
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+/** Account, from the drawer: who is signed in where, the voice language, and the ways out. */
+import Constants from 'expo-constants';
+import { StyleSheet, Text, View } from 'react-native';
 
 import type { VoiceLang } from '../api/client';
 import { displayServer } from '../api/server';
+import { initials } from '../lib/groups';
 import { useSession } from '../state/session';
-import { colors, fonts, gutter, motion, type } from '../theme/tokens';
+import { colors, fonts, gutter, space, type } from '../theme/tokens';
 import { VOICE_LANGS } from '../voice/voice';
-import { Appear } from './Appear';
 import { Choice } from './Choice';
-import { Button } from './ui';
+import { LogOut, Server } from './icons';
+import { ActionList, Sheet, type Action } from './Sheet';
 
 /** Mount it to open it. */
 export function AccountSheet({
@@ -22,65 +23,88 @@ export function AccountSheet({
   onLang: (l: VoiceLang) => void;
 }) {
   const { user, server, signOut, changeServer } = useSession();
+  const actions: Action[] = [
+    {
+      id: 'change-server',
+      label: 'Change server',
+      icon: Server,
+      onPress: () => {
+        onClose();
+        changeServer();
+      },
+    },
+  ];
+  if (user) {
+    actions.push({
+      id: 'sign-out',
+      label: 'Sign out',
+      icon: LogOut,
+      danger: true,
+      onPress: () => {
+        onClose();
+        signOut();
+      },
+    });
+  }
+  const version = Constants.expoConfig?.version;
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose}>
-      <Pressable style={s.scrim} onPress={onClose} accessibilityLabel="Close" />
-      <Appear from="below" fill={false} duration={motion.sheet}>
-        <SafeAreaView edges={['bottom', 'left', 'right']} style={s.sheet}>
-          <View style={s.block}>
-            <Text style={s.name} numberOfLines={1}>
-              {user?.name || user?.email || 'Local mode'}
+    <Sheet onClose={onClose} testID="account-sheet">
+      <View style={s.who}>
+        <View style={s.avatar}>
+          <Text style={s.avatarText}>{initials(user?.name || user?.email)}</Text>
+        </View>
+        <View style={s.flex}>
+          <Text style={s.name} numberOfLines={1}>
+            {user?.name || user?.email || 'Local mode'}
+          </Text>
+          {user?.email && user?.name ? (
+            <Text style={s.dim} numberOfLines={1}>
+              {user.email}
             </Text>
-            {user?.email && user?.name ? <Text style={s.dim}>{user.email}</Text> : null}
-            <Text style={s.mono} numberOfLines={1}>
-              {server ? displayServer(server) : ''}
-            </Text>
-          </View>
-          <View style={s.block}>
-            <Text style={s.label}>Voice language</Text>
-            <Choice label="Voice language" options={VOICE_LANGS} value={lang} onChange={onLang} />
-          </View>
-          <View style={s.actions}>
-            <Button
-              label="Change server"
-              onPress={() => {
-                onClose();
-                changeServer();
-              }}
-            />
-            {user ? (
-              <Button
-                testID="sign-out"
-                label="Sign out"
-                variant="danger"
-                onPress={() => {
-                  onClose();
-                  signOut();
-                }}
-              />
-            ) : null}
-          </View>
-        </SafeAreaView>
-      </Appear>
-    </Modal>
+          ) : null}
+        </View>
+      </View>
+      <View style={s.block}>
+        <Text style={s.label}>Server</Text>
+        <Text style={s.value} numberOfLines={1}>
+          {server ? displayServer(server) : ''}
+        </Text>
+      </View>
+      <View style={s.block}>
+        <Text style={s.label}>Voice language</Text>
+        <Choice label="Voice language" options={VOICE_LANGS} value={lang} onChange={onLang} />
+      </View>
+      <View style={s.rule} />
+      <ActionList actions={actions} />
+      {version ? <Text style={s.version}>Workbench mobile {version}</Text> : null}
+    </Sheet>
   );
 }
 
 const s = StyleSheet.create({
-  scrim: { flex: 1, backgroundColor: colors.scrim },
-  sheet: {
-    backgroundColor: colors.surface2,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-    paddingHorizontal: gutter,
-    paddingTop: gutter + 4,
-    paddingBottom: 12,
-    gap: 20,
+  flex: { flex: 1, minWidth: 0 },
+  who: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: gutter, paddingVertical: space.sm },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.hover,
   },
-  block: { gap: 4 },
-  name: { fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.ink },
-  dim: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
-  mono: { fontFamily: fonts.mono, fontSize: type.tiny, color: colors.inkDim, marginTop: 2 },
-  label: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim, marginBottom: 4 },
-  actions: { flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 8 },
+  avatarText: { fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.ink },
+  name: { fontFamily: fonts.sansSemi, fontSize: type.display - 2, color: colors.ink },
+  dim: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim, marginTop: 2 },
+  block: { paddingHorizontal: gutter, paddingTop: space.md, gap: 6 },
+  label: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  value: { fontFamily: fonts.sans, fontSize: type.body, color: colors.ink },
+  rule: { height: 1, backgroundColor: colors.line, marginTop: space.lg, marginBottom: space.xs },
+  version: {
+    paddingHorizontal: gutter,
+    paddingTop: space.xs,
+    paddingBottom: space.sm,
+    fontFamily: fonts.sans,
+    fontSize: type.tiny,
+    color: colors.inkDim,
+  },
 });

@@ -47,3 +47,4 @@ coverage/
 /build-out/
 /.gradle-cache/
 /shots/tmp/
+/dist-web/

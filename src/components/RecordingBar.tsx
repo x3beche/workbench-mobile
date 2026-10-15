@@ -1,9 +1,10 @@
-/** While recording: a small red dot, the time, and the two ways to end it. */
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+/** While recording: a small red dot, the time, and the two ways to end it (an X, and a round tick or stop). */
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts, type } from '../theme/tokens';
 import { formatDuration, MAX_RECORD_MS } from '../voice/voice';
-import { Button } from './ui';
+import { Check, Square, X } from './icons';
+import { Glyph, IconButton } from './ui';
 
 export function RecordingBar({
   phase,
@@ -16,7 +17,8 @@ export function RecordingBar({
   elapsed: number;
   onCancel: () => void;
   onDone: () => void;
-  doneLabel?: string;
+  /** "Done" turns the recording into text; "Stop" ends it for review. */
+  doneLabel?: 'Done' | 'Stop';
 }) {
   if (phase === 'transcribing') {
     return (
@@ -36,15 +38,46 @@ export function RecordingBar({
       <Text style={s.label} numberOfLines={1}>
         {left < 30_000 ? `Stops in ${Math.ceil(left / 1000)} s` : 'Recording'}
       </Text>
-      <Button label="Cancel" variant="quiet" onPress={onCancel} testID="voice-cancel" />
-      <Button label={doneLabel} variant="primary" onPress={onDone} testID="voice-done" />
+      <IconButton
+        icon={X}
+        label="Cancel the recording"
+        onPress={onCancel}
+        testID="voice-cancel"
+        size={20}
+        color={colors.inkDim}
+        style={s.cancel}
+      />
+      <Pressable
+        testID="voice-done"
+        onPress={onDone}
+        accessibilityRole="button"
+        accessibilityLabel={doneLabel === 'Stop' ? 'Stop recording' : 'Done: turn it into text'}
+        hitSlop={6}
+        style={({ pressed }) => [s.round, pressed && s.pressed]}
+      >
+        <Glyph
+          icon={doneLabel === 'Stop' ? Square : Check}
+          size={doneLabel === 'Stop' ? 14 : 20}
+          color={colors.inkOnAccent}
+        />
+      </Pressable>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  bar: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 4 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.pen },
+  bar: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 2 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.pen, marginLeft: 6 },
   time: { fontFamily: fonts.mono, fontSize: type.body, color: colors.ink, minWidth: 44 },
   label: { flex: 1, fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
+  cancel: { width: 40, height: 40 },
+  round: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+  },
+  pressed: { opacity: 0.75 },
 });

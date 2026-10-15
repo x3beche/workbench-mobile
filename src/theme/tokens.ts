@@ -58,20 +58,25 @@ export const fonts = {
   monoSemi: 'IBMPlexMono_600SemiBold',
 } as const;
 
-/** Sizes follow the web app's chat room (styles.css, .tcv-cc-*), scaled for touch. */
+/**
+ * The type scale: titles 17-20, body 16, meta 12-13. Sizes follow the web
+ * app's chat room (styles.css, .tcv-cc-*), scaled for touch.
+ */
 export const type = {
-  body: 15,
-  bodyLine: 23,
+  body: 16,
+  bodyLine: 24,
   /** What is being typed: a little larger, so it reads while it is written. */
   input: 16,
   inputLine: 22,
   small: 13,
   tiny: 12,
   title: 17,
+  /** The greeting on a new conversation. */
+  display: 20,
   brand: 24,
 } as const;
 
-export const radius = { sm: 5, md: 6, lg: 8, bubble: 10 } as const;
+export const radius = { sm: 5, md: 6, lg: 8, bubble: 18, field: 22, round: 999 } as const;
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 
@@ -85,4 +90,10 @@ export const touch = 44;
  * Motion: short, opacity and transform only, and none at all when the
  * system asks for reduced motion (components/Appear.tsx).
  */
-export const motion = { enter: 220, sheet: 180, shift: 12 } as const;
+export const motion = { enter: 220, sheet: 180, shift: 12, drawer: 240, fade: 160 } as const;
+
+/** The drawer's width on a phone: most of the screen, never more than this. */
+export const drawerMax = 320;
+
+/** At least this wide (a tablet, a desktop browser), the drawer stays open as a side column. */
+export const wideAt = 860;

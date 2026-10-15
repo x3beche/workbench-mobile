@@ -54,7 +54,7 @@ afterEach(() => {
 
 describe('chat screen', () => {
   it('follows the end, offers a way back after scrolling up, and goes back to the end', async () => {
-    await render(<ChatScreen initial={chat} onBack={jest.fn()} lang="auto" />);
+    await render(<ChatScreen initial={chat} lang="auto" />);
     const list = screen.getByTestId('chat-list');
     const toEnd = jest.spyOn(FlatList.prototype, 'scrollToEnd').mockImplementation(() => undefined);
 
@@ -87,7 +87,7 @@ describe('chat screen', () => {
   });
 
   it('counts as at the end within the slack, and sending goes back to the end', async () => {
-    await render(<ChatScreen initial={chat} onBack={jest.fn()} lang="auto" />);
+    await render(<ChatScreen initial={chat} lang="auto" />);
     const list = screen.getByTestId('chat-list');
     const toEnd = jest.spyOn(FlatList.prototype, 'scrollToEnd').mockImplementation(() => undefined);
     await fireEvent.scroll(list, scrollTo(1400));
@@ -101,5 +101,101 @@ describe('chat screen', () => {
     expect(screen.queryByTestId('jump-to-latest')).toBeNull();
     expect(mockClient.say).toHaveBeenCalled();
     toEnd.mockRestore();
+  });
+});
+
+describe('lines', () => {
+  const answer = {
+    id: 'a1',
+    role: 'assistant',
+    model: 'anthropic/claude-sonnet-4.5',
+    at: '2026-10-15T10:00:00Z',
+    content: 'Before.\n\n```c\nint x = 1;\n```\n\nAfter.',
+    steps: [
+      {
+        id: 's1',
+        tool: 'read_board',
+        status: 'done',
+        pos: 0,
+        say: 'Reading {name}',
+        vars: { name: 'Sensor board' },
+        summary: '42 parts',
+      },
+      {
+        id: 's2',
+        tool: 'part_search',
+        status: 'error',
+        pos: 8,
+        say: 'Looking up {q}',
+        vars: { q: 'FB2' },
+        error: 'offline',
+      },
+    ],
+  };
+  const withAnswer = { ...chat, messages: [lines[0], answer] } as unknown as Chat;
+
+  beforeEach(() => {
+    mockClient.getChat.mockResolvedValue(withAnswer);
+  });
+  afterEach(() => {
+    mockClient.getChat.mockResolvedValue(chat);
+  });
+
+  it('shows the tools an answer ran where they ran, each opening to what it found', async () => {
+    await render(<ChatScreen initial={withAnswer} lang="auto" />);
+    expect(screen.getByText('Reading Sensor board')).toBeTruthy();
+    expect(screen.getByText('Looking up FB2')).toBeTruthy();
+    expect(screen.queryByText('42 parts')).toBeNull();
+    await fireEvent.press(screen.getByTestId('step-s1'));
+    expect(screen.getByText('42 parts')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('step-s2'));
+    expect(screen.getByText('offline')).toBeTruthy();
+    // The model's name, short, above the answer.
+    expect(screen.getByText('claude-sonnet-4.5')).toBeTruthy();
+  });
+
+  it('copies a code block, and a whole line from its long-press menu', async () => {
+    const Clipboard = jest.requireMock('expo-clipboard');
+    await render(<ChatScreen initial={withAnswer} lang="auto" />);
+    await fireEvent.press(screen.getByTestId('copy-code'));
+    expect(Clipboard.setStringAsync).toHaveBeenLastCalledWith('int x = 1;');
+    expect(await screen.findByText('Copied')).toBeTruthy();
+
+    await fireEvent(screen.getByText('After.'), 'longPress');
+    await fireEvent.press(screen.getByTestId('action-copy'));
+    expect(Clipboard.setStringAsync).toHaveBeenLastCalledWith(answer.content);
+
+    await fireEvent(screen.getByText('Line 0'), 'longPress');
+    await fireEvent.press(screen.getByTestId('action-select'));
+    expect(screen.getByTestId('select-done')).toBeTruthy();
+  });
+
+  it('shows the line at once and three dots until the first words come', async () => {
+    let feed: ((ev: object) => void) | null = null;
+    (mockClient.say as jest.Mock).mockImplementationOnce(
+      (_id: string, _body: object, h: { onEvent: (ev: object) => void }) =>
+        new Promise(() => {
+          feed = h.onEvent;
+        }),
+    );
+    await render(<ChatScreen initial={withAnswer} lang="auto" />);
+    await fireEvent.changeText(screen.getByTestId('composer-input'), 'And the layout?');
+    await fireEvent.press(screen.getByTestId('send'));
+    expect(screen.getByTestId('pending-line')).toBeTruthy();
+    await act(async () => {
+      feed!({
+        type: 'user',
+        gen: 'g1',
+        keep: 2,
+        message: { id: 'u9', role: 'user', content: 'And the layout?', at: '' },
+      });
+    });
+    expect(screen.queryByTestId('pending-line')).toBeNull();
+    expect(screen.getByTestId('typing')).toBeTruthy();
+    await act(async () => {
+      feed!({ type: 'text', gen: 'g1', text: 'Keep it short.', at: 0 });
+    });
+    expect(screen.queryByTestId('typing')).toBeNull();
+    expect(screen.getByText('Keep it short.')).toBeTruthy();
   });
 });

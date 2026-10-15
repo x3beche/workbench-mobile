@@ -1,14 +1,18 @@
 /**
- * One conversation: its lines, the answer being written, and the composer.
- * A line sent is answered on the stream that sent it; a conversation opened
- * while someone's answer is being written follows it on GET /live.
+ * One conversation - or a new one, not yet on the server: its lines, the
+ * answer being written, and the composer. A new conversation is made on the
+ * server when its first line is sent. A line sent is answered on the stream
+ * that sent it; a conversation opened while someone's answer is being
+ * written follows it on GET /live.
  */
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -19,16 +23,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type VoiceLang } from '../api/client';
 import type { Chat, ChatEvent, ChatMessage } from '../api/types';
-import { Composer } from '../components/Composer';
-import { Header } from '../components/Header';
+import { Appear } from '../components/Appear';
+import { Composer, type ComposerHandle } from '../components/Composer';
+import { ArrowDown, ChevronDown, Copy, Menu, SquarePen, TextSelect } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
-import { MessageItem, WritingItem } from '../components/MessageItem';
+import { Mark } from '../components/Mark';
+import { MessageItem, modelName, PendingItem, WritingItem } from '../components/MessageItem';
 import { ModelSheet } from '../components/ModelSheet';
-import { Button, ErrorText } from '../components/ui';
+import { ActionList, Sheet } from '../components/Sheet';
+import { ErrorText, Glyph, IconButton, Button } from '../components/ui';
 import { VoiceNoteSheet } from '../components/VoiceNoteSheet';
 import { applyEvent, type ConversationView } from '../lib/answer';
+import { copy } from '../lib/feel';
+import { greeting } from '../lib/groups';
 import { useSession } from '../state/session';
-import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
 
 type Action = { kind: 'load'; chat: Chat } | { kind: 'event'; ev: ChatEvent };
 
@@ -50,30 +59,80 @@ export const END_SLACK = 72;
 /** This app's own name on the stream, so its answer can be told from others'. */
 const CLIENT = `mobile-${Math.random().toString(36).slice(2, 10)}`;
 
-export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: () => void; lang: VoiceLang }) {
+export interface Suggestion {
+  /** What it is about ("PCB", "Firmware"), small above it. */
+  area?: string;
+  text: string;
+}
+
+export function ChatScreen({
+  initial,
+  start,
+  suggestions = [],
+  wide = false,
+  lang,
+  onMenu,
+  onNew,
+  onCreated,
+  onChanged,
+  onGone,
+}: {
+  /** The conversation to show, or null for a new one. */
+  initial: Chat | null;
+  /** The model a new conversation begins with. */
+  start?: { provider: string; model: string } | null;
+  suggestions?: Suggestion[];
+  /** The drawer is a column beside it: no button for it. */
+  wide?: boolean;
+  lang: VoiceLang;
+  onMenu?: () => void;
+  onNew?: () => void;
+  /** The new conversation is on the server now. */
+  onCreated?: (chat: Chat) => void;
+  /** Something the list shows changed (a line, a title). */
+  onChanged?: () => void;
+  /** The conversation is not on the server (any more). */
+  onGone?: () => void;
+}) {
   const { client, user } = useSession();
-  const [chat, setChat] = useState<Chat>(initial);
+  const [id, setId] = useState<string | null>(initial?.id ?? null);
+  const idRef = useRef(id);
+  idRef.current = id;
+  const [model, setModel] = useState({
+    provider: initial?.provider || start?.provider || '',
+    model: initial?.model || start?.model || '',
+  });
   const [view, dispatch] = useReducer(reducer, {
-    title: initial.title,
-    messages: initial.messages ?? [],
+    title: initial?.title ?? '',
+    messages: initial?.messages ?? [],
     writing: null,
     stale: false,
   });
-  const [loaded, setLoaded] = useState(!!initial.messages);
+  const [loaded, setLoaded] = useState(!initial || !!initial.messages);
+  const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [models, setModels] = useState(false);
   const [voiceNote, setVoiceNote] = useState(false);
+  const [menu, setMenu] = useState<ChatMessage | null>(null);
+  const [reading, setReading] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const composer = useRef<ComposerHandle>(null);
   const list = useRef<FlatList<ChatMessage>>(null);
   // Following the end: new lines and the answer being written scroll into
   // view, until the person scrolls up to read; then a control brings them back.
   const atEnd = useRef(true);
   const lastY = useRef(0);
   const [away, setAway] = useState(false);
+  // Scrolled under the top bar: a hairline sets the bar off from the lines.
+  const [under, setUnder] = useState(false);
   const streams = useRef(new Set<AbortController>());
   const mounted = useRef(true);
   const loadRef = useRef<() => void>(() => undefined);
+  // Lines that came on this app's own stream (or were there when it opened)
+  // are drawn without a fade: only lines from elsewhere fade in.
+  const seen = useRef<Set<string> | null>(initial?.messages ? new Set(initial.messages.map((m) => m.id)) : null);
 
   useEffect(
     () => () => {
@@ -83,25 +142,45 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
     [],
   );
 
+  // A new conversation takes the server's starting model once it is known.
+  useEffect(() => {
+    if (!idRef.current && start?.model) setModel((now) => (now.model ? now : { ...start }));
+  }, [start]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 1600);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const onEvent = useCallback((ev: ChatEvent) => {
+    if (ev.type === 'user') setPending(null);
+    if ((ev.type === 'user' || ev.type === 'done') && ev.message?.id) seen.current?.add(ev.message.id);
+    dispatch({ kind: 'event', ev });
+  }, []);
+
   const follow = useCallback(async () => {
-    if (!client) return;
+    const cid = idRef.current;
+    if (!client || !cid) return;
     const ctl = new AbortController();
     streams.current.add(ctl);
     try {
-      await client.live(initial.id, { onEvent: (ev) => dispatch({ kind: 'event', ev }), signal: ctl.signal });
+      await client.live(cid, { onEvent, signal: ctl.signal });
     } catch {
       // The stream went (a network change, the server closing it): reading the conversation is enough.
     } finally {
       streams.current.delete(ctl);
     }
-  }, [client, initial.id]);
+  }, [client, onEvent]);
 
   const load = useCallback(() => {
-    if (!client) return Promise.resolve();
-    return client.getChat(initial.id).then(
+    const cid = idRef.current;
+    if (!client || !cid) return Promise.resolve();
+    return client.getChat(cid).then(
       (got) => {
-        if (!mounted.current) return;
-        setChat(got);
+        if (!mounted.current || idRef.current !== cid) return;
+        if (!seen.current) seen.current = new Set((got.messages ?? []).map((m) => m.id));
+        setModel({ provider: got.provider, model: got.model });
         dispatch({ kind: 'load', chat: got });
         setLoaded(true);
         setError(null);
@@ -112,14 +191,25 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
           });
         }
       },
-      (e) => setError(e instanceof ApiError ? e.message : 'The conversation could not be read.'),
+      (e) => {
+        if (e instanceof ApiError && e.status === 404) {
+          onGone?.();
+          return;
+        }
+        setError(e instanceof ApiError ? e.message : 'The conversation could not be read.');
+      },
     );
-  }, [client, initial.id, follow]);
+  }, [client, follow, onGone]);
 
   useEffect(() => {
     loadRef.current = load;
-    load();
   }, [load]);
+
+  // Read it once when it opens (a new one has nothing to read).
+  useEffect(() => {
+    if (initial) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Pieces were missed, or an answer ended without its line: read it again.
   useEffect(() => {
@@ -131,13 +221,32 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
     followEnd();
     setError(null);
     setNotice(null);
+    setPending(text);
+    let cid = idRef.current;
+    if (!cid) {
+      try {
+        const made = await client.createChat(model.provider || undefined, model.model || undefined);
+        if (!mounted.current) return true;
+        cid = made.id;
+        idRef.current = cid;
+        setId(cid);
+        seen.current = new Set();
+        setModel({ provider: made.provider, model: made.model });
+        dispatch({ kind: 'load', chat: { ...made, messages: [] } });
+        onCreated?.(made);
+      } catch (e) {
+        setPending(null);
+        setError(e instanceof ApiError ? e.message : 'A new conversation could not be started.');
+        return false;
+      }
+    }
     const ctl = new AbortController();
     streams.current.add(ctl);
     try {
       const got = await client.say(
-        initial.id,
-        { text, provider: chat.provider, model: chat.model, client: CLIENT },
-        { onEvent: (ev) => dispatch({ kind: 'event', ev }), signal: ctl.signal },
+        cid,
+        { text, provider: model.provider || undefined, model: model.model || undefined, client: CLIENT },
+        { onEvent, signal: ctl.signal },
       );
       if (got.queued) {
         setNotice('An answer is being written. Your message waits and is sent after it.');
@@ -151,22 +260,33 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
       return false;
     } finally {
       streams.current.delete(ctl);
-      if (mounted.current) setTimeout(() => mounted.current && !streams.current.size && load(), 300);
+      if (mounted.current) {
+        setPending(null);
+        setTimeout(() => mounted.current && !streams.current.size && load(), 300);
+        onChanged?.();
+      }
     }
   };
 
   const stop = async () => {
+    const cid = idRef.current;
+    if (!cid) return;
     try {
-      await client?.stop(initial.id);
+      await client?.stop(cid);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'The answer could not be stopped.');
     }
   };
 
-  const pickModel = async (provider: string, model: string) => {
+  const pickModel = async (provider: string, m: string) => {
+    const cid = idRef.current;
     if (!client) return;
-    const got = await client.setModel(initial.id, provider, model);
-    setChat(got);
+    if (!cid) {
+      setModel({ provider, model: m });
+      return;
+    }
+    const got = await client.setModel(cid, provider, m);
+    setModel({ provider: got.provider, model: got.model });
   };
 
   // After the frame that laid the new content out (the footer, an answer
@@ -187,6 +307,7 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
     const y = contentOffset.y;
+    if (y > 4 !== under) setUnder(y > 4);
     const left = contentSize.height - layoutMeasurement.height - y;
     if (left <= END_SLACK) {
       if (!atEnd.current) {
@@ -206,26 +327,51 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
     setRefreshing(false);
   };
 
+  const empty = loaded && !view.messages.length && !view.writing && !pending;
+  const who = user?.name?.split(/\s+/)[0];
+
   return (
     <SafeAreaView style={st.safe} edges={['top', 'left', 'right', 'bottom']} testID="chat-screen">
-      <Header
-        title={view.title}
-        sub={chat.model}
-        left={<Button label="Back" variant="quiet" onPress={onBack} testID="back" />}
-        right={
-          <>
-            <Button label="Model" variant="quiet" onPress={() => setModels(true)} testID="open-models" />
-            <Button label="Voice note" variant="quiet" onPress={() => setVoiceNote(true)} testID="open-voice-note" />
-          </>
-        }
-      />
+      <View style={[st.head, under && st.headUnder]}>
+        {!wide && onMenu ? (
+          <IconButton icon={Menu} label="Open the conversations" onPress={onMenu} testID="open-drawer" />
+        ) : (
+          <View style={st.side} />
+        )}
+        <View style={st.mid}>
+          <Pressable
+            testID="open-models"
+            onPress={() => setModels(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Model: ${model.model || 'the server’s default'}. Choose another`}
+            style={({ pressed }) => [st.pill, pressed && st.pillPressed]}
+          >
+            <Text style={st.pillText} numberOfLines={1}>
+              {modelName(model.model) || 'Model'}
+            </Text>
+            <Glyph icon={ChevronDown} size={16} color={colors.inkDim} />
+          </Pressable>
+        </View>
+        {onNew ? (
+          <IconButton icon={SquarePen} label="New chat" onPress={onNew} testID="header-new-chat" disabled={empty} />
+        ) : (
+          <View style={st.side} />
+        )}
+      </View>
       <View style={st.flex}>
         <FlatList
           ref={list}
           testID="chat-list"
           data={view.messages}
           keyExtractor={(m, i) => m.id || String(i)}
-          renderItem={({ item }) => <MessageItem m={item} mine={!!user && item.by?.id === user.id} />}
+          renderItem={({ item }) => (
+            <MessageItem
+              m={item}
+              mine={!item.by?.id || (!!user && item.by.id === user.id)}
+              animate={!!seen.current && !seen.current.has(item.id)}
+              onMenu={setMenu}
+            />
+          )}
           onContentSizeChange={toEnd}
           // The composer growing or the keyboard opening shrinks the list: keep the newest line in view.
           onLayout={toEnd}
@@ -234,34 +380,69 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={refresh}
-              tintColor={colors.inkDim}
-              colors={[colors.ink]}
-              progressBackgroundColor={colors.surface2}
-            />
+            id ? (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={refresh}
+                tintColor={colors.inkDim}
+                colors={[colors.ink]}
+                progressBackgroundColor={colors.surface2}
+              />
+            ) : undefined
           }
           ListEmptyComponent={
             !loaded ? (
-              <View style={st.empty}>
+              <View style={st.center}>
                 {error ? (
                   <Button label="Try again" onPress={() => load()} testID="chat-retry" />
                 ) : (
                   <ActivityIndicator color={colors.inkDim} accessibilityLabel="Reading the conversation" />
                 )}
               </View>
-            ) : !view.writing ? (
-              <View style={st.empty}>
-                <Text style={st.emptyTitle}>A new conversation</Text>
-                <Text style={st.emptyText}>
-                  Ask anything. The answer is written by {chat.model || 'the server’s chat model'}.
-                </Text>
-              </View>
+            ) : empty ? (
+              <Appear fill duration={motion.enter}>
+                <View style={st.welcome} testID="new-chat-screen">
+                  <View style={st.hello}>
+                    <Mark size={36} />
+                    <Text style={st.greeting} accessibilityRole="header">
+                      {who ? `${greeting()}, ${who}` : greeting()}
+                    </Text>
+                    <Text style={st.lead}>Ask about your boards, parts, firmware or models.</Text>
+                  </View>
+                  {suggestions.length ? (
+                    <View style={st.chips}>
+                      {suggestions.slice(0, 4).map((sg, i) => (
+                        <Pressable
+                          key={i}
+                          testID={`suggestion-${i}`}
+                          onPress={() => composer.current?.fill(sg.text)}
+                          accessibilityRole="button"
+                          accessibilityLabel={sg.text}
+                          style={({ pressed }) => [st.chip, pressed && st.chipPressed]}
+                        >
+                          {sg.area ? <Text style={st.chipArea}>{sg.area}</Text> : null}
+                          <Text style={st.chipText} numberOfLines={3}>
+                            {sg.text}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              </Appear>
             ) : null
           }
-          ListFooterComponent={view.writing ? <WritingItem w={view.writing} model={chat.model} /> : null}
-          contentContainerStyle={st.listPad}
+          ListFooterComponent={
+            <>
+              {pending ? <PendingItem text={pending} /> : null}
+              {view.writing ? (
+                <Appear fill={false} duration={motion.fade}>
+                  <WritingItem w={view.writing} model={model.model} />
+                </Appear>
+              ) : null}
+            </>
+          }
+          contentContainerStyle={[st.listPad, wide && st.column]}
         />
         {away && view.messages.length ? (
           <Pressable
@@ -272,23 +453,37 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
             hitSlop={8}
             style={({ pressed }) => [st.jump, pressed && st.jumpPressed]}
           >
-            <Text style={st.jumpText}>Latest</Text>
-            <Text style={st.jumpArrow} aria-hidden>
-              {'\u2193'}
-            </Text>
+            <Glyph icon={ArrowDown} size={18} />
           </Pressable>
+        ) : null}
+        {toast ? (
+          <Appear fill={false} from="below" duration={motion.fade} style={st.toastWrap}>
+            <Text style={st.toast} accessibilityLiveRegion="polite">
+              {toast}
+            </Text>
+          </Appear>
         ) : null}
       </View>
       {error || notice ? (
         <View style={st.msg}>{error ? <ErrorText>{error}</ErrorText> : <Text style={st.notice}>{notice}</Text>}</View>
       ) : null}
-      <Composer client={client} lang={lang} writing={!!view.writing} onSend={send} onStop={stop} />
+      <View style={wide ? st.column : undefined}>
+        <Composer
+          ref={composer}
+          client={client}
+          lang={lang}
+          writing={!!view.writing}
+          onSend={send}
+          onStop={stop}
+          onVoiceNote={() => setVoiceNote(true)}
+        />
+      </View>
       <KeyboardSpacer />
       {models ? (
         <ModelSheet
           client={client}
-          provider={chat.provider}
-          model={chat.model}
+          provider={model.provider}
+          model={model.model}
           onClose={() => setModels(false)}
           onPick={pickModel}
         />
@@ -296,40 +491,146 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
       {voiceNote ? (
         <VoiceNoteSheet client={client} lang={lang} onClose={() => setVoiceNote(false)} onSend={send} />
       ) : null}
+      {menu ? (
+        <Sheet onClose={() => setMenu(null)} testID="message-menu">
+          <ActionList
+            actions={[
+              {
+                id: 'copy',
+                label: 'Copy',
+                icon: Copy,
+                onPress: () => {
+                  const text = menu.content;
+                  setMenu(null);
+                  copy(text).then((ok) => setToast(ok ? 'Copied' : 'Could not copy'));
+                },
+              },
+              {
+                id: 'select',
+                label: 'Select text',
+                icon: TextSelect,
+                onPress: () => {
+                  setReading(menu.content);
+                  setMenu(null);
+                },
+              },
+            ]}
+          />
+        </Sheet>
+      ) : null}
+      {reading !== null ? <SelectText text={reading} onClose={() => setReading(null)} /> : null}
     </SafeAreaView>
+  );
+}
+
+/** A line as plain text to select a part of it. */
+function SelectText({ text, onClose }: { text: string; onClose: () => void }) {
+  return (
+    <Modal visible animationType="none" onRequestClose={onClose}>
+      <SafeAreaView style={st.safe}>
+        <Appear from="below" duration={motion.sheet}>
+          <View style={st.selHead}>
+            <Text style={st.selTitle}>Select text</Text>
+            <Button label="Done" variant="quiet" onPress={onClose} testID="select-done" />
+          </View>
+          <ScrollView contentContainerStyle={st.selBody}>
+            <Text style={st.selText} selectable>
+              {text}
+            </Text>
+          </ScrollView>
+        </Appear>
+      </SafeAreaView>
+    </Modal>
   );
 }
 
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
-  listPad: { paddingVertical: space.sm, flexGrow: 1 },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: space.xxl, gap: 6 },
-  emptyTitle: { fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.ink },
-  emptyText: {
-    fontFamily: fonts.sans,
-    fontSize: type.small,
-    lineHeight: 20,
-    color: colors.inkDim,
-    textAlign: 'center',
+  head: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: space.xs + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: 'transparent',
   },
-  msg: { paddingHorizontal: gutter, paddingVertical: space.sm, borderTopWidth: 1, borderTopColor: colors.line },
+  headUnder: { borderBottomColor: colors.line },
+  // On a wide screen the lines and the composer keep a reading width, in the middle.
+  column: { width: '100%', maxWidth: 780, alignSelf: 'center' },
+  side: { width: touch, height: touch },
+  mid: { flex: 1, minWidth: 0, alignItems: 'center' },
+  pill: {
+    maxWidth: '100%',
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingLeft: 14,
+    paddingRight: 10,
+    borderRadius: radius.round,
+  },
+  pillPressed: { backgroundColor: colors.hover },
+  pillText: { flexShrink: 1, fontFamily: fonts.sansMedium, fontSize: type.title, color: colors.ink },
+  listPad: { paddingTop: space.xs, paddingBottom: space.md, flexGrow: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: space.xxl },
+  welcome: { flex: 1, justifyContent: 'space-between', paddingHorizontal: gutter, paddingBottom: space.sm },
+  hello: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: space.xxl },
+  greeting: { fontFamily: fonts.sansSemi, fontSize: type.display, color: colors.inkBright, textAlign: 'center' },
+  lead: { fontFamily: fonts.sans, fontSize: type.small + 1, lineHeight: 21, color: colors.inkDim, textAlign: 'center' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  chip: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    minHeight: 72,
+    gap: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  chipPressed: { backgroundColor: colors.surface2 },
+  chipArea: { fontFamily: fonts.sansMedium, fontSize: type.tiny, color: colors.inkDim },
+  chipText: { fontFamily: fonts.sans, fontSize: type.small + 1, lineHeight: 19, color: colors.ink },
+  msg: { paddingHorizontal: gutter, paddingVertical: space.xs },
   notice: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.inkDim },
   jump: {
     position: 'absolute',
-    right: gutter,
+    alignSelf: 'center',
     bottom: space.md,
-    minHeight: touch - 8,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    gap: 6,
-    borderRadius: radius.lg,
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.surface2,
   },
   jumpPressed: { backgroundColor: colors.pressed },
-  jumpText: { fontFamily: fonts.sansMedium, fontSize: type.small, color: colors.ink },
-  jumpArrow: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
+  toastWrap: { position: 'absolute', alignSelf: 'center', bottom: space.md },
+  toast: {
+    overflow: 'hidden',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.round,
+    backgroundColor: colors.surface2,
+    fontFamily: fonts.sansMedium,
+    fontSize: type.small,
+    color: colors.ink,
+  },
+  selHead: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: gutter,
+    paddingRight: space.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
+  selTitle: { fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.ink },
+  selBody: { padding: gutter },
+  selText: { fontFamily: fonts.sans, fontSize: type.body, lineHeight: type.bodyLine, color: colors.ink },
 });

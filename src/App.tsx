@@ -10,17 +10,16 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { VoiceLang } from './api/client';
-import type { Chat } from './api/types';
 import { Appear } from './components/Appear';
-import { ChatListScreen } from './screens/ChatListScreen';
-import { ChatScreen } from './screens/ChatScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { ServerScreen } from './screens/ServerScreen';
+import { Workspace } from './screens/Workspace';
 import { SessionProvider, useSession } from './state/session';
 import * as prefs from './storage/prefs';
 import { colors } from './theme/tokens';
@@ -32,41 +31,6 @@ SplashScreen.setOptions({ duration: 200, fade: true });
 
 /** The longest the splash waits for the server to say who is signed in. */
 const SPLASH_MAX_MS = 4000;
-
-/** Signed in: the list, or one conversation open over it. */
-function Signed({ lang, onLang }: { lang: VoiceLang; onLang: (l: VoiceLang) => void }) {
-  const [open, setOpen] = useState<Chat | null>(null);
-  // The list comes back from the left only after a conversation was open.
-  const [back, setBack] = useState(false);
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (!open) return false;
-      setBack(true);
-      setOpen(null);
-      return true;
-    });
-    return () => sub.remove();
-  }, [open]);
-  if (open) {
-    return (
-      <Appear key={`chat-${open.id}`} from="right">
-        <ChatScreen
-          initial={open}
-          onBack={() => {
-            setBack(true);
-            setOpen(null);
-          }}
-          lang={lang}
-        />
-      </Appear>
-    );
-  }
-  return (
-    <Appear key="list" from={back ? 'left' : 'none'}>
-      <ChatListScreen onOpen={setOpen} lang={lang} onLang={onLang} />
-    </Appear>
-  );
-}
 
 function Screens() {
   const { phase, server, user } = useSession();
@@ -118,8 +82,12 @@ function Screens() {
       </Appear>
     );
   }
-  // A new server or account starts on its list, never in someone else's conversation.
-  return <Signed key={`${server}|${user?.id ?? ''}`} lang={lang} onLang={changeLang} />;
+  // A new server or account starts afresh, never in someone else's conversation.
+  return (
+    <Appear key={`${server}|${user?.id ?? ''}`}>
+      <Workspace lang={lang} onLang={changeLang} />
+    </Appear>
+  );
 }
 
 export default function App() {
@@ -132,18 +100,20 @@ export default function App() {
     IBMPlexMono_600SemiBold,
   });
   return (
-    <SafeAreaProvider style={s.root}>
-      <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
-        <StatusBar style="light" />
-        {fontsReady || fontError ? (
-          <SessionProvider>
-            <Screens />
-          </SessionProvider>
-        ) : (
-          <View style={s.boot} />
-        )}
-      </KeyboardProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={s.root}>
+      <SafeAreaProvider style={s.root}>
+        <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+          <StatusBar style="light" />
+          {fontsReady || fontError ? (
+            <SessionProvider>
+              <Screens />
+            </SessionProvider>
+          ) : (
+            <View style={s.boot} />
+          )}
+        </KeyboardProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

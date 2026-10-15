@@ -1,0 +1,282 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { BackHandler } from 'react-native';
+
+import type { Chat, Ideas } from '../../api/types';
+import { STARTERS, suggestionsFrom, Workspace } from '../Workspace';
+
+jest.mock(
+  'react-native-safe-area-context',
+  () => jest.requireActual('react-native-safe-area-context/jest/mock').default,
+);
+// The spacer follows the native keyboard frame; there is none here.
+jest.mock('../../components/KeyboardSpacer', () => ({ KeyboardSpacer: () => null }));
+jest.mock('expo-audio', () => ({
+  RecordingPresets: { HIGH_QUALITY: {} },
+  requestRecordingPermissionsAsync: jest.fn(async () => ({ granted: true, status: 'granted' })),
+  setAudioModeAsync: jest.fn(async () => undefined),
+  useAudioRecorder: () => ({ uri: null, prepareToRecordAsync: jest.fn(), record: jest.fn(), stop: jest.fn() }),
+}));
+
+const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+const listed = (id: string, title: string, min: number, extra: Partial<Chat> = {}) =>
+  ({
+    id,
+    title,
+    provider: 'openrouter',
+    model: 'a/b',
+    created_at: ago(min),
+    updated_at: ago(min),
+    count: 2,
+    ...extra,
+  }) as Chat;
+
+const CHATS = [
+  listed('c1', 'Rail sag', 5),
+  listed('c2', 'Enclosure walls', 60 * 24 * 1.2),
+  listed('c3', 'Stepper heat', 60 * 24 * 40),
+  listed('c0', 'Bring-up', 60 * 24 * 3, { pinned: true }),
+];
+
+const IDEAS: Ideas = {
+  source: 'llm',
+  start: { provider: 'openrouter', model: 'anthropic/claude-sonnet-4.5' },
+  items: [
+    { kind: 'pcb', text: 'Why does the rail sag?' },
+    { kind: 'firmware', text: 'Add a watchdog to the updater.' },
+  ],
+};
+
+const full = (c: Chat): Chat => ({
+  ...c,
+  messages: [
+    { id: `${c.id}-q`, role: 'user', content: `Question in ${c.title}`, at: c.updated_at, by: { id: 'u1' } },
+    { id: `${c.id}-a`, role: 'assistant', content: `Answer in ${c.title}`, at: c.updated_at, model: c.model },
+  ],
+});
+
+/** The server's list: what the tests made, archived or deleted changes it. */
+let mockChats: Chat[] = [];
+
+const mockClient = {
+  listChats: jest.fn(async (q = '') =>
+    mockChats.filter((c) => !q || c.title.toLowerCase().includes(String(q).toLowerCase())),
+  ),
+  ideas: jest.fn(async (): Promise<Ideas | null> => IDEAS),
+  getChat: jest.fn(async (id: string) => full(CHATS.find((c) => c.id === id) ?? listed(id, 'Gone', 1))),
+  live: jest.fn(async () => undefined),
+  createChat: jest.fn(async (provider?: string, model?: string) => {
+    const made = listed('n1', 'New conversation', 0, { provider: provider ?? 'p', model: model ?? 'm' });
+    mockChats = [made, ...mockChats];
+    return made;
+  }),
+  say: jest.fn(async () => ({ queued: null })),
+  rename: jest.fn(async (id: string, title: string) => ({ ...CHATS.find((c) => c.id === id)!, title })),
+  archive: jest.fn(async (id: string) => {
+    mockChats = mockChats.filter((c) => c.id !== id);
+    return CHATS.find((c) => c.id === id)!;
+  }),
+  remove: jest.fn(async (id: string) => {
+    mockChats = mockChats.filter((c) => c.id !== id);
+    return { deleted: id, trash: true, days: 30 };
+  }),
+  stop: jest.fn(async () => ({ stopped: true })),
+};
+jest.mock('../../state/session', () => ({
+  useSession: () => ({
+    client: mockClient,
+    server: 'https://wb.example.com',
+    user: { id: 'u1', name: 'Ada Demir', email: 'ada@example.com' },
+    signOut: jest.fn(),
+    changeServer: jest.fn(),
+  }),
+}));
+
+/** The latest hardware Back handler the app registered. */
+function back(): boolean {
+  const calls = (BackHandler.addEventListener as jest.Mock).mock.calls;
+  return calls[calls.length - 1][1]();
+}
+
+const drawerOpen = () =>
+  screen.getByTestId('drawer', { includeHiddenElements: true }).props.accessibilityElementsHidden === false;
+
+async function start() {
+  await render(<Workspace lang="auto" onLang={jest.fn()} />);
+  // The last conversation is looked up, the list and the example questions are read.
+  await act(async () => undefined);
+}
+
+beforeEach(async () => {
+  jest.clearAllMocks();
+  mockChats = [...CHATS];
+  await AsyncStorage.clear();
+  jest.spyOn(BackHandler, 'addEventListener');
+});
+
+describe('suggestionsFrom', () => {
+  it("takes the server's own questions, with their area, and the hand-written ones otherwise", () => {
+    expect(suggestionsFrom(IDEAS)).toEqual([
+      { area: 'PCB', text: 'Why does the rail sag?' },
+      { area: 'Firmware', text: 'Add a watchdog to the updater.' },
+    ]);
+    expect(suggestionsFrom(null)).toBe(STARTERS);
+    expect(suggestionsFrom({ source: 'default', items: [] })).toBe(STARTERS);
+    expect(suggestionsFrom({ source: 'llm', items: [{ kind: 'pcb', text: '  ' }] })).toBe(STARTERS);
+  });
+});
+
+describe('workspace', () => {
+  it('opens on a new conversation with a greeting and the server’s example questions', async () => {
+    await start();
+    expect(screen.getByTestId('new-chat-screen')).toBeTruthy();
+    expect(screen.getByText(/Ada$/)).toBeTruthy();
+    expect(screen.getByText('Why does the rail sag?')).toBeTruthy();
+    expect(mockClient.ideas).toHaveBeenCalledWith('en');
+    // The server's starting model is in the top bar.
+    expect(screen.getByText('claude-sonnet-4.5')).toBeTruthy();
+  });
+
+  it('falls back to the hand-written questions, and a question tapped fills the composer', async () => {
+    mockClient.ideas.mockResolvedValueOnce(null);
+    await start();
+    await fireEvent.press(screen.getByTestId('suggestion-0'));
+    expect(screen.getByTestId('composer-input')).toHaveDisplayValue(STARTERS[0].text);
+    expect(mockClient.say).not.toHaveBeenCalled();
+  });
+
+  it('opens and closes the drawer, with the conversations grouped by day', async () => {
+    await start();
+    expect(drawerOpen()).toBe(false);
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    expect(drawerOpen()).toBe(true);
+    const list = within(screen.getByTestId('drawer-list'));
+    for (const g of ['Pinned', 'Today', 'Yesterday', 'Older']) expect(list.getByText(g)).toBeTruthy();
+    expect(list.queryByText('Previous 7 days')).toBeNull();
+
+    // (The open panel is modal to screen readers, so the dimmed side is hidden from them.)
+    await fireEvent.press(screen.getByTestId('drawer-scrim', { includeHiddenElements: true }));
+    expect(drawerOpen()).toBe(false);
+  });
+
+  it('opens a conversation from the drawer, and Back closes the drawer, then goes back, then leaves', async () => {
+    await start();
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    await fireEvent.press(screen.getByTestId('chat-c1'));
+    expect(drawerOpen()).toBe(false);
+    expect(await screen.findByText('Answer in Rail sag')).toBeTruthy();
+    expect(await AsyncStorage.getItem('workbench.lastChat')).toContain('"c1"');
+
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    await fireEvent.press(screen.getByTestId('chat-c3'));
+    expect(await screen.findByText('Answer in Stepper heat')).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    let handled: boolean | undefined;
+    await act(async () => {
+      handled = back();
+    });
+    expect(handled).toBe(true);
+    expect(drawerOpen()).toBe(false);
+    expect(screen.getByText('Answer in Stepper heat')).toBeTruthy();
+
+    await act(async () => {
+      handled = back();
+    });
+    expect(handled).toBe(true);
+    expect(await screen.findByText('Answer in Rail sag')).toBeTruthy();
+
+    // Back again: the empty conversation it started on is not worth going back to - out of the app.
+    await act(async () => {
+      handled = back();
+    });
+    expect(handled).toBe(false);
+  });
+
+  it('opens straight into the conversation that was open last', async () => {
+    await AsyncStorage.setItem('workbench.lastChat', JSON.stringify({ 'https://wb.example.com': 'c2' }));
+    await start();
+    expect(await screen.findByText('Answer in Enclosure walls')).toBeTruthy();
+    expect(mockClient.getChat).toHaveBeenCalledWith('c2');
+  });
+
+  it('makes a new conversation on the server with the first line, with the chosen model', async () => {
+    await start();
+    await fireEvent.changeText(screen.getByTestId('composer-input'), 'How wide is a 2 A trace?');
+    await fireEvent.press(screen.getByTestId('send'));
+    expect(mockClient.createChat).toHaveBeenCalledWith('openrouter', 'anthropic/claude-sonnet-4.5');
+    expect(mockClient.say).toHaveBeenCalledWith(
+      'n1',
+      expect.objectContaining({ text: 'How wide is a 2 A trace?', model: 'anthropic/claude-sonnet-4.5' }),
+      expect.anything(),
+    );
+    // It is in the drawer, and opens next time.
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    expect(within(screen.getByTestId('drawer-list')).getByText('New conversation')).toBeTruthy();
+    expect(await AsyncStorage.getItem('workbench.lastChat')).toContain('"n1"');
+    // The list is read again once the answer is in.
+    expect(mockClient.listChats.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it('New chat leaves a conversation for an empty one', async () => {
+    await AsyncStorage.setItem('workbench.lastChat', JSON.stringify({ 'https://wb.example.com': 'c1' }));
+    await start();
+    await screen.findByText('Answer in Rail sag');
+    await fireEvent.press(screen.getByTestId('header-new-chat'));
+    expect(await screen.findByTestId('new-chat-screen')).toBeTruthy();
+  });
+
+  it('renames, archives and deletes a conversation from a long press', async () => {
+    await start();
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+
+    await fireEvent(screen.getByTestId('chat-c2'), 'longPress');
+    expect(screen.getByTestId('chat-actions')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('action-rename'));
+    await fireEvent.changeText(screen.getByTestId('dialog-input'), 'PETG enclosure');
+    await fireEvent.press(screen.getByTestId('dialog-confirm'));
+    expect(mockClient.rename).toHaveBeenCalledWith('c2', 'PETG enclosure');
+    expect(await screen.findByText('PETG enclosure')).toBeTruthy();
+
+    await fireEvent(screen.getByTestId('chat-c3'), 'longPress');
+    await fireEvent.press(screen.getByTestId('action-archive'));
+    expect(mockClient.archive).toHaveBeenCalledWith('c3');
+    expect(screen.queryByTestId('chat-c3')).toBeNull();
+
+    await fireEvent(screen.getByTestId('chat-c1'), 'longPress');
+    await fireEvent.press(screen.getByTestId('action-delete'));
+    expect(screen.getByText('Delete this conversation?')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('dialog-confirm'));
+    expect(mockClient.remove).toHaveBeenCalledWith('c1');
+    expect(screen.queryByTestId('chat-c1')).toBeNull();
+  });
+
+  it('searches titles at once and the server for what was said', async () => {
+    jest.useFakeTimers();
+    try {
+      await start();
+      await fireEvent.press(screen.getByTestId('open-drawer'));
+      await fireEvent.changeText(screen.getByTestId('drawer-search'), 'stepper');
+      const list = within(screen.getByTestId('drawer-list'));
+      expect(list.getByText('Results')).toBeTruthy();
+      expect(list.getByTestId('chat-c3')).toBeTruthy();
+      expect(list.queryByTestId('chat-c1')).toBeNull();
+      await act(async () => {
+        jest.advanceTimersByTime(400);
+      });
+      expect(mockClient.listChats).toHaveBeenCalledWith('stepper');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('opens Account from the bottom of the drawer', async () => {
+    await start();
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    expect(screen.getByText('wb.example.com')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('open-account'));
+    expect(screen.getByTestId('account-sheet')).toBeTruthy();
+    expect(screen.getByText('Voice language')).toBeTruthy();
+    expect(screen.getByText('Sign out')).toBeTruthy();
+  });
+});
