@@ -1,7 +1,7 @@
 /**
  * What the app remembers on the device: the last few servers, the address
- * last signed in with on each, and the voice language. Never a password or
- * a session - the session is a cookie the platform keeps.
+ * last signed in with on each, the voice language and the conversation last
+ * open on each. Never a password or a session - the session is a cookie the platform keeps.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -89,4 +89,19 @@ export async function voiceLang(): Promise<VoiceLang> {
 
 export async function setVoiceLang(lang: VoiceLang): Promise<void> {
   await writeJson(VOICE_LANG, lang);
+}
+
+const LAST_CHAT = 'workbench.lastChat';
+
+/** The conversation last open on `server`, to open straight into it (null: a new one). */
+export async function lastChat(server: string): Promise<string | null> {
+  const all = await readJson<Record<string, string>>(LAST_CHAT, {});
+  return typeof all[server] === 'string' ? all[server] : null;
+}
+
+export async function setLastChat(server: string, id: string | null): Promise<void> {
+  const all = await readJson<Record<string, string>>(LAST_CHAT, {});
+  if (id) all[server] = id;
+  else delete all[server];
+  await writeJson(LAST_CHAT, all);
 }

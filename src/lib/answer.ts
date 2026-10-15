@@ -3,13 +3,15 @@
  * The same events come from POST /messages (one's own answer) and from
  * GET /live (anyone's, after a reconnect): backend/cc_chat.py.
  */
-import type { ChatEvent, ChatMessage } from '../api/types';
+import type { ChatEvent, ChatMessage, Step } from '../api/types';
 
 export interface Writing {
   gen: string | null;
   text: string;
   thinking: string;
   error: string | null;
+  /** The tools run so far (the server sends the whole list each time). */
+  steps: Step[];
 }
 
 export interface ConversationView {
@@ -34,7 +36,7 @@ export function fit(have: string, text: string, at?: number): string | null {
   return null;
 }
 
-const empty = (gen: string | null = null): Writing => ({ gen, text: '', thinking: '', error: null });
+const empty = (gen: string | null = null): Writing => ({ gen, text: '', thinking: '', error: null, steps: [] });
 
 export function applyEvent(view: ConversationView, ev: ChatEvent): ConversationView {
   switch (ev.type) {
@@ -47,13 +49,28 @@ export function applyEvent(view: ConversationView, ev: ChatEvent): ConversationV
     case 'hello': {
       const now = ev.live?.[0];
       if (!now) return view.writing ? { ...view, writing: null, stale: true } : view;
-      return { ...view, writing: { gen: now.gen, text: now.text || '', thinking: now.thinking || '', error: null } };
+      return {
+        ...view,
+        writing: {
+          gen: now.gen,
+          text: now.text || '',
+          thinking: now.thinking || '',
+          error: null,
+          steps: now.steps ?? [],
+        },
+      };
     }
     case 'start': {
       if (view.writing && view.writing.gen === ev.gen && view.writing.text) return view;
       return {
         ...view,
-        writing: { gen: ev.gen ?? null, text: ev.text || '', thinking: ev.thinking || '', error: null },
+        writing: {
+          gen: ev.gen ?? null,
+          text: ev.text || '',
+          thinking: ev.thinking || '',
+          error: null,
+          steps: ev.steps ?? [],
+        },
       };
     }
     case 'text':
@@ -64,6 +81,12 @@ export function applyEvent(view: ConversationView, ev: ChatEvent): ConversationV
       const next = fit(w[key], ev.text || '', ev.at);
       if (next === null) return { ...view, stale: true };
       return { ...view, writing: { ...w, [key]: next } };
+    }
+    case 'steps': {
+      if (!view.writing && !ev.steps?.length) return view;
+      const w = view.writing ?? empty(ev.gen ?? null);
+      if (ev.gen && w.gen && ev.gen !== w.gen) return view;
+      return { ...view, writing: { ...w, steps: ev.steps ?? [] } };
     }
     case 'error': {
       const w = view.writing ?? empty(ev.gen ?? null);

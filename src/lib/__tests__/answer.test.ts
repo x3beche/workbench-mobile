@@ -33,7 +33,7 @@ describe('applyEvent', () => {
   it('user: keeps the first `keep` lines, adds the line, starts writing', () => {
     const v = applyEvent(base(), { type: 'user', keep: 1, gen: 'g1', message: msg('3', 'user', 'edited') });
     expect(v.messages.map((m) => m.id)).toEqual(['1', '3']);
-    expect(v.writing).toEqual({ gen: 'g1', text: '', thinking: '', error: null });
+    expect(v.writing).toEqual({ gen: 'g1', text: '', thinking: '', error: null, steps: [] });
   });
 
   it('text and thinking pieces build the answer', () => {
@@ -61,7 +61,7 @@ describe('applyEvent', () => {
 
   it('hello takes the answer under way, or notices one that ended', () => {
     const v = applyEvent(base(), { type: 'hello', live: [{ gen: 'g1', text: 'so far', thinking: 't' }] });
-    expect(v.writing).toEqual({ gen: 'g1', text: 'so far', thinking: 't', error: null });
+    expect(v.writing).toEqual({ gen: 'g1', text: 'so far', thinking: 't', error: null, steps: [] });
     expect(applyEvent(base(), { type: 'hello', live: [] })).toEqual(base());
     const ended = applyEvent(v, { type: 'hello', live: [] });
     expect(ended).toMatchObject({ writing: null, stale: true });
@@ -98,6 +98,23 @@ describe('applyEvent', () => {
     expect(applyEvent(base(), { type: 'title', title: 'Gear ratios' }).title).toBe('Gear ratios');
     const v = base();
     expect(applyEvent(v, { type: 'title' })).toBe(v);
+    expect(applyEvent(v, { type: 'queue' })).toBe(v);
     expect(applyEvent(v, { type: 'steps' })).toBe(v);
+  });
+
+  it('steps: the whole list of tools run so far replaces the last one, for this answer only', () => {
+    let v = applyEvent(base(), { type: 'start', gen: 'g1' });
+    const running = { id: 's1', tool: 'read_board', status: 'running', pos: 0 };
+    v = applyEvent(v, { type: 'steps', gen: 'g1', steps: [running] });
+    expect(v.writing?.steps).toEqual([running]);
+    v = applyEvent(v, { type: 'steps', gen: 'g1', steps: [{ ...running, status: 'done' }] });
+    expect(v.writing?.steps.map((x) => x.status)).toEqual(['done']);
+    expect(applyEvent(v, { type: 'steps', gen: 'g2', steps: [] })).toBe(v);
+  });
+
+  it('hello and start carry the steps of an answer under way', () => {
+    const steps = [{ id: 's1', tool: 't', status: 'running' }];
+    expect(applyEvent(base(), { type: 'hello', live: [{ gen: 'g1', steps }] }).writing?.steps).toEqual(steps);
+    expect(applyEvent(base(), { type: 'start', gen: 'g1', steps }).writing?.steps).toEqual(steps);
   });
 });

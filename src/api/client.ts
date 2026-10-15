@@ -9,7 +9,7 @@
  * every mutating cookie request (backend/auth.py, csrf_ok).
  */
 import { streamSse, type StreamResult, type XhrLike } from './sse';
-import type { AuthState, Chat, ChatEvent, Model, Provider, Queued, Transcript, User } from './types';
+import type { AuthState, Chat, ChatEvent, Ideas, Model, Provider, Queued, Transcript, User } from './types';
 
 export const CSRF_HEADER = 'x-redline-csrf';
 const TIMEOUT_MS = 20_000;
@@ -93,7 +93,10 @@ export class WorkbenchClient {
         signal: ctl.signal,
       });
     } catch {
-      throw new ApiError(0, ctl.signal.aborted ? 'The server took too long to answer.' : 'The server could not be reached.');
+      throw new ApiError(
+        0,
+        ctl.signal.aborted ? 'The server took too long to answer.' : 'The server could not be reached.',
+      );
     } finally {
       clearTimeout(timer);
     }
@@ -145,8 +148,10 @@ export class WorkbenchClient {
 
   // ---- conversations ----------------------------------------------------
 
-  listChats(): Promise<Chat[]> {
-    return this.request<Chat[]>('GET', '/api/cc/chats?archived=0');
+  /** The conversations, newest first (pinned on top). `q` also searches what was said in them. */
+  listChats(q = ''): Promise<Chat[]> {
+    const find = q.trim() ? `&q=${encodeURIComponent(q.trim())}` : '';
+    return this.request<Chat[]>('GET', `/api/cc/chats?archived=0${find}`);
   }
 
   getChat(id: string): Promise<Chat> {
@@ -159,6 +164,29 @@ export class WorkbenchClient {
 
   setModel(id: string, provider: string, model: string): Promise<Chat> {
     return this.request<Chat>('PATCH', `/api/cc/chats/${encodeURIComponent(id)}`, { provider, model });
+  }
+
+  rename(id: string, title: string): Promise<Chat> {
+    return this.request<Chat>('PATCH', `/api/cc/chats/${encodeURIComponent(id)}`, { title: title.trim() });
+  }
+
+  /** Out of the list; the web app's Archived view still has it. */
+  archive(id: string): Promise<Chat> {
+    return this.request<Chat>('PATCH', `/api/cc/chats/${encodeURIComponent(id)}`, { archived: true });
+  }
+
+  /** Into the server's trash, which deletes it for good after its days (`days` in the answer). */
+  remove(id: string): Promise<{ deleted: string; trash?: boolean; days?: number }> {
+    return this.request('DELETE', `/api/cc/chats/${encodeURIComponent(id)}`);
+  }
+
+  /** Example questions for an empty conversation (null when the server has none to give). */
+  async ideas(lang: 'en' | 'tr'): Promise<Ideas | null> {
+    try {
+      return await this.request<Ideas>('GET', `/api/cc/ideas?lang=${lang}`);
+    } catch {
+      return null;
+    }
   }
 
   stop(id: string): Promise<{ stopped: boolean }> {
