@@ -22,12 +22,14 @@ import { ServerScreen } from './screens/ServerScreen';
 import { Workspace } from './screens/Workspace';
 import { SessionProvider, useSession } from './state/session';
 import * as prefs from './storage/prefs';
+import { installScrollbars } from './theme/scrollbars';
 import { colors } from './theme/tokens';
 
 // The native splash (app.json, expo-splash-screen: the mark on the theme's
 // ground) stays until the first screen can be drawn, then fades into it.
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 SplashScreen.setOptions({ duration: 200, fade: true });
+installScrollbars();
 
 /** The longest the splash waits for the server to say who is signed in. */
 const SPLASH_MAX_MS = 4000;

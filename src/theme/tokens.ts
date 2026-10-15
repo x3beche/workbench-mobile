@@ -30,6 +30,11 @@ export const spartanDark = {
   pen: '#ff2d3f',
 
   scrim: 'rgba(9, 9, 11, 0.88)',
+
+  /** Scrollbars: a faint thumb on no track, brighter under the pointer and while dragged (web build). */
+  scrollThumb: 'rgba(161, 161, 170, 0.28)',
+  scrollHover: 'rgba(161, 161, 170, 0.45)',
+  scrollActive: 'rgba(161, 161, 170, 0.65)',
   shadowSoft: 'rgba(0, 0, 0, 0.55)',
 
   codeKw: '#c084fc',

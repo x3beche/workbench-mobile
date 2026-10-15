@@ -134,6 +134,7 @@ export function ModelSheet({
           </View>
           {models === null && !error ? <ActivityIndicator style={s.wait} color={colors.inkDim} /> : null}
           <FlatList
+            indicatorStyle="white"
             style={s.flex}
             data={shown}
             keyExtractor={(m) => m.id}
