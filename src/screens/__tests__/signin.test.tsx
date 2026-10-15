@@ -191,3 +191,13 @@ describe('sign-in', () => {
     expect(await screen.findByTestId('server-input')).toHaveDisplayValue('wb.example');
   });
 });
+
+describe('wordmark', () => {
+  it('draws the section mark to the left of the name', async () => {
+    serve(() => 'offline');
+    await render(<Harness />);
+    const mark = await screen.findByTestId('wordmark');
+    expect(mark.props.style).toMatchObject({ flexDirection: 'row' });
+    expect(screen.getByText('Workbench')).toBeTruthy();
+  });
+});

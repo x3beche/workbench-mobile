@@ -10,13 +10,22 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  Platform,
   View,
   type StyleProp,
   type TextInputProps,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 
-import { colors, fonts, radius, type } from '../theme/tokens';
+import { colors, fonts, radius, touch, type } from '../theme/tokens';
+import { Mark } from './Mark';
+
+/** IBM Plex Sans caps stand at 0.698 em; the web wordmark draws its mark at about 1.1 cap heights. */
+const MARK_SIZE = Math.round(type.brand * 0.698 * 1.1);
+
+/** A long word or address breaks inside its column instead of running off the screen (native text does this already). */
+export const wrapAnywhere: TextStyle = Platform.OS === 'web' ? ({ wordBreak: 'break-word' } as TextStyle) : {};
 
 type Variant = 'primary' | 'plain' | 'quiet' | 'danger';
 
@@ -48,7 +57,7 @@ export function Button({
       accessibilityState={{ disabled: !!off, busy: !!busy }}
       disabled={off}
       onPress={onPress}
-      hitSlop={6}
+      hitSlop={4}
       style={({ pressed }) => [
         s.btn,
         variant === 'primary' && s.primary,
@@ -102,9 +111,12 @@ export const Field = forwardRef<TextInput, TextInputProps & { label: string; err
 export function Wordmark({ sub }: { sub?: string }) {
   return (
     <View style={s.wordmark}>
-      <Text style={s.brand} accessibilityRole="header">
-        Workbench
-      </Text>
+      <View style={s.brandRow} testID="wordmark">
+        <Mark size={MARK_SIZE} />
+        <Text style={s.brand} accessibilityRole="header">
+          Workbench
+        </Text>
+      </View>
       {sub ? <Text style={s.lead}>{sub}</Text> : null}
     </View>
   );
@@ -124,7 +136,8 @@ export function Hint({ children }: { children: ReactNode }) {
 
 const s = StyleSheet.create({
   btn: {
-    minHeight: 40,
+    minHeight: touch,
+    minWidth: touch,
     paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -139,17 +152,17 @@ const s = StyleSheet.create({
   quiet: { borderColor: 'transparent', backgroundColor: 'transparent', paddingHorizontal: 8 },
   pressed: { backgroundColor: colors.pressed },
   disabled: { opacity: 0.45 },
-  label: { fontFamily: fonts.sansMedium, fontSize: 14, color: colors.ink },
+  label: { fontFamily: fonts.sansMedium, fontSize: 15, color: colors.ink },
   quietLabel: { color: colors.inkDim },
   dangerLabel: { color: colors.danger },
   field: { gap: 6 },
-  fieldLabel: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  fieldLabel: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
   input: {
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sans,
-    fontSize: type.body,
+    fontSize: type.input,
     color: colors.ink,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -158,6 +171,7 @@ const s = StyleSheet.create({
   },
   inputError: { borderColor: colors.danger },
   wordmark: { gap: 6, marginBottom: 8 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brand: { fontFamily: fonts.sansSemi, fontSize: type.brand, letterSpacing: -0.3, color: colors.inkBright },
   lead: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 20, color: colors.inkDim },
   error: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.danger },
