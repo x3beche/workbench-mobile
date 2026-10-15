@@ -75,7 +75,11 @@ Then you sign in with the same e-mail address and password as on the web.
   in Trash, with Empty trash above the list); Delete asks first and puts
   the conversation in the server's trash, kept 30 days. A long press, or
   the "…" in a conversation's top bar, offers everything: Rename, Pin or
-  Unpin, Archive, Export as Markdown or PDF (to the share sheet), Delete.
+  Unpin, Archive, Export as Markdown or PDF, Delete. The server writes the
+  export (in the document theme, kept in Files > In the app > Chat/Exports)
+  and the app hands it to the share sheet (a download on the web); an older
+  server without the route gets the app's own Markdown or a PDF printed on
+  the phone.
   At the bottom: Files, and the account, which opens Account: the server,
   the voice language, Change server and Sign out. On a screen 860 px or
   wider the drawer is a column that stays open.
@@ -207,6 +211,7 @@ drawn by `scripts/make-icons.js` from the web app's section mark.
 | Stop | `POST /api/cc/chats/{id}/stop` |
 | Models | `GET /api/llm/settings` (providers with a key), `GET /api/llm/models?provider=` |
 | Voice | `POST /api/voice/transcribe` multipart `audio`, `lang`, `purpose` |
+| Export | `POST /api/cc/chats/{id}/export` `{format: md\|pdf, lang}` (the file kept in Files), then `GET /api/files/{fileId}` |
 | Archive, pin, trash | `GET /api/cc/chats?archived=1` / `?trash=1`, `PATCH .../{id}` (`archived`, `pinned`), `POST .../{id}/restore`, `DELETE .../{id}?forever=1`, `POST /api/cc/chats/empty-trash` |
 | What the account may do | `GET /api/auth/state` (`can`: `draw` to change files, `delete` for anyone's) |
 | Files | `GET /api/files`, `/api/files/folders`, `/api/files/virtual` (In the app), `/api/files/trash`; `GET /api/files/{id}?inline=1` (Range for text), `/mini` (202 while it is made), `/pdf?pages=1` (the page count), `/pdf/page/{n}.png`, `/table`; `POST /api/files` (multipart `upload`, `folder`), `PATCH /api/files/{id}` (name), `DELETE /api/files/{id}` (to Deleted), `POST /api/files/move`, `POST /api/files/{id}/copy` (Save to My files), `POST /api/files/trash/restore` and `/purge`, `POST`/`PATCH`/`DELETE /api/files/folders` |

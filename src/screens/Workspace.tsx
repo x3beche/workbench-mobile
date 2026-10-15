@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-import { ApiError, type VoiceLang } from '../api/client';
+import { ApiError, isMissingRoute, type VoiceLang } from '../api/client';
 import type { Chat, ChatScope, Ideas } from '../api/types';
 import { AccountSheet } from '../components/AccountSheet';
 import { Appear } from '../components/Appear';
@@ -295,9 +295,23 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
       })
       .catch((e) => fail(e, 'It could not be restored.'));
 
+  /**
+   * The server writes the file (Files > In the app > Chat/Exports) and the
+   * phone hands it to the share sheet; a server without the route gets the
+   * app's own Markdown, or a PDF printed on the phone.
+   */
   const exportChat = async (chat: Chat, as: 'md' | 'pdf') => {
     if (!client) return;
     try {
+      try {
+        const made = await client.exportChat(chat.id, as);
+        const blob = await client.fileBlob(made.id);
+        await shareFile(blob, made.name, as === 'md' ? 'text/markdown' : 'application/pdf');
+        say(`Exported to Chat/Exports: ${made.name}`);
+        return;
+      } catch (e) {
+        if (!isMissingRoute(e)) throw e;
+      }
       const full = await client.getChat(chat.id);
       if (as === 'md') await shareFile(chatToMarkdown(full), exportName(full, 'md'), 'text/markdown');
       else await sharePdf(chatToHtml(full), exportName(full, 'pdf'));

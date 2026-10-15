@@ -12,7 +12,7 @@
  */
 import { Buffer } from 'node:buffer';
 
-import { handleFiles } from './mock-files.mjs';
+import { addExport, handleFiles } from './mock-files.mjs';
 
 const ago = (min) => new Date(Date.now() - min * 60_000).toISOString();
 const me = { id: 'u1', name: 'Ada Demir', email: 'ada@example.com' };
@@ -355,6 +355,11 @@ export async function handle(req, res) {
     const chat = chats.find((c) => c.id === m[1]);
     if (!chat) return json(res, 404, { detail: m[1] });
     const rest = m[2] || '';
+    if (rest === '/export' && req.method === 'POST') {
+      const fmt = JSON.parse(body.toString() || '{}').format === 'pdf' ? 'pdf' : 'md';
+      const lines = (chat.messages || []).map((x) => `## ${x.role === 'user' ? me.name : 'Answer'}\n\n${x.content}`);
+      return json(res, 200, addExport(chat.id, chat.title, fmt, `# ${chat.title}\n\n${lines.join('\n\n---\n\n')}\n`));
+    }
     if (rest === '/restore' && req.method === 'POST') {
       delete chat.deleted_at;
       return json(res, 200, { messages: [], ...chat });

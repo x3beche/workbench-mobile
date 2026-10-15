@@ -18,7 +18,7 @@ Status at the time of writing (October 2026), checked against
 | Voice (`POST /api/voice/transcribe`) | works once `backend/voice.py` is deployed | blocked by CORS (change 1) |
 | Archive, pin, trash, restore, delete forever (`PATCH`/`DELETE /api/cc/chats/{id}`, `/restore`, `/empty-trash`) | works | blocked by CORS (change 1) |
 | Files (`/api/files*`: list, folders, virtual tree, mini, PDF pages, upload, move, copy, trash) | works | blocked by CORS (change 1) |
-| Export a conversation | written on the phone (no server route: change 5) | same |
+| Export a conversation (`POST /api/cc/chats/{id}/export`, backend/chat_export.py; kept in Files > In the app > Chat/Exports, then downloaded) | works; an older server without it gets the app's own Markdown or a PDF printed on the phone | blocked by CORS (change 1) |
 
 ## 1. CORS and the cookie for a web build served from another origin (optional)
 
@@ -150,46 +150,7 @@ sends. Keep:
 The app shows the server's `detail` for 400, 502 and 503, and a plain
 "this server cannot transcribe voice yet" for a 404 (an older server).
 
-## 5. Export a conversation (optional, recommended)
-
-**Why.** The app's "Export as Markdown / PDF" (the "…" in a conversation's
-top bar) has no server route to call, so it reads the conversation
-(`GET /api/cc/chats/{id}`) and writes the Markdown itself
-(`src/lib/exportChat.ts`); the PDF is printed on the phone from an HTML page
-(expo-print) and, in a browser, through the print dialog. That works, but
-the web app cannot export at all, and two exports of the same conversation
-(phone and web, later) would differ. One route would serve both.
-
-**Change** (`backend/cc_chat.py`, beside `get_chat`):
-
-```python
-@router.get("/chats/{cid}/export")
-async def export_chat(cid: str, format: str = "md"):  # noqa: A002 - the query's name
-    """The conversation as a file to keep: Markdown (`md`) or a PDF (`pdf`),
-    each line with who wrote it and when, answers as they were written
-    (tool steps and the hidden context left out)."""
-    doc = await _load(cid)
-    lines = [f"# {doc.get('title') or 'Conversation'}", ""]
-    for m in doc.get("messages") or []:
-        who = (m.get("by") or {}).get("name") if m["role"] == "user" else (m.get("model") or "").split("/")[-1]
-        lines += [f"## {who or m['role']} · {str(m.get('at', ''))[:16].replace('T', ' ')}", "", m.get("content") or "", ""]
-    text = "\n".join(lines)
-    name = re.sub(r"[^\w\s-]", "", doc.get("title") or "Conversation").strip()[:60] or "Conversation"
-    if format == "pdf":
-        from . import pdfdoc                    # the PDF writer the drawings already use
-        data = await asyncio.to_thread(pdfdoc.markdown_pdf, text)   # new helper: Markdown -> PDF bytes
-        return Response(data, media_type="application/pdf",
-                        headers={"Content-Disposition": f'attachment; filename="{name}.pdf"'})
-    return Response(text, media_type="text/markdown; charset=utf-8",
-                    headers={"Content-Disposition": f'attachment; filename="{name}.md"'})
-```
-
-Access action `view` (as reading the conversation). Once it exists, the app
-would fetch it with the session and hand the bytes to the share sheet
-instead of writing the file itself; the phone-side writer stays for older
-servers (a 404 falls back to it).
-
-## 6. Files: smaller answers for a phone (optional)
+## 5. Files: smaller answers for a phone (optional)
 
 What the app asks today is what the web app's Files room asks, and it is
 all one workspace's: `GET /api/files` (every upload, up to 2000),
@@ -219,7 +180,7 @@ open. Three small changes would let the app read one folder at a time:
    downloaded whole to be shown on a 6-inch screen. The app shows
    `?inline=1` (the original) until then.
 
-## 7. The conversation trash's days (optional)
+## 6. The conversation trash's days (optional)
 
 `GET /api/cc/chats?trash=1` gives each conversation's `days_left`, but not
 how long the trash keeps them (`cc_chat.TRASH_DAYS`, 30), so the app says

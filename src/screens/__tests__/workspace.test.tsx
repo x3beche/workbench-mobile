@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 import { BackHandler } from 'react-native';
 
 import type { Chat, ChatScope, Ideas } from '../../api/types';
+import { ApiError } from '../../api/client';
 import * as share from '../../lib/share';
 import { STARTERS, suggestionsFrom, Workspace } from '../Workspace';
 
@@ -115,6 +116,14 @@ const mockClient = {
     mockTrash = [];
     return { deleted: n, kept: 0 };
   }),
+  exportChat: jest.fn(async (id: string, format: 'md' | 'pdf') => ({
+    id: `x-${format}`,
+    name: `Rail sag 2026-10-15.${format}`,
+    bytes: 10,
+    folder: 'Chat/Exports',
+    format,
+  })),
+  fileBlob: jest.fn(async () => ({ size: 10 }) as unknown as Blob),
   listFiles: jest.fn(async () => []),
   folders: jest.fn(async () => []),
   virtualTree: jest.fn(async () => ({ folders: [], files: [], links: [] })),
@@ -391,11 +400,35 @@ describe('workspace', () => {
     await fireEvent.press(screen.getByTestId('header-more'));
     expect(within(screen.getByTestId('chat-actions')).getByText('Unpin')).toBeTruthy();
 
+    // The server writes the file into Files (Chat/Exports); the phone shares what it wrote.
     await fireEvent.press(screen.getByTestId('action-export-md'));
-    expect(share.shareFile).toHaveBeenCalledWith(expect.stringContaining('# Rail sag'), 'Rail sag.md', 'text/markdown');
+    expect(mockClient.exportChat).toHaveBeenCalledWith('c1', 'md');
+    expect(mockClient.fileBlob).toHaveBeenCalledWith('x-md');
+    expect(share.shareFile).toHaveBeenCalledWith({ size: 10 }, 'Rail sag 2026-10-15.md', 'text/markdown');
+    await fireEvent.press(screen.getByTestId('header-more'));
+    await fireEvent.press(screen.getByTestId('action-export-pdf'));
+    expect(share.shareFile).toHaveBeenCalledWith({ size: 10 }, 'Rail sag 2026-10-15.pdf', 'application/pdf');
+    expect(share.sharePdf).not.toHaveBeenCalled();
+
+    // A server without the route: the app writes the Markdown, and prints the PDF on the phone.
+    mockClient.exportChat.mockRejectedValueOnce(new ApiError(405, 'Method Not Allowed'));
+    await fireEvent.press(screen.getByTestId('header-more'));
+    await fireEvent.press(screen.getByTestId('action-export-md'));
+    expect(share.shareFile).toHaveBeenLastCalledWith(
+      expect.stringContaining('# Rail sag'),
+      'Rail sag.md',
+      'text/markdown',
+    );
+    mockClient.exportChat.mockRejectedValueOnce(new ApiError(404, 'Not Found'));
     await fireEvent.press(screen.getByTestId('header-more'));
     await fireEvent.press(screen.getByTestId('action-export-pdf'));
     expect(share.sharePdf).toHaveBeenCalledWith(expect.stringContaining('<h1>Rail sag</h1>'), 'Rail sag.pdf');
+
+    // Anything else the server says is shown, and nothing is written here.
+    mockClient.exportChat.mockRejectedValueOnce(new ApiError(409, 'the conversation has no lines yet'));
+    await fireEvent.press(screen.getByTestId('header-more'));
+    await fireEvent.press(screen.getByTestId('action-export-md'));
+    expect(await screen.findByText('the conversation has no lines yet')).toBeTruthy();
 
     await fireEvent.press(screen.getByTestId('header-more'));
     await fireEvent.press(screen.getByTestId('action-delete'));

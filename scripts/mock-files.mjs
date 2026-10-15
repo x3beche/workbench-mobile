@@ -312,6 +312,18 @@ const out = (x) => ({ ...x });
 const trashOut = (t) => ({ ...t });
 const asked = new Map();
 
+/** A conversation exported (backend/chat_export.py): kept under Chat/Exports, the Chat's own, read-only. */
+export function addExport(cid, title, format, text) {
+  const day = new Date().toISOString().slice(0, 10);
+  const made = f(`x${next++}`, `${title} ${day}.${format}`, 'dexports', text.length, 0, { where: 'chat', ro: true });
+  if (!folders.some((d) => d.id === 'dexports'))
+    folders.push({ ...dir('dexports', 'Exports', 'dchat'), path: 'Chat/Exports', ro: true, where: 'chat' });
+  files.push(made);
+  TEXT[made.id] = text;
+  tree.links.push({ folder: `v:cc:${cid}`, file: made.id });
+  return { id: made.id, name: made.name, bytes: made.bytes, folder: 'Chat/Exports', format };
+}
+
 export function handleFiles(req, res, p, url, body) {
   const json = () => JSON.parse(body.toString() || '{}');
   const m = req.method;

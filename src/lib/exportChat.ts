@@ -1,8 +1,9 @@
 /**
  * A conversation written out to keep or send: Markdown as it was said, or an
- * HTML page (for a PDF) with the answers' Markdown laid out. The server has
- * no export route (SERVER-CHANGES.md), so the app writes these from the
- * conversation it reads (GET /api/cc/chats/{id}). Pure.
+ * HTML page (for a PDF) with the answers' Markdown laid out - for a server
+ * without its own export (POST /api/cc/chats/{id}/export, backend/chat_export.py,
+ * which the app uses first). Written from the conversation it reads
+ * (GET /api/cc/chats/{id}). Pure.
  */
 import type { Chat, ChatMessage } from '../api/types';
 import { parseMarkdown, type Block, type Inline } from './markdown';

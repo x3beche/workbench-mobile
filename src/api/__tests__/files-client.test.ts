@@ -1,4 +1,4 @@
-import { CSRF_HEADER, WorkbenchClient } from '../client';
+import { ApiError, CSRF_HEADER, isMissingRoute, WorkbenchClient } from '../client';
 import { fakeFetch, jsonResponse } from './fakes';
 
 const BASE = 'https://wb.example';
@@ -69,6 +69,27 @@ describe('conversations: archive, pins and the trash', () => {
       `DELETE ${BASE}/api/cc/chats/c1?forever=1`,
       `POST ${BASE}/api/cc/chats/empty-trash`,
     ]);
+  });
+});
+
+describe('exporting a conversation', () => {
+  it('asks the server to write it, as Markdown or a PDF', async () => {
+    const f = fakeFetch(() =>
+      jsonResponse(200, { id: 'x1', name: 'Rail 2026-10-15.pdf', bytes: 9, folder: 'Chat/Exports', format: 'pdf' }),
+    );
+    const got = await new WorkbenchClient(BASE, { fetch: f.fetch }).exportChat('c1', 'pdf');
+    expect(got.id).toBe('x1');
+    expect(f.calls[0].url).toBe(`${BASE}/api/cc/chats/c1/export`);
+    expect(f.calls[0].init.method).toBe('POST');
+    expect(headersOf(f.calls[0].init)[CSRF_HEADER]).toBe('1');
+    expect(JSON.parse(f.calls[0].init.body as string)).toEqual({ format: 'pdf', lang: 'en' });
+  });
+
+  it('tells a server without the route from a conversation that is gone', () => {
+    expect(isMissingRoute(new ApiError(405, 'Method Not Allowed'))).toBe(true);
+    expect(isMissingRoute(new ApiError(404, 'Not Found'))).toBe(true);
+    expect(isMissingRoute(new ApiError(404, 'no such conversation'))).toBe(false);
+    expect(isMissingRoute(new ApiError(409, 'the conversation has no lines yet'))).toBe(false);
   });
 });
 

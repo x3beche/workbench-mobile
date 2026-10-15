@@ -73,6 +73,21 @@ export type AudioFile = { uri: string; name: string; type: string } | { blob: Bl
 
 export type VoiceLang = 'auto' | 'tr' | 'en';
 
+/** A conversation exported by the server: the file it kept in Files. */
+export interface ExportedFile {
+  id: string;
+  name: string;
+  bytes: number;
+  folder: string;
+  format: 'md' | 'pdf';
+  pages?: number;
+}
+
+/** The answer of a route this server does not have (an older server): 405, or FastAPI's own 404. */
+export function isMissingRoute(e: unknown): boolean {
+  return e instanceof ApiError && (e.status === 405 || (e.status === 404 && e.message === 'Not Found'));
+}
+
 /** A row's small picture (GET /api/files/{id}/mini): ready, still being made, or none for this file. */
 export type Mini = { state: 'ready'; uri: string } | { state: 'later'; seconds: number } | { state: 'none' };
 
@@ -241,6 +256,18 @@ export class WorkbenchClient {
   /** Gone for good, from the trash or straight away. */
   removeForever(id: string): Promise<{ deleted: string; forever: boolean }> {
     return this.request('DELETE', `/api/cc/chats/${encodeURIComponent(id)}?forever=1`);
+  }
+
+  /**
+   * The conversation written out by the server (backend/chat_export.py):
+   * Markdown or a PDF in the document theme, kept in Files under
+   * In the app > Chat/Exports and answered with that file, to download.
+   */
+  exportChat(id: string, format: 'md' | 'pdf', lang: 'en' | 'tr' = 'en'): Promise<ExportedFile> {
+    return this.request<ExportedFile>('POST', `/api/cc/chats/${encodeURIComponent(id)}/export`, {
+      format,
+      lang,
+    });
   }
 
   /** Everything in the trash one may delete, gone for good; `kept` counts the rest. */
