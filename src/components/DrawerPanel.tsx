@@ -20,7 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { WorkbenchClient } from '../api/client';
+import { CHAT_TRASH_DAYS, type WorkbenchClient } from '../api/client';
 import { displayServer } from '../api/server';
 import type { Chat, ChatScope, User } from '../api/types';
 import { filterChats, groupChats, groupOf, initials, rowTime } from '../lib/groups';
@@ -84,6 +84,8 @@ export function DrawerPanel({
   const [refreshing, setRefreshing] = useState(false);
   const [focused, setFocused] = useState(false);
   const input = useRef<TextInput>(null);
+  // The server's own days once its trash was listed (X-Trash-Days), else its default.
+  const trashDays = client?.chatTrashDays ?? CHAT_TRASH_DAYS;
 
   // Titles are searched here at once; what was said in them, by the server once typing pauses.
   useEffect(() => {
@@ -214,7 +216,7 @@ export function DrawerPanel({
             </View>
           ) : scope === 'trash' && chats?.length && !q.trim() && onEmptyTrash ? (
             <View style={s.trashHead}>
-              <Text style={s.trashNote}>Kept 30 days, then deleted for good.</Text>
+              <Text style={s.trashNote}>Kept {trashDays} days, then deleted for good.</Text>
               <Button label="Empty trash" variant="danger" onPress={onEmptyTrash} testID="empty-trash" />
             </View>
           ) : null
@@ -229,7 +231,7 @@ export function DrawerPanel({
           ) : !error ? (
             <Text style={s.empty}>
               {scope === 'trash'
-                ? 'The trash is empty. Deleted conversations stay here 30 days.'
+                ? `The trash is empty. Deleted conversations stay here ${trashDays} days.`
                 : scope === 'archived'
                   ? 'Nothing archived. A swipe to the left on a conversation archives it.'
                   : 'No conversations yet. Conversations started on the web show here too.'}

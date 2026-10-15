@@ -24,10 +24,13 @@ import type {
   TrashFile,
   UploadPart,
   User,
+  VirtualFolder,
   VirtualTree,
 } from './types';
 
 export const CSRF_HEADER = 'x-redline-csrf';
+/** The conversation trash's days when the server does not say (cc_chat.TRASH_DAYS). */
+export const CHAT_TRASH_DAYS = 30;
 const TIMEOUT_MS = 20_000;
 const UPLOAD_TIMEOUT_MS = 180_000;
 
@@ -123,6 +126,8 @@ export interface SayHandlers {
 
 export class WorkbenchClient {
   private readonly fetchImpl: FetchLike;
+  /** How many days the server's conversation trash keeps one: its own word once the trash was listed, else the default. */
+  chatTrashDays = CHAT_TRASH_DAYS;
 
   constructor(
     readonly base: string,
@@ -136,6 +141,16 @@ export class WorkbenchClient {
   }
 
   async request<T>(method: string, path: string, body?: unknown, timeoutMs = TIMEOUT_MS): Promise<T> {
+    return (await this.requestFull<T>(method, path, body, timeoutMs)).data;
+  }
+
+  /** As `request`, with the answer's headers too. */
+  async requestFull<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    timeoutMs = TIMEOUT_MS,
+  ): Promise<{ data: T; headers: Headers | null }> {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), timeoutMs);
     const headers: Record<string, string> = { Accept: 'application/json' };
@@ -158,7 +173,7 @@ export class WorkbenchClient {
     } finally {
       clearTimeout(timer);
     }
-    return this.read<T>(res, path);
+    return { data: await this.read<T>(res, path), headers: res.headers ?? null };
   }
 
   private async read<T>(res: Response, path: string): Promise<T> {
@@ -211,10 +226,16 @@ export class WorkbenchClient {
    * was said in them. `scope` is the live ones, the archived ones, or the
    * trash (newest deleted first).
    */
-  listChats(q = '', scope: ChatScope = 'live'): Promise<Chat[]> {
+  async listChats(q = '', scope: ChatScope = 'live'): Promise<Chat[]> {
     const find = q.trim() ? `&q=${encodeURIComponent(q.trim())}` : '';
     const which = scope === 'trash' ? 'trash=1' : scope === 'archived' ? 'archived=1' : 'archived=0';
-    return this.request<Chat[]>('GET', `/api/cc/chats?${which}${find}`);
+    const got = await this.requestFull<Chat[]>('GET', `/api/cc/chats?${which}${find}`);
+    if (scope === 'trash') {
+      // How long the trash keeps one (X-Trash-Days); an older server does not say.
+      const days = Number(got.headers?.get('x-trash-days'));
+      if (Number.isFinite(days) && days > 0) this.chatTrashDays = days;
+    }
+    return got.data;
   }
 
   getChat(id: string): Promise<Chat> {
@@ -346,9 +367,14 @@ export class WorkbenchClient {
 
   // ---- files --------------------------------------------------------------
 
-  /** Every upload of the workspace; the app's own (In the app) carry `where`. */
-  listFiles(): Promise<StoredFile[]> {
-    return this.request<StoredFile[]>('GET', '/api/files');
+  /**
+   * Every upload of the workspace; the app's own (In the app) carry `where`.
+   * `own` asks for one's own only (`?area=own`); an older server ignores it
+   * and answers all of them, so the caller still keeps only those without
+   * `where` (lib/files.ts mine).
+   */
+  listFiles(own = false): Promise<StoredFile[]> {
+    return this.request<StoredFile[]>('GET', own ? '/api/files?area=own' : '/api/files');
   }
 
   folders(): Promise<FileFolder[]> {
@@ -358,6 +384,22 @@ export class WorkbenchClient {
   /** The read-only folders: Projects, Chat, Parts, Agents, Taste. */
   virtualTree(): Promise<VirtualTree> {
     return this.request<VirtualTree>('GET', '/api/files/virtual');
+  }
+
+  /**
+   * One read-only folder ("" the roots), with the uploads its links refer
+   * to (`?under=`). An older server ignores `under` and answers the whole
+   * tree: that comes back as `{ tree }`, for the caller to work as before.
+   */
+  async virtualFolder(under: string): Promise<{ folder: VirtualFolder } | { tree: VirtualTree }> {
+    const got = await this.request<VirtualFolder | VirtualTree>(
+      'GET',
+      `/api/files/virtual?under=${encodeURIComponent(under)}`,
+    );
+    if (got && typeof (got as VirtualFolder).under === 'string' && Array.isArray((got as VirtualFolder).linked)) {
+      return { folder: got as VirtualFolder };
+    }
+    return { tree: got as VirtualTree };
   }
 
   filesTrash(): Promise<{ days: number; files: TrashFile[] }> {
@@ -427,6 +469,23 @@ export class WorkbenchClient {
   /** The address of a file's bytes (`inline` to show it rather than save it). */
   fileUrl(id: string, inline = false): string {
     return this.url(`/api/files/${encodeURIComponent(id)}${inline ? '?inline=1' : ''}`);
+  }
+
+  /**
+   * A picture made `px` a side at most by the server (GET
+   * /api/files/{id}/thumb?px=, one of its sizes), as a data: URI - so a
+   * photo is not downloaded whole to be shown on a phone. null when the
+   * server has no such size (an older one answers its small grid picture
+   * without `X-Thumb-Px`, or 404/400/422): show the original instead.
+   */
+  async previewUri(id: string, px: number): Promise<string | null> {
+    const path = `/api/files/${encodeURIComponent(id)}/thumb?px=${Math.round(px)}`;
+    const res = await this.send(path, { headers: { Accept: 'image/webp,image/jpeg,image/*' } });
+    if (!res.ok || !res.headers.get('x-thumb-px')) {
+      if (res.status === 401) this.deps.onUnauthorized?.();
+      return null;
+    }
+    return blobToDataUri(await res.blob());
   }
 
   /** Page n (from 1) of a PDF as a picture, drawn by the server. */

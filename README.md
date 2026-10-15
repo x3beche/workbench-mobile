@@ -96,7 +96,11 @@ Then you sign in with the same e-mail address and password as on the web.
   files for what the app made. The "+" uploads from the phone's files,
   photos or camera into the open folder, or makes a folder. What a role
   may not do is not offered (a viewer only looks), and when the server
-  refuses, its own words are shown.
+  refuses, its own words are shown. A newer server answers a phone with
+  less: only one's own uploads, In the app a folder at a time, and a large
+  photo at the screen's size instead of the original
+  (`/api/files?area=own`, `/api/files/virtual?under=`,
+  `/api/files/{id}/thumb?px=`); an older server is read as before.
 - **A conversation**: the model's name at the top, tapped to choose another;
   New chat at the right. Your lines are bubbles on the right; answers run the
   full width under the model's name, with Markdown (headings, lists, code

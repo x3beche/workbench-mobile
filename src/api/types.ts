@@ -170,6 +170,8 @@ export interface FileFolder {
   ro?: boolean;
   root?: boolean;
   where?: string;
+  /** What a read-only folder holds itself, when the server read it one folder at a time (`?under=`). */
+  count?: { folders: number; files: number };
 }
 
 /** GET /api/files/virtual: the read-only folders, their own files, and which uploads they refer to. */
@@ -177,6 +179,21 @@ export interface VirtualTree {
   folders: FileFolder[];
   files: StoredFile[];
   links: { folder: string; file: string }[];
+}
+
+/**
+ * GET /api/files/virtual?under=: one read-only folder ("" the roots) - the
+ * folders in it, each with what it holds itself (`count`), its own files,
+ * its links and the uploads they refer to (`linked`), and the way to it
+ * from the top (`trail`).
+ */
+export interface VirtualFolder {
+  under: string;
+  trail: { id: string; name: string }[];
+  folders: FileFolder[];
+  files: StoredFile[];
+  links: { folder: string; file: string }[];
+  linked: StoredFile[];
 }
 
 /** A file in Files' trash (GET /api/files/trash). */

@@ -1,6 +1,7 @@
-import type { FileFolder, StoredFile, VirtualTree } from '../../api/types';
+import type { FileFolder, StoredFile, VirtualFolder, VirtualTree } from '../../api/types';
 import {
   appAt,
+  appMissing,
   countIn,
   crumbs,
   folderChoices,
@@ -8,6 +9,7 @@ import {
   iconOf,
   mayDelete,
   mineAt,
+  previewWorth,
   rightsOf,
   search,
   searchTrash,
@@ -171,5 +173,67 @@ describe('how a file is shown', () => {
     expect(size(512)).toBe('512 B');
     expect(size(2048)).toBe('2.0 kB');
     expect(size(5 * 1024 * 1024)).toBe('5.0 MB');
+  });
+});
+
+describe('In the app, one folder at a time (a newer server)', () => {
+  const roots: VirtualFolder = {
+    under: '',
+    trail: [],
+    folders: [
+      folder('v:projects', 'Projects', '', { root: true, ro: true, count: { folders: 3, files: 0 } }),
+      folder('v:chat', 'Chat', '', { root: true, ro: true, count: { folders: 2, files: 0 } }),
+    ],
+    files: [],
+    links: [],
+    linked: [],
+  };
+  const talk: VirtualFolder = {
+    under: 'v:cc:1',
+    trail: [
+      { id: 'v:chat', name: 'Chat' },
+      { id: 'v:cc:1', name: 'Alpha talk' },
+    ],
+    folders: [],
+    files: [],
+    links: [
+      { folder: 'v:cc:1', file: 'c9' },
+      { folder: 'v:cc:1', file: 'gone' },
+    ],
+    linked: [file('c9', 'chat-photo.jpg', 'chatfolder', { where: 'chat', preview: 'image', kind: 'image' })],
+  };
+  const lean: FilesData = { files: [], folders: [], tree: null, app: { '': roots, 'v:cc:1': talk } };
+
+  it('lists what was read, the uploads from the folder’s own rows, read-only', () => {
+    expect(appAt(lean, '').folders.map((f) => f.name)).toEqual(['Projects', 'Chat']);
+    expect(appAt(lean, 'v:cc:1').files.map((f) => [f.id, f.ro])).toEqual([['c9', true]]);
+    expect(crumbs(lean, 'app', 'v:cc:1').map((c) => c.name)).toEqual(['In the app', 'Chat', 'Alpha talk']);
+  });
+
+  it('counts a folder as the server counted it until it is read', () => {
+    expect(countIn(lean, 'app', 'v:chat', { folders: 2, files: 0 })).toBe('2 folders');
+    expect(countIn(lean, 'app', 'v:cc:1', { folders: 0, files: 9 })).toBe('1 file');
+  });
+
+  it('knows which folders are still to be read', () => {
+    expect(appMissing(lean, 'v:chat')).toBe(true);
+    expect(appMissing(lean, 'v:cc:1')).toBe(false);
+    expect(appMissing({ ...lean, tree }, 'v:chat')).toBe(false);
+    expect(appMissing(data, 'v:chat')).toBe(false);
+  });
+
+  it('searches every upload once the whole tree was read for it', () => {
+    const all = { ...lean, tree, every: data.files };
+    expect(search(all, 'app', 'photo').files.map((f) => f.id)).toEqual(['c9']);
+  });
+});
+
+describe('a picture’s sized copy', () => {
+  it('is asked for a large picture only, never for a GIF', () => {
+    const big = { preview: 'image' as const, kind: 'image', bytes: 5_000_000 };
+    expect(previewWorth({ name: 'a.jpg', ...big })).toBe(true);
+    expect(previewWorth({ name: 'a.gif', ...big })).toBe(false);
+    expect(previewWorth({ name: 'a.jpg', ...big, bytes: 90_000 })).toBe(false);
+    expect(previewWorth({ name: 'a.pdf', preview: 'pdf', bytes: 5_000_000 })).toBe(false);
   });
 });

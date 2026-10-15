@@ -127,6 +127,7 @@ const mockClient = {
   listFiles: jest.fn(async () => []),
   folders: jest.fn(async () => []),
   virtualTree: jest.fn(async () => ({ folders: [], files: [], links: [] })),
+  virtualFolder: jest.fn(async () => ({ tree: { folders: [], files: [], links: [] } })),
   filesTrash: jest.fn(async () => ({ days: 30, files: [] })),
   stop: jest.fn(async () => ({ stopped: true })),
 };

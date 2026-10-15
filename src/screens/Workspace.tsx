@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-import { ApiError, isMissingRoute, type VoiceLang } from '../api/client';
+import { ApiError, CHAT_TRASH_DAYS, isMissingRoute, type VoiceLang } from '../api/client';
 import type { Chat, ChatScope, Ideas } from '../api/types';
 import { AccountSheet } from '../components/AccountSheet';
 import { Appear } from '../components/Appear';
@@ -459,7 +459,7 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
       {ask?.what === 'delete' ? (
         <Dialog
           title="Delete this conversation?"
-          text={`“${ask.chat.title}” goes to the trash. It can be restored from Trash for 30 days, then it is deleted for good.`}
+          text={`“${ask.chat.title}” goes to the trash. It can be restored from Trash for ${client?.chatTrashDays ?? CHAT_TRASH_DAYS} days, then it is deleted for good.`}
           confirm="Delete"
           danger
           onCancel={() => setAsk(null)}

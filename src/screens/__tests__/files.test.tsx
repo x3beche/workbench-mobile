@@ -53,6 +53,9 @@ const client = {
     files: [file('v:ms:1', 'board.step', 'v:pf:a', { ro: true, kind: 'step', preview: 'step' })],
     links: [],
   })),
+  // An older server by default: `?under=` ignored, the whole tree; no sized pictures.
+  virtualFolder: jest.fn(async () => ({ tree: await client.virtualTree() })),
+  previewUri: jest.fn(async () => null),
   filesTrash: jest.fn(async () => ({ days: 30, files: trash })),
   mini: jest.fn(async (id: string) =>
     id === 'f2' ? { state: 'ready', uri: 'data:image/webp;base64,AAAA' } : { state: 'none' },
@@ -283,5 +286,85 @@ describe('Files', () => {
     await fireEvent.press(screen.getByTestId('action-delete'));
     await fireEvent.press(screen.getByTestId('dialog-confirm'));
     expect(await screen.findByText('as reviewer you cannot delete')).toBeTruthy();
+  });
+
+  describe('a newer server', () => {
+    const roots = {
+      under: '',
+      trail: [],
+      folders: [
+        folder('v:projects', 'Projects', '', { root: true, ro: true, count: { folders: 1, files: 0 } }),
+        folder('v:chat', 'Chat', '', { root: true, ro: true, count: { folders: 1, files: 0 } }),
+      ],
+      files: [],
+      links: [],
+      linked: [],
+    };
+    const chat = {
+      under: 'v:chat',
+      trail: [{ id: 'v:chat', name: 'Chat' }],
+      folders: [folder('v:cc:1', 'Rail check', 'v:chat', { ro: true, count: { folders: 0, files: 1 } })],
+      files: [],
+      links: [],
+      linked: [],
+    };
+    const talk = {
+      under: 'v:cc:1',
+      trail: [
+        { id: 'v:chat', name: 'Chat' },
+        { id: 'v:cc:1', name: 'Rail check' },
+      ],
+      folders: [],
+      files: [],
+      links: [{ folder: 'v:cc:1', file: 'c1' }],
+      linked: [file('c1', 'from-chat.jpg', 'x', { where: 'chat', ro: true })],
+    };
+
+    beforeEach(() => {
+      const byId: Record<string, unknown> = { '': roots, 'v:chat': chat, 'v:cc:1': talk };
+      (client.virtualFolder as jest.Mock).mockImplementation(async (id: string) => ({ folder: byId[id] }));
+      (client.listFiles as jest.Mock).mockImplementation(async (own?: boolean) => (own ? files.filter((f) => !f.where) : files));
+    });
+
+    it('reads one’s own uploads only, and In the app a folder at a time with the server’s counts', async () => {
+      await show();
+      expect(client.listFiles).toHaveBeenCalledWith(true);
+      expect(client.virtualFolder).toHaveBeenCalledWith('');
+      await fireEvent.press(screen.getByTestId('files-tabs-app'));
+      expect(within(screen.getByTestId('files-list')).getAllByText('1 folder')).toHaveLength(2);
+      await fireEvent.press(screen.getByTestId('file-row-d:v:chat'));
+      await act(async () => undefined);
+      expect(client.virtualFolder).toHaveBeenLastCalledWith('v:chat');
+      expect(screen.getByText('1 file')).toBeTruthy();
+      await fireEvent.press(screen.getByTestId('file-row-d:v:cc:1'));
+      await act(async () => undefined);
+      expect(screen.getByTestId('file-row-f:c1')).toBeTruthy();
+      expect(client.virtualTree).not.toHaveBeenCalled();
+      expect(client.listFiles).not.toHaveBeenCalledWith();
+    });
+
+    it('reads everything once for a search of In the app', async () => {
+      await show();
+      await fireEvent.press(screen.getByTestId('files-tabs-app'));
+      await fireEvent.press(screen.getByTestId('files-search-open'));
+      await fireEvent.changeText(screen.getByTestId('files-search'), 'board');
+      await act(async () => undefined);
+      expect(client.virtualTree).toHaveBeenCalledTimes(1);
+      expect(await screen.findByTestId('file-row-f:v:ms:1')).toBeTruthy();
+    });
+
+    it('shows a large picture as the server’s sized copy, the original when it has none', async () => {
+      files = [file('f2', 'scope.png', '', { preview: 'image', kind: 'image', bytes: 6_000_000 })];
+      (client.previewUri as jest.Mock).mockResolvedValueOnce('data:image/webp;base64,AAAA');
+      await show();
+      await fireEvent.press(screen.getByTestId('file-row-f:f2'));
+      await act(async () => undefined);
+      expect(client.previewUri).toHaveBeenCalledWith('f2', expect.any(Number));
+      expect(screen.getByTestId('preview-image').props.source).toEqual({ uri: 'data:image/webp;base64,AAAA' });
+      await fireEvent.press(screen.getByTestId('preview-close'));
+      await fireEvent.press(screen.getByTestId('file-row-f:f2'));
+      await act(async () => undefined);
+      expect(screen.getByTestId('preview-image').props.source).toEqual({ uri: 'https://wb/api/files/f2?inline=1' });
+    });
   });
 });

@@ -11,6 +11,7 @@ import {
   FlatList,
   Image,
   Modal,
+  PixelRatio,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,7 +29,7 @@ import { Download, Ellipsis, Share, X } from '../components/icons';
 import { Markdown } from '../components/Markdown';
 import { ActionList, Sheet, type Action } from '../components/Sheet';
 import { Button, ErrorText, IconButton } from '../components/ui';
-import { size, viewerOf } from '../lib/files';
+import { previewWorth, size, viewerOf } from '../lib/files';
 import { canSave } from '../lib/share';
 import { shortTime } from '../lib/time';
 import { colors, fonts, gutter, motion, radius, space, type } from '../theme/tokens';
@@ -165,20 +166,47 @@ function Failed({ text, onRetry }: { text: string; onRetry?: () => void }) {
   );
 }
 
+/**
+ * A picture, as large as the screen shows it: the server's copy at the
+ * screen's size (GET /thumb?px=) when the original is large, else - or from
+ * a server without sizes, or when that copy fails - the original.
+ */
 function Picture({ client, file, onFail }: { client: WorkbenchClient | null; file: StoredFile; onFail: () => void }) {
   const [loaded, setLoaded] = useState(false);
+  // A small picture is shown as it is, at once; a large one waits for the server's copy.
+  const [shown, setShown] = useState<{ uri: string; sized: boolean } | null>(() =>
+    client && !previewWorth(file) ? { uri: client.fileUrl(file.id, true), sized: false } : null,
+  );
+  const { width, height } = useWindowDimensions();
+  const px = Math.round(Math.max(width, height) * PixelRatio.get());
+  useEffect(() => {
+    if (!client || !previewWorth(file)) return;
+    const original = { uri: client.fileUrl(file.id, true), sized: false };
+    let live = true;
+    client.previewUri(file.id, px).then(
+      (uri) => live && setShown(uri ? { uri, sized: true } : original),
+      () => live && setShown(original),
+    );
+    return () => {
+      live = false;
+    };
+    // The screen turning does not fetch it again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, file.id]);
   if (!client) return null;
   return (
     <View style={s.flex}>
-      <Image
-        testID="preview-image"
-        source={{ uri: client.fileUrl(file.id, true) }}
-        style={s.flex}
-        resizeMode="contain"
-        onLoad={() => setLoaded(true)}
-        onError={onFail}
-        accessibilityLabel={file.name}
-      />
+      {shown ? (
+        <Image
+          testID="preview-image"
+          source={{ uri: shown.uri }}
+          style={s.flex}
+          resizeMode="contain"
+          onLoad={() => setLoaded(true)}
+          onError={() => (shown.sized ? setShown({ uri: client.fileUrl(file.id, true), sized: false }) : onFail())}
+          accessibilityLabel={file.name}
+        />
+      ) : null}
       {!loaded ? (
         <View style={StyleSheet.absoluteFill}>
           <Waiting label="Loading the picture" />

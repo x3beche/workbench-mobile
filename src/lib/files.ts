@@ -6,10 +6,15 @@
  *   In the app  the read-only folders (GET /api/files/virtual): their own
  *               files, and the uploads their folders refer to (`links`)
  *
+ * A server that answers one read-only folder at a time (`?under=`) is read
+ * so: `app` holds the folders read so far, each with the uploads it refers
+ * to, and `files` only one's own (`?area=own`). An older server's whole tree
+ * and every upload (`every`) are read as before, and for a search.
+ *
  * A file whose folder is gone, or from before folders, is at the top of My
  * files. Pure: no network, no React.
  */
-import type { FileFolder, StoredFile, TrashFile, VirtualTree, Who } from '../api/types';
+import type { FileFolder, StoredFile, TrashFile, VirtualFolder, VirtualTree, Who } from '../api/types';
 
 export type Side = 'mine' | 'app' | 'trash';
 
@@ -19,9 +24,20 @@ export interface Listing {
 }
 
 export interface FilesData {
+  /** One's own uploads - or every upload, from an older server. */
   files: StoredFile[];
   folders: FileFolder[];
+  /** The whole read-only tree: an older server's, or read for a search. */
   tree: VirtualTree | null;
+  /** Read-only folders read one at a time, by id ("" the roots). */
+  app?: Record<string, VirtualFolder>;
+  /** Every upload, the app's own too, when the whole tree is read. */
+  every?: StoredFile[];
+}
+
+/** Is this read-only folder still to be read from a server that answers one at a time? */
+export function appMissing(data: FilesData, here: string): boolean {
+  return !!data.app && !data.app[here] && !data.tree;
 }
 
 const byName = (a: { name: string }, b: { name: string }) =>
@@ -49,10 +65,20 @@ export function mineAt(data: FilesData, here: string): Listing {
 
 /** What is in a read-only folder; "" is the list of roots (Projects, Chat, Parts, ...). */
 export function appAt(data: FilesData, here: string): Listing {
+  const one = data.app?.[here];
+  if (one) {
+    const real = new Map(one.linked.map((f) => [f.id, f]));
+    const dirs = one.folders.filter((f) => (here ? !f.root : !!f.root));
+    if (here && here !== 'v:chat') dirs.sort(byName);
+    const files = [...one.files, ...one.links.map((l) => real.get(l.file)).filter((f): f is StoredFile => !!f)].map(
+      (f) => ({ ...f, ro: true }),
+    );
+    return { folders: dirs, files: files.sort(byName) };
+  }
   const tree = data.tree;
   if (!tree) return { folders: [], files: [] };
   if (!here) return { folders: tree.folders.filter((f) => f.root), files: [] };
-  const real = new Map(data.files.map((f) => [f.id, f]));
+  const real = new Map((data.every ?? data.files).map((f) => [f.id, f]));
   const dirs = tree.folders.filter((f) => !f.root && f.parent === here);
   // The conversations keep the server's order (the latest first); the rest go by name.
   if (here !== 'v:chat') dirs.sort(byName);
@@ -70,6 +96,8 @@ export function appAt(data: FilesData, here: string): Listing {
 export function crumbs(data: FilesData, side: Side, here: string): { id: string; name: string }[] {
   const top = { id: '', name: side === 'app' ? 'In the app' : side === 'trash' ? 'Deleted files' : 'My files' };
   if (!here || side === 'trash') return [top];
+  const one = side === 'app' ? data.app?.[here] : undefined;
+  if (one?.trail.length) return [top, ...one.trail];
   const all = side === 'app' ? (data.tree?.folders ?? []) : data.folders;
   const byId = new Map(all.map((f) => [f.id, f]));
   const out: { id: string; name: string }[] = [];
@@ -90,7 +118,10 @@ export function search(data: FilesData, side: Side, q: string): Listing {
   const hit = (name: string) => name.toLowerCase().includes(words);
   if (side === 'app') {
     const linked = new Set(data.tree?.links.map((l) => l.file) ?? []);
-    const files = [...(data.tree?.files ?? []), ...data.files.filter((f) => linked.has(f.id) || !!f.where)];
+    const files = [
+      ...(data.tree?.files ?? []),
+      ...(data.every ?? data.files).filter((f) => linked.has(f.id) || !!f.where),
+    ];
     const seen = new Set<string>();
     return {
       folders: (data.tree?.folders ?? []).filter((f) => !f.root && hit(f.name)).sort(byName),
@@ -113,9 +144,18 @@ export function searchTrash(files: TrashFile[], q: string): TrashFile[] {
   return words ? files.filter((f) => f.name.toLowerCase().includes(words)) : files;
 }
 
-/** How many folders and files a folder of My files holds directly - "3 folders, 12 files". */
-export function countIn(data: FilesData, side: Side, id: string): string {
-  const got = side === 'app' ? appAt(data, id) : mineAt(data, id);
+/**
+ * How many folders and files a folder holds directly - "3 folders, 12
+ * files" - counted here, or as the server counted a read-only folder it
+ * answered one at a time (`count`).
+ */
+export function countIn(data: FilesData, side: Side, id: string, count?: FileFolder['count']): string {
+  const got =
+    side === 'app' && count && !data.app?.[id]
+      ? { folders: { length: count.folders }, files: { length: count.files } }
+      : side === 'app'
+        ? appAt(data, id)
+        : mineAt(data, id);
   const parts: string[] = [];
   if (got.folders.length) parts.push(plural(got.folders.length, 'folder'));
   if (got.files.length || !got.folders.length) parts.push(plural(got.files.length, 'file'));
@@ -245,6 +285,18 @@ export function hasMini(f: { name: string; preview?: string }): boolean {
   if (f.preview === 'image') return ext !== 'svg';
   if (f.preview === 'pdf' || f.preview === 'step') return true;
   return f.preview === 'mesh' && (ext === 'stl' || ext === 'glb');
+}
+
+/** Below this a picture is shown as it is: a sized copy would save little. */
+export const PREVIEW_MIN_BYTES = 400 * 1024;
+
+/**
+ * Is a picture worth asking the server for a copy at the screen's size
+ * (GET /api/files/{id}/thumb?px=)? A large one, yes; a GIF keeps its
+ * movement, and a small one comes as it is.
+ */
+export function previewWorth(f: { name: string; preview?: string; kind?: string; bytes?: number }): boolean {
+  return viewerOf(f) === 'image' && extOf(f.name) !== 'gif' && (f.bytes ?? 0) >= PREVIEW_MIN_BYTES;
 }
 
 /** How the app shows a file: as a picture, PDF pages, text, a table, or not at all (another app opens it). */

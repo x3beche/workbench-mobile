@@ -4,6 +4,8 @@ The app talks to an unchanged Workbench server (redline-studio). Everything it
 needs on Android and iOS works today; this file lists what would make it work
 in more places, or more robustly, and the exact change proposed for each.
 None of these are made by this repository - they belong in redline-studio.
+Sections 5 and 6 are made there now; the app uses them and falls back for
+an older server.
 
 Status at the time of writing (October 2026), checked against
 `backend/main.py`, `backend/auth.py`, `backend/cc_chat.py` and
@@ -150,41 +152,38 @@ sends. Keep:
 The app shows the server's `detail` for 400, 502 and 503, and a plain
 "this server cannot transcribe voice yet" for a 404 (an older server).
 
-## 5. Files: smaller answers for a phone (optional)
+## 5. Files: smaller answers for a phone - done
 
-What the app asks today is what the web app's Files room asks, and it is
-all one workspace's: `GET /api/files` (every upload, up to 2000),
-`GET /api/files/folders` and `GET /api/files/virtual` (the whole read-only
-tree). On a phone with many files that is several hundred kB on every
-open. Three small changes would let the app read one folder at a time:
+Made in redline-studio (October 2026, `backend/files_api.py`,
+`backend/files_virtual.py`, `backend/file_minis.py`, tests in
+`tests/test_files_mobile.py`), and used by the app from 1.2.1:
 
-1. `files_api.files_list`: an `area` query - `own` keeps only one's own
-   uploads (what `files_virtual.area_of` calls `own`), so the app does not
-   download the Chat's and Parts' files to drop them. The `folder` filter
-   already exists in `files.listing`.
+1. `GET /api/files?area=own` answers only one's own uploads (My files). The
+   app asks for that; an older server ignores the query and answers every
+   upload, and the app keeps only those without `where`, as before.
+2. `GET /api/files/virtual?under=<folder>` (`""` the roots) answers one
+   read-only folder: `{under, trail, folders, files, links, linked}` - the
+   folders directly in it, each with `count: {folders, files}`, its own
+   files, its links, the rows of the uploads the links refer to (`linked`,
+   as `GET /api/files` lists them) and the way to it from the top
+   (`trail`). The app reads In the app a folder at a time, and the whole
+   tree and every upload only once, for a search there. An older server
+   answers the whole tree (no `under` in the answer): the app then works
+   as before.
+3. `GET /api/files/{id}/thumb?px=<n>` (16-4096) is a picture at the next
+   of 320, 800 or 1600 px (never larger than the picture; turned upright,
+   without its metadata), WebP or `fmt=jpeg`, made once and kept by
+   content beside the row pictures (`file_minis`), with `ETag` and
+   `X-Thumb-Px`; for whoever may read the file, Deleted files too; 404 for
+   a file that is not a picture. `GET /api/files` says the sizes in
+   `X-Thumb-Sizes`. The app's preview asks for the screen's size for a
+   picture of 400 kB or more (not a GIF); without `X-Thumb-Px` in the
+   answer (an older server answers its 480 px grid picture), or on an
+   error, it shows the original (`?inline=1`).
 
-   ```diff
-   -async def files_list(q: str = "", kind: str = "", board: str = "", folder: str | None = None):
-   +async def files_list(q: str = "", kind: str = "", board: str = "", folder: str | None = None, area: str = ""):
-        tops = await files_virtual.folder_tops(_db())
-        out = [{**file_out(d), **_owner_of(d, tops)} for d in await files.listing(_db(), q=q, kind=kind, board=board, folder=folder)]
-   +    if area == "own":
-   +        out = [f for f in out if not f.get("where")]
-   ```
+## 6. The conversation trash's days - done
 
-2. `files_api.files_virtual_tree`: an `under` query that answers only the
-   folders and files directly under one read-only folder
-   (`{folders, files, links}` filtered by `parent`/`folder` == `under`).
-3. A size for previews: `GET /api/files/{id}/thumb?px=1600` (today the
-   thumb is fixed at 480 px, `files.thumb_of`), so a 12 MB photo is not
-   downloaded whole to be shown on a 6-inch screen. The app shows
-   `?inline=1` (the original) until then.
-
-## 6. The conversation trash's days (optional)
-
-`GET /api/cc/chats?trash=1` gives each conversation's `days_left`, but not
-how long the trash keeps them (`cc_chat.TRASH_DAYS`, 30), so the app says
-"Kept 30 days" as a fixed sentence. Files' trash answers
-`{days, files}`; the same field on the chat side - a response header
-`X-Trash-Days: 30` on that list, which keeps the list's shape - would let
-the sentence follow the server.
+`GET /api/cc/chats?trash=1` answers `X-Trash-Days: 30`
+(`cc_chat.TRASH_DAYS`), and keeps the list's shape. The app's "Kept N
+days" lines and the delete question follow it once the trash was listed;
+an older server's trash is said to keep them 30 days, as before.

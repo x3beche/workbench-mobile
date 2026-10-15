@@ -54,6 +54,7 @@ import { Tabs } from '../components/Tabs';
 import { Button, ErrorText, Glyph, IconButton } from '../components/ui';
 import {
   appAt,
+  appMissing,
   countIn,
   crumbs,
   folderChoices,
@@ -144,17 +145,32 @@ export const FilesScreen = forwardRef<
     return () => clearTimeout(t);
   }, [toast]);
 
+  const hereRef = useRef(here);
+  useEffect(() => {
+    hereRef.current = here;
+  }, [here]);
+
+  // One's own uploads, the folders, and the read-only folder open in In the
+  // app - one at a time from a server that answers so (`?under=`); an older
+  // one answers the whole tree, and every upload with `?area=own` ignored.
   const load = useCallback((): Promise<void> => {
     if (!client) return Promise.resolve();
+    const appHere = hereRef.current.app;
     return Promise.all([
-      client.listFiles(),
+      client.listFiles(true),
       client.folders(),
       // An older server without the read-only folders still has My files.
-      client.virtualTree().catch(() => null),
+      client.virtualFolder(appHere).catch(() => null),
     ]).then(
-      ([files, folders, tree]) => {
+      ([files, folders, got]) => {
         if (!mounted.current) return;
-        setData({ files, folders, tree });
+        setData(
+          !got
+            ? { files, folders, tree: null }
+            : 'folder' in got
+              ? { files, folders, tree: null, app: { [appHere]: got.folder } }
+              : { files, folders, tree: got.tree, every: files },
+        );
         setError(null);
       },
       (e) => {
@@ -178,6 +194,50 @@ export const FilesScreen = forwardRef<
   useEffect(() => {
     load();
   }, [load]);
+
+  // A read-only folder not read yet, from a server that answers one at a time.
+  const missing = !!data && side === 'app' && appMissing(data, here.app);
+  useEffect(() => {
+    if (!client || !missing) return;
+    const id = here.app;
+    let live = true;
+    client.virtualFolder(id).then(
+      (got) => {
+        if (!live || !mounted.current) return;
+        setData((d) =>
+          !d
+            ? d
+            : 'folder' in got
+              ? { ...d, app: { ...d.app, [id]: got.folder } }
+              : { ...d, tree: got.tree, every: d.files },
+        );
+      },
+      (e) => {
+        if (live && mounted.current) setError(errText(e, 'This folder could not be read.'));
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [client, missing, here.app]);
+
+  // A search of In the app looks through everything: the whole tree and every upload, read once.
+  const wantAll = !!data && side === 'app' && !!q.trim() && !data.tree;
+  useEffect(() => {
+    if (!client || !wantAll) return;
+    let live = true;
+    Promise.all([client.virtualTree(), client.listFiles()]).then(
+      ([tree, every]) => {
+        if (live && mounted.current) setData((d) => (d ? { ...d, tree, every } : d));
+      },
+      (e) => {
+        if (live && mounted.current) setError(errText(e, 'Files could not be searched.'));
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [client, wantAll]);
 
   useEffect(() => {
     if (side === 'trash') loadTrash();
@@ -417,7 +477,7 @@ export const FilesScreen = forwardRef<
     const meta =
       item.kind === 'folder'
         ? data
-          ? countIn(data, side, item.folder.id)
+          ? countIn(data, side, item.folder.id, item.folder.count)
           : ''
         : item.kind === 'trash'
           ? [
@@ -472,7 +532,7 @@ export const FilesScreen = forwardRef<
     );
   };
 
-  const loading = side === 'trash' ? trash === null : data === null;
+  const loading = side === 'trash' ? trash === null : data === null || missing || wantAll;
   const canUpload = rights.change && side === 'mine' && !q.trim();
 
   return (
