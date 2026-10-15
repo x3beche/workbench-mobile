@@ -71,8 +71,7 @@
         "expo-image-picker",
         {
           "photosPermission": "Workbench reads the photos you pick, to upload them to Files.",
-          "cameraPermission": "Workbench uses the camera only when you take a photo to upload to Files.",
-          "microphonePermission": false
+          "cameraPermission": "Workbench uses the camera only when you take a photo to upload to Files."
         }
       ],
       "expo-sharing"
