@@ -12,6 +12,7 @@ const puppeteer = require('puppeteer');
 const LIVE = process.env.LIVE_URL || 'http://localhost:8090';
 const MOCK = process.env.MOCK_URL || 'http://localhost:8091';
 const OUT = process.env.OUT || '/out';
+let last = null;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const tid = (id) => `[data-testid="${id}"]`;
 
@@ -33,6 +34,20 @@ async function byText(page, text) {
     text,
   );
   return h.asElement();
+}
+
+/** A finger swiping a row sideways by dx (touch events, as on a phone). */
+async function swipe(page, selector, dx) {
+  const box = await (await page.$(selector)).boundingBox();
+  const y = box.y + box.height / 2;
+  const x0 = dx < 0 ? box.x + box.width - 30 : box.x + 30;
+  await page.touchscreen.touchStart(x0, y);
+  for (let i = 1; i <= 12; i++) {
+    await page.touchscreen.touchMove(x0 + (dx * i) / 12, y);
+    await sleep(16);
+  }
+  await page.touchscreen.touchEnd();
+  await sleep(600);
 }
 
 async function newPage(browser) {
@@ -129,6 +144,21 @@ async function connect(page, base, address) {
   await page.click('[aria-label="Close"]');
   await sleep(300);
 
+  // A swipe to the left on a row shows Archive and Delete.
+  await swipe(page, tid('chat-c2'), -170);
+  await shot(page, '22-drawer-swipe');
+  await swipe(page, tid('chat-c2'), 170);
+
+  // Archived and Trash, as tabs over the list.
+  await page.click(tid('chat-scope-archived'));
+  await page.waitForSelector(tid('chat-a1'), { visible: true, timeout: 5000 });
+  await shot(page, '24-archived');
+  await page.click(tid('chat-scope-trash'));
+  await page.waitForSelector(tid('empty-trash'), { visible: true, timeout: 5000 });
+  await shot(page, '25-trash');
+  await page.click(tid('chat-scope-live'));
+  await page.waitForSelector(tid('chat-c1'), { visible: true, timeout: 5000 });
+
   await page.click(tid('open-account'));
   await page.waitForSelector(tid('account-sheet'), { timeout: 5000 });
   await (await byText(page, 'Türkçe')).click();
@@ -147,6 +177,12 @@ async function connect(page, base, address) {
   });
   await sleep(300);
   await shot(page, '06-chat');
+  // The top bar's "…": rename, pin, archive, export, delete.
+  await page.click(tid('header-more'));
+  await page.waitForSelector(tid('chat-actions'), { timeout: 5000 });
+  await shot(page, '23-header-menu');
+  await page.click('[aria-label="Close"]');
+  await sleep(300);
   // A tool step opened, and the code block copied.
   await page.click(tid('step-s2'));
   await page.$eval(tid('chat-list'), (e) => {
@@ -159,7 +195,9 @@ async function connect(page, base, address) {
   await shot(page, '06b-chat-code');
 
   // A wide window (a tablet, a desktop browser): the drawer is a column that stays open.
-  const wide = await newPage(browser);
+  // Its scrollbars show, as a desktop browser's do (puppeteer hides them unless told not to).
+  const desktop = await puppeteer.launch({ ignoreDefaultArgs: ['--hide-scrollbars'], args: ['--no-sandbox'] });
+  const wide = await newPage(desktop);
   await wide.setViewport({ width: 900, height: 860, deviceScaleFactor: 1 });
   const goWide = await connect(wide, MOCK, new URL(MOCK).host);
   await goWide();
@@ -169,6 +207,21 @@ async function connect(page, base, address) {
   await wide.click(tid('chat-c1'));
   await wide.waitForFunction(() => document.body.innerText.includes('BLM18PG221SN1'), { timeout: 10000 });
   await shot(wide, '21-wide-chat');
+  // The web build's scrollbars are the web app's: thin, a faint thumb on no track, brighter under the pointer.
+  await wide.click(tid('open-files'));
+  await wide.waitForSelector(tid('file-row-d:d2'), { timeout: 10000 });
+  await wide.click(tid('file-row-d:d2'));
+  await wide.waitForSelector(tid('thumb-p0'), { timeout: 10000 });
+  await sleep(800);
+  await wide.$eval(tid('files-list'), (e) => {
+    e.scrollTop = 420;
+    e.dispatchEvent(new Event('scroll'));
+  });
+  const list = await (await wide.$(tid('files-list'))).boundingBox();
+  await wide.mouse.move(list.x + list.width / 2, list.y + 200);
+  await sleep(500);
+  await shot(wide, '34-wide-scrollbar');
+  await desktop.close();
 
   // Sending: the line goes up at once, three dots wait for the answer, a tool runs, then the text comes.
   await page.type(tid('composer-input'), 'Would a 1 A bead be enough, or do I need a different layout?');
@@ -228,9 +281,65 @@ async function connect(page, base, address) {
   await page.click(tid('open-models'));
   await page.waitForFunction(() => document.body.innerText.includes('Claude Haiku 4.5'), { timeout: 10000 });
   await shot(page, '08-model-picker');
+  await page.click('[aria-label="Close"]');
+  await sleep(300);
+
+  // ---- Files ----
+  last = page;
+  await page.click(tid('open-drawer'));
+  await page.waitForSelector(tid('open-files'), { visible: true, timeout: 5000 });
+  await sleep(500); // the drawer settles
+  await page.click(tid('open-files'));
+  await page.waitForSelector(tid('thumb-f1'), { timeout: 10000 });
+  await sleep(2600); // the STEP's picture is made on the first ask (202), then shown
+  await shot(page, '26-files');
+  await page.click(tid('file-more-f:f2'));
+  await page.waitForSelector(tid('file-actions'), { timeout: 5000 });
+  await shot(page, '33-file-actions');
+  await page.click('[aria-label="Close"]');
+  await sleep(300);
+  await page.click(tid('files-add'));
+  await page.waitForSelector(tid('upload-sheet'), { timeout: 5000 });
+  await shot(page, '30-upload-sheet');
+  await page.click('[aria-label="Close"]');
+  await sleep(300);
+
+  await page.click(tid('file-row-d:d1'));
+  await page.waitForSelector(tid('thumb-f5'), { timeout: 10000 });
+  await sleep(500);
+  await shot(page, '27-files-folder');
+  await page.click(tid('file-row-f:f5'));
+  await page.waitForSelector(tid('pdf-page-2'), { timeout: 10000 });
+  await sleep(1200);
+  await shot(page, '29-preview-pdf');
+  await page.click(tid('preview-close'));
+  await sleep(300);
+  await page.click(tid('crumb-top'));
+  await page.waitForSelector(tid('file-row-f:f1'), { timeout: 5000 });
+  await page.click(tid('file-row-f:f1'));
+  await page.waitForSelector(tid('preview-image'), { timeout: 10000 });
+  await sleep(1200);
+  await shot(page, '28-preview-image');
+  await page.click(tid('preview-close'));
+  await sleep(300);
+
+  await page.click(tid('files-tabs-app'));
+  await page.waitForSelector(tid('file-row-d:v:projects'), { timeout: 5000 });
+  await page.click(tid('file-row-d:v:projects'));
+  await page.waitForSelector(tid('file-row-d:v:pf:sensor'), { timeout: 5000 });
+  await page.click(tid('file-row-d:v:pf:sensor'));
+  await page.waitForSelector(tid('thumb-v:ba:layers'), { timeout: 10000 });
+  await sleep(2600);
+  await shot(page, '32-files-in-the-app');
+
+  await page.click(tid('files-tabs-trash'));
+  await page.waitForSelector(tid('file-row-t:t1'), { timeout: 5000 });
+  await sleep(800);
+  await shot(page, '31-files-deleted');
 
   await browser.close();
-})().catch((e) => {
+})().catch(async (e) => {
   console.error(e);
+  if (last) await last.screenshot({ path: `${OUT}/zz-failed.png` }).catch(() => undefined);
   process.exit(1);
 });

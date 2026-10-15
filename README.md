@@ -27,7 +27,26 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/01-server.png" width="200" alt="Choosing a server">
 </p>
 <p>
+  <img src="docs/screenshots/26-files.png" width="200" alt="Files: My files with the server's thumbnails">
+  <img src="docs/screenshots/27-files-folder.png" width="200" alt="A folder, with the way back above the list">
+  <img src="docs/screenshots/29-preview-pdf.png" width="200" alt="A PDF read as the server draws its pages">
+  <img src="docs/screenshots/28-preview-image.png" width="200" alt="A picture opened">
+</p>
+<p>
+  <img src="docs/screenshots/30-upload-sheet.png" width="200" alt="Upload from the phone's files, photos or camera">
+  <img src="docs/screenshots/33-file-actions.png" width="200" alt="What can be done with a file">
+  <img src="docs/screenshots/32-files-in-the-app.png" width="200" alt="In the app: what Workbench keeps, read-only">
+  <img src="docs/screenshots/31-files-deleted.png" width="200" alt="Deleted files, kept 30 days">
+</p>
+<p>
+  <img src="docs/screenshots/22-drawer-swipe.png" width="200" alt="A swipe to the left on a conversation: Archive and Delete">
+  <img src="docs/screenshots/23-header-menu.png" width="200" alt="The conversation's menu: rename, pin, archive, export, delete">
+  <img src="docs/screenshots/24-archived.png" width="200" alt="Archived conversations">
+  <img src="docs/screenshots/25-trash.png" width="200" alt="The trash: restore or delete forever">
+</p>
+<p>
   <img src="docs/screenshots/21-wide-chat.png" width="520" alt="On a wide screen the drawer is a column that stays open">
+  <img src="docs/screenshots/34-wide-scrollbar.png" width="520" alt="The web build's thin scrollbars, as the web app draws them">
 </p>
 
 ## What it does
@@ -48,13 +67,32 @@ Then you sign in with the same e-mail address and password as on the web.
   swipe to the right), follows the finger and springs open or shut; the
   conversation dims behind it. A tap on the dimmed side, a swipe to the
   left or Back puts it away. At its top: search (titles at once, what was
-  said in them from the server) and New chat; then the conversations by
-  Pinned, Today, Yesterday, Previous 7 days and Older, one line each, the
-  open one in heavier, brighter ink (pull to refresh). A long press on one
-  offers Rename, Archive and Delete (into the server's trash). At the
-  bottom, the account opens Account: the server, the voice language,
-  Change server and Sign out. On a screen 860 px or wider the drawer is a
-  column that stays open.
+  said in them from the server) and New chat; then Chats, Archived and
+  Trash as three tabs, and the conversations by Pinned, Today, Yesterday,
+  Previous 7 days and Older, one line each, the open one in heavier,
+  brighter ink (pull to refresh). A swipe to the left on a row shows
+  Archive and Delete (Unarchive in Archived; Restore and Delete forever
+  in Trash, with Empty trash above the list); Delete asks first and puts
+  the conversation in the server's trash, kept 30 days. A long press, or
+  the "…" in a conversation's top bar, offers everything: Rename, Pin or
+  Unpin, Archive, Export as Markdown or PDF (to the share sheet), Delete.
+  At the bottom: Files, and the account, which opens Account: the server,
+  the voice language, Change server and Sign out. On a screen 860 px or
+  wider the drawer is a column that stays open.
+- **Files**, as on the web: My files (one's own folders and uploads), In
+  the app (what Workbench keeps - projects, the Chat's files, Parts,
+  agents - read-only) and Deleted (kept 30 days, with Restore). Folders
+  open in place with the way back above the list; each row has the
+  server's small picture (a photo, a PDF's first page, a model's view;
+  `GET /api/files/{id}/mini`, asked again while the server makes it), its
+  size and date. A tap opens a file: pictures, PDFs (the server draws the
+  pages), Markdown, text and code, and tables in the app; anything else
+  goes to another app through the share sheet. A long press or the row's
+  "…": Share, Save to phone (Android), Rename, Move, Delete, or Save to My
+  files for what the app made. The "+" uploads from the phone's files,
+  photos or camera into the open folder, or makes a folder. What a role
+  may not do is not offered (a viewer only looks), and when the server
+  refuses, its own words are shown.
 - **A conversation**: the model's name at the top, tapped to choose another;
   New chat at the right. Your lines are bubbles on the right; answers run the
   full width under the model's name, with Markdown (headings, lists, code
@@ -80,7 +118,8 @@ Then you sign in with the same e-mail address and password as on the web.
   conversation open before, then leaves the app.
 
 The device keeps only the server list, the last e-mail address and the last
-open conversation per server, and the voice language. Never a password. The session is the server's own
+open conversation per server, and the voice language. Never a password. A
+file shared or saved is written to the app's cache first, then handed over. The session is the server's own
 HttpOnly cookie, kept by the platform's cookie store.
 
 ## Run it
@@ -123,7 +162,8 @@ TARGET=https://workbench.example.com node scripts/dev-proxy.mjs
 ```
 
 `MOCK=1 node scripts/dev-proxy.mjs` answers from a made-up server instead
-(`scripts/mock-api.mjs`, no account needed); add `MOCK_HOLD=1` to leave
+(`scripts/mock-api.mjs`, no account needed, with archived and deleted
+conversations, and Files from `scripts/mock-files.mjs`); add `MOCK_HOLD=1` to leave
 answers half-written, or `MOCK_SIGNIN=1` to start signed out (the password
 `mock` signs in, any other is refused).
 
@@ -167,6 +207,9 @@ drawn by `scripts/make-icons.js` from the web app's section mark.
 | Stop | `POST /api/cc/chats/{id}/stop` |
 | Models | `GET /api/llm/settings` (providers with a key), `GET /api/llm/models?provider=` |
 | Voice | `POST /api/voice/transcribe` multipart `audio`, `lang`, `purpose` |
+| Archive, pin, trash | `GET /api/cc/chats?archived=1` / `?trash=1`, `PATCH .../{id}` (`archived`, `pinned`), `POST .../{id}/restore`, `DELETE .../{id}?forever=1`, `POST /api/cc/chats/empty-trash` |
+| What the account may do | `GET /api/auth/state` (`can`: `draw` to change files, `delete` for anyone's) |
+| Files | `GET /api/files`, `/api/files/folders`, `/api/files/virtual` (In the app), `/api/files/trash`; `GET /api/files/{id}?inline=1` (Range for text), `/mini` (202 while it is made), `/pdf?pages=1` (the page count), `/pdf/page/{n}.png`, `/table`; `POST /api/files` (multipart `upload`, `folder`), `PATCH /api/files/{id}` (name), `DELETE /api/files/{id}` (to Deleted), `POST /api/files/move`, `POST /api/files/{id}/copy` (Save to My files), `POST /api/files/trash/restore` and `/purge`, `POST`/`PATCH`/`DELETE /api/files/folders` |
 
 Every request that changes something carries `x-redline-csrf: 1`. React
 Native has no `EventSource` and no streaming `fetch` body, so the event
@@ -181,12 +224,15 @@ src/
   api/                  server address, HTTP client, SSE reader, types
   state/session.tsx     server -> sign-in -> app
   storage/prefs.ts      recent servers, last e-mail, voice language
-  screens/              Server, Login, Workspace (drawer + conversation), Chat
-  components/           Drawer, DrawerPanel, Markdown, MessageItem, Composer, RecordingBar,
-                        sheets and dialogs, icons (Lucide), controls
-  lib/                  Markdown parser, answer-stream reducer, day groups, tool steps, times
+  screens/              Server, Login, Workspace (drawer + conversation or Files), Chat,
+                        Files, FilePreview
+  components/           Drawer, DrawerPanel, SwipeRow, Tabs, FileThumb, Markdown, MessageItem,
+                        Composer, RecordingBar, sheets and dialogs, icons (Lucide), controls
+  lib/                  Markdown parser, answer-stream reducer, day groups, tool steps, times,
+                        Files (what each side shows, rights), chat export, share (native / web)
   voice/                recorder hook and its pure helpers
   theme/tokens.ts       Spartan Dark, copied from the web app's styles.css
+  theme/scrollbars*     the web build's scrollbars, as the web app's (thin, faint thumb, no track)
 scripts/                dev proxy, screenshots, Android build
 ```
 
@@ -197,7 +243,9 @@ The theme is the web app's Spartan Dark token for token
 in IBM Plex Sans and Plex Mono like the web app. Type: titles 17-20, body 16,
 meta 12-13. Flat surfaces with 1 px hairlines; a chosen option or the open
 conversation is shown by weight and ink, not a fill; no coloured stripes, no
-emoji; recording is a small red dot and a timer. Icons are Lucide line icons
+emoji; recording is a small red dot and a timer. Scrollbars on the web
+build are the web app's (thin, a faint rounded thumb on no track, brighter
+under the pointer); phones keep their own overlay indicator, white on iOS. Icons are Lucide line icons
 (`components/icons.ts`), the same family of plain line drawings as the web
 app, drawn as vectors. The wordmark is the web app's section mark (a vector,
 `components/Mark.tsx`) beside the name.

@@ -7,8 +7,12 @@
  * gets a wrong-password answer (for the sign-in screenshots).
  * An answer starts after a short wait (the typing dots), runs two tools
  * (`steps` events), then writes its text a word at a time.
+ * Conversations can be archived, deleted into the trash and restored; Files
+ * (scripts/mock-files.mjs) has My files, In the app and Deleted files.
  */
 import { Buffer } from 'node:buffer';
+
+import { handleFiles } from './mock-files.mjs';
 
 const ago = (min) => new Date(Date.now() - min * 60_000).toISOString();
 const me = { id: 'u1', name: 'Ada Demir', email: 'ada@example.com' };
@@ -142,7 +146,58 @@ const chats = [
     count: 12,
     updated_at: ago(60 * 24 * 40),
   },
+  {
+    id: 'a1',
+    title: 'Old enclosure, rev A',
+    archived: true,
+    last: { role: 'assistant', text: 'Rev A walls were 1.2 mm; the snap fits cracked.' },
+    count: 8,
+    updated_at: ago(60 * 24 * 21),
+  },
+  {
+    id: 'a2',
+    title: 'Supplier quotes, spring',
+    archived: true,
+    last: { role: 'assistant', text: 'JLC was cheapest at 100 units.' },
+    count: 6,
+    updated_at: ago(60 * 24 * 60),
+  },
+  {
+    id: 'a3',
+    title: 'LoRa range test',
+    archived: true,
+    pinned: true,
+    last: { role: 'assistant', text: '2.1 km line of sight at SF9.' },
+    count: 11,
+    updated_at: ago(60 * 24 * 33),
+  },
+  {
+    id: 't1',
+    title: 'Scratch: resistor dividers',
+    deleted_at: ago(60 * 24),
+    last: { role: 'assistant', text: '' },
+    count: 2,
+    updated_at: ago(60 * 24 * 2),
+  },
+  {
+    id: 't2',
+    title: 'Test conversation',
+    deleted_at: ago(60 * 24 * 12),
+    last: { role: 'assistant', text: '' },
+    count: 1,
+    updated_at: ago(60 * 24 * 13),
+  },
 ].map((c) => ({ provider: 'openrouter', model: MODEL, by: me, created_at: c.updated_at, ...c }));
+
+/** Whole days left in the trash, as the server counts them (30 from when it was deleted). */
+function inTrash(c) {
+  const left = 30 - (Date.now() - new Date(c.deleted_at).getTime()) / 86_400_000;
+  return {
+    ...c,
+    purge_at: new Date(Date.now() + left * 86_400_000).toISOString(),
+    days_left: Math.max(0, Math.ceil(left)),
+  };
+}
 
 const MODELS = [
   { id: 'anthropic/claude-sonnet-4.5', name: 'Claude Sonnet 4.5', context: 200000 },
@@ -189,6 +244,7 @@ export async function handle(req, res) {
       needs_setup: false,
       user,
       role: user ? 'owner' : null,
+      can: user ? ['view', 'draw', 'run', 'edit', 'delete', 'tokens', 'space', 'settings', 'users'] : [],
       must_change_password: false,
     });
   }
@@ -222,8 +278,20 @@ export async function handle(req, res) {
   }
   if (p === '/api/cc/chats' && req.method === 'GET') {
     const q = (url.searchParams.get('q') || '').toLowerCase();
+    const trashed = url.searchParams.get('trash') === '1';
+    const archived = url.searchParams.get('archived') === '1';
+    if (trashed) {
+      return json(
+        res,
+        200,
+        chats
+          .filter((c) => c.deleted_at && (!q || c.title.toLowerCase().includes(q)))
+          .sort((a, b) => b.deleted_at.localeCompare(a.deleted_at))
+          .map(({ messages, ...c }) => inTrash(c)),
+      );
+    }
     const shown = chats
-      .filter((c) => !c.archived)
+      .filter((c) => !c.deleted_at && !!c.archived === archived)
       .filter(
         (c) =>
           !q ||
@@ -276,11 +344,26 @@ export async function handle(req, res) {
       seconds: 7.4,
     });
   }
+  if (p === '/api/cc/chats/empty-trash' && req.method === 'POST') {
+    const n = chats.filter((c) => c.deleted_at).length;
+    for (let i = chats.length - 1; i >= 0; i--) if (chats[i].deleted_at) chats.splice(i, 1);
+    return json(res, 200, { deleted: n, kept: 0 });
+  }
+  if (p.startsWith('/api/files') && handleFiles(req, res, p, url, body)) return;
   const m = p.match(/^\/api\/cc\/chats\/([^/]+)(\/.*)?$/);
   if (m) {
     const chat = chats.find((c) => c.id === m[1]);
     if (!chat) return json(res, 404, { detail: m[1] });
     const rest = m[2] || '';
+    if (rest === '/restore' && req.method === 'POST') {
+      delete chat.deleted_at;
+      return json(res, 200, { messages: [], ...chat });
+    }
+    if (!rest && req.method === 'DELETE' && url.searchParams.get('forever') === '1') {
+      chats.splice(chats.indexOf(chat), 1);
+      return json(res, 200, { deleted: chat.id, forever: true });
+    }
+    if (chat.deleted_at) return json(res, 404, { detail: m[1] });
     if (!rest && req.method === 'GET')
       return json(res, 200, { messages: [], ...chat, count: chat.messages?.length ?? chat.count });
     if (!rest && req.method === 'PATCH') {
@@ -288,7 +371,7 @@ export async function handle(req, res) {
       return json(res, 200, chat);
     }
     if (!rest && req.method === 'DELETE') {
-      chats.splice(chats.indexOf(chat), 1);
+      chat.deleted_at = ago(0);
       return json(res, 200, { deleted: chat.id, trash: true, days: 30 });
     }
     if (rest === '/stop') {
