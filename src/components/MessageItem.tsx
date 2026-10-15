@@ -5,8 +5,9 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import type { ChatMessage } from '../api/types';
 import type { Writing } from '../lib/answer';
 import { clock } from '../lib/time';
-import { colors, fonts, radius, type } from '../theme/tokens';
+import { colors, fonts, gutter, radius, type } from '../theme/tokens';
 import { Markdown } from './Markdown';
+import { wrapAnywhere } from './ui';
 
 function Thinking({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
@@ -28,7 +29,7 @@ export const MessageItem = memo(function MessageItem({ m, mine }: { m: ChatMessa
           {clock(m.at)}
         </Text>
         <View style={s.bubble}>
-          <Text style={s.userText} selectable>
+          <Text style={[s.userText, wrapAnywhere]} selectable>
             {m.content}
           </Text>
         </View>
@@ -63,7 +64,11 @@ export function WritingItem({ w, model }: { w: Writing; model?: string }) {
         </Text>
         {!w.error ? <ActivityIndicator size="small" color={colors.inkDim} /> : null}
       </View>
-      {w.thinking && !w.text ? <Text style={s.think} numberOfLines={4}>{w.thinking}</Text> : null}
+      {w.thinking && !w.text ? (
+        <Text style={s.think} numberOfLines={4}>
+          {w.thinking}
+        </Text>
+      ) : null}
       {w.text ? <Markdown text={w.text} /> : null}
       {w.error ? <Text style={s.error}>{w.error}</Text> : null}
     </View>
@@ -71,7 +76,7 @@ export function WritingItem({ w, model }: { w: Writing; model?: string }) {
 }
 
 const s = StyleSheet.create({
-  msg: { gap: 6, paddingHorizontal: 16, paddingVertical: 10 },
+  msg: { gap: 6, paddingHorizontal: gutter, paddingVertical: 10 },
   user: { alignItems: 'flex-end' },
   bubble: {
     maxWidth: '88%',
@@ -90,8 +95,20 @@ const s = StyleSheet.create({
   whoRight: { textAlign: 'right' },
   whoName: { fontFamily: fonts.mono, color: colors.ink },
   writingHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  thinkHead: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim, textDecorationLine: 'underline' },
-  think: { fontFamily: fonts.sansItalic, fontSize: type.tiny + 0.5, lineHeight: 18, color: colors.inkDim, marginTop: 4 },
+  thinkHead: {
+    fontFamily: fonts.sans,
+    fontSize: type.tiny,
+    color: colors.inkDim,
+    textDecorationLine: 'underline',
+    paddingVertical: 8,
+  },
+  think: {
+    fontFamily: fonts.sansItalic,
+    fontSize: type.tiny + 0.5,
+    lineHeight: 18,
+    color: colors.inkDim,
+    marginTop: 4,
+  },
   error: { fontFamily: fonts.sans, fontSize: type.small, color: colors.danger },
   note: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
 });

@@ -3,6 +3,7 @@ import { memo, useMemo } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { parseMarkdown, type Block, type Inline } from '../lib/markdown';
+import { wrapAnywhere } from './ui';
 import { colors, fonts, radius, type } from '../theme/tokens';
 
 function Inlines({ nodes }: { nodes: Inline[] }) {
@@ -57,7 +58,7 @@ function BlockView({ b }: { b: Block }) {
       );
     case 'paragraph':
       return (
-        <Text style={s.p} selectable>
+        <Text style={[s.p, wrapAnywhere]} selectable>
           <Inlines nodes={b.children} />
         </Text>
       );
@@ -76,7 +77,7 @@ function BlockView({ b }: { b: Block }) {
           {b.items.map((item, i) => (
             <View key={i} style={s.item}>
               <Text style={[s.p, s.marker]}>{b.ordered ? `${b.start + i}.` : '•'}</Text>
-              <Text style={[s.p, s.itemText]} selectable>
+              <Text style={[s.p, s.itemText, wrapAnywhere]} selectable>
                 <Inlines nodes={item} />
               </Text>
             </View>

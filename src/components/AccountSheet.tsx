@@ -5,8 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { VoiceLang } from '../api/client';
 import { displayServer } from '../api/server';
 import { useSession } from '../state/session';
-import { colors, fonts, type } from '../theme/tokens';
+import { colors, fonts, gutter, motion, type } from '../theme/tokens';
 import { VOICE_LANGS } from '../voice/voice';
+import { Appear } from './Appear';
 import { Choice } from './Choice';
 import { Button } from './ui';
 
@@ -24,41 +25,43 @@ export function AccountSheet({
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose}>
       <Pressable style={s.scrim} onPress={onClose} accessibilityLabel="Close" />
-      <SafeAreaView edges={['bottom']} style={s.sheet}>
-        <View style={s.block}>
-          <Text style={s.name} numberOfLines={1}>
-            {user?.name || user?.email || 'Local mode'}
-          </Text>
-          {user?.email && user?.name ? <Text style={s.dim}>{user.email}</Text> : null}
-          <Text style={s.mono} numberOfLines={1}>
-            {server ? displayServer(server) : ''}
-          </Text>
-        </View>
-        <View style={s.block}>
-          <Text style={s.label}>Voice language</Text>
-          <Choice label="Voice language" options={VOICE_LANGS} value={lang} onChange={onLang} />
-        </View>
-        <View style={s.actions}>
-          <Button
-            label="Change server"
-            onPress={() => {
-              onClose();
-              changeServer();
-            }}
-          />
-          {user ? (
+      <Appear from="below" fill={false} duration={motion.sheet}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={s.sheet}>
+          <View style={s.block}>
+            <Text style={s.name} numberOfLines={1}>
+              {user?.name || user?.email || 'Local mode'}
+            </Text>
+            {user?.email && user?.name ? <Text style={s.dim}>{user.email}</Text> : null}
+            <Text style={s.mono} numberOfLines={1}>
+              {server ? displayServer(server) : ''}
+            </Text>
+          </View>
+          <View style={s.block}>
+            <Text style={s.label}>Voice language</Text>
+            <Choice label="Voice language" options={VOICE_LANGS} value={lang} onChange={onLang} />
+          </View>
+          <View style={s.actions}>
             <Button
-              testID="sign-out"
-              label="Sign out"
-              variant="danger"
+              label="Change server"
               onPress={() => {
                 onClose();
-                signOut();
+                changeServer();
               }}
             />
-          ) : null}
-        </View>
-      </SafeAreaView>
+            {user ? (
+              <Button
+                testID="sign-out"
+                label="Sign out"
+                variant="danger"
+                onPress={() => {
+                  onClose();
+                  signOut();
+                }}
+              />
+            ) : null}
+          </View>
+        </SafeAreaView>
+      </Appear>
     </Modal>
   );
 }
@@ -69,8 +72,8 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface2,
     borderTopWidth: 1,
     borderTopColor: colors.line,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: gutter,
+    paddingTop: gutter + 4,
     paddingBottom: 12,
     gap: 20,
   },
