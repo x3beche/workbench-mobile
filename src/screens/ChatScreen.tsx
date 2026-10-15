@@ -4,29 +4,48 @@
  * while someone's answer is being written follows it on GET /live.
  */
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type VoiceLang } from '../api/client';
 import type { Chat, ChatEvent, ChatMessage } from '../api/types';
 import { Composer } from '../components/Composer';
 import { Header } from '../components/Header';
+import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { MessageItem, WritingItem } from '../components/MessageItem';
 import { ModelSheet } from '../components/ModelSheet';
 import { Button, ErrorText } from '../components/ui';
 import { VoiceNoteSheet } from '../components/VoiceNoteSheet';
 import { applyEvent, type ConversationView } from '../lib/answer';
 import { useSession } from '../state/session';
-import { colors, fonts, type } from '../theme/tokens';
+import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
 
 type Action = { kind: 'load'; chat: Chat } | { kind: 'event'; ev: ChatEvent };
 
 function reducer(view: ConversationView, a: Action): ConversationView {
   if (a.kind === 'load') {
-    return { title: a.chat.title, messages: a.chat.messages ?? [], writing: a.chat.gen ? view.writing : null, stale: false };
+    return {
+      title: a.chat.title,
+      messages: a.chat.messages ?? [],
+      writing: a.chat.gen ? view.writing : null,
+      stale: false,
+    };
   }
   return applyEvent(view, a.ev);
 }
+
+/** Closer to the end than this counts as being at the end: the list follows new lines. */
+export const END_SLACK = 72;
 
 /** This app's own name on the stream, so its answer can be told from others'. */
 const CLIENT = `mobile-${Math.random().toString(36).slice(2, 10)}`;
@@ -47,6 +66,11 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
   const [models, setModels] = useState(false);
   const [voiceNote, setVoiceNote] = useState(false);
   const list = useRef<FlatList<ChatMessage>>(null);
+  // Following the end: new lines and the answer being written scroll into
+  // view, until the person scrolls up to read; then a control brings them back.
+  const atEnd = useRef(true);
+  const lastY = useRef(0);
+  const [away, setAway] = useState(false);
   const streams = useRef(new Set<AbortController>());
   const mounted = useRef(true);
   const loadRef = useRef<() => void>(() => undefined);
@@ -104,6 +128,7 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
 
   const send = async (text: string): Promise<boolean> => {
     if (!client) return false;
+    followEnd();
     setError(null);
     setNotice(null);
     const ctl = new AbortController();
@@ -146,7 +171,34 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
 
   // After the frame that laid the new content out (the footer, an answer
   // being written, is measured late on the web).
-  const toEnd = () => setTimeout(() => list.current?.scrollToEnd({ animated: false }), 50);
+  const toEnd = () => {
+    if (!atEnd.current) return;
+    setTimeout(() => atEnd.current && list.current?.scrollToEnd({ animated: false }), 50);
+  };
+
+  function followEnd(animated = false) {
+    atEnd.current = true;
+    setAway(false);
+    setTimeout(() => list.current?.scrollToEnd({ animated }), 50);
+  }
+
+  // Only a move up leaves the end: the content growing, or the list getting
+  // shorter for the keyboard, never does.
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const y = contentOffset.y;
+    const left = contentSize.height - layoutMeasurement.height - y;
+    if (left <= END_SLACK) {
+      if (!atEnd.current) {
+        atEnd.current = true;
+        setAway(false);
+      }
+    } else if (y < lastY.current - 2 && atEnd.current) {
+      atEnd.current = false;
+      setAway(true);
+    }
+    lastY.current = y;
+  };
 
   const refresh = async () => {
     setRefreshing(true);
@@ -155,7 +207,7 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
   };
 
   return (
-    <SafeAreaView style={st.safe} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={st.safe} edges={['top', 'left', 'right', 'bottom']} testID="chat-screen">
       <Header
         title={view.title}
         sub={chat.model}
@@ -167,32 +219,71 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
           </>
         }
       />
-      <KeyboardAvoidingView style={st.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={st.flex}>
         <FlatList
           ref={list}
+          testID="chat-list"
           data={view.messages}
           keyExtractor={(m, i) => m.id || String(i)}
           renderItem={({ item }) => <MessageItem m={item} mine={!!user && item.by?.id === user.id} />}
           onContentSizeChange={toEnd}
           // The composer growing or the keyboard opening shrinks the list: keep the newest line in view.
           onLayout={toEnd}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.inkDim} colors={[colors.ink]} progressBackgroundColor={colors.surface2} />}
+          onScroll={onScroll}
+          scrollEventThrottle={32}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refresh}
+              tintColor={colors.inkDim}
+              colors={[colors.ink]}
+              progressBackgroundColor={colors.surface2}
+            />
+          }
           ListEmptyComponent={
-            loaded && !view.writing ? (
+            !loaded ? (
+              <View style={st.empty}>
+                {error ? (
+                  <Button label="Try again" onPress={() => load()} testID="chat-retry" />
+                ) : (
+                  <ActivityIndicator color={colors.inkDim} accessibilityLabel="Reading the conversation" />
+                )}
+              </View>
+            ) : !view.writing ? (
               <View style={st.empty}>
                 <Text style={st.emptyTitle}>A new conversation</Text>
-                <Text style={st.emptyText}>Ask anything. The answer is written by {chat.model || 'the server’s chat model'}.</Text>
+                <Text style={st.emptyText}>
+                  Ask anything. The answer is written by {chat.model || 'the server’s chat model'}.
+                </Text>
               </View>
             ) : null
           }
           ListFooterComponent={view.writing ? <WritingItem w={view.writing} model={chat.model} /> : null}
           contentContainerStyle={st.listPad}
         />
-        {error || notice ? (
-          <View style={st.msg}>{error ? <ErrorText>{error}</ErrorText> : <Text style={st.notice}>{notice}</Text>}</View>
+        {away && view.messages.length ? (
+          <Pressable
+            testID="jump-to-latest"
+            accessibilityRole="button"
+            accessibilityLabel="Jump to the latest message"
+            onPress={() => followEnd(true)}
+            hitSlop={8}
+            style={({ pressed }) => [st.jump, pressed && st.jumpPressed]}
+          >
+            <Text style={st.jumpText}>Latest</Text>
+            <Text style={st.jumpArrow} aria-hidden>
+              {'\u2193'}
+            </Text>
+          </Pressable>
         ) : null}
-        <Composer client={client} lang={lang} writing={!!view.writing} onSend={send} onStop={stop} />
-      </KeyboardAvoidingView>
+      </View>
+      {error || notice ? (
+        <View style={st.msg}>{error ? <ErrorText>{error}</ErrorText> : <Text style={st.notice}>{notice}</Text>}</View>
+      ) : null}
+      <Composer client={client} lang={lang} writing={!!view.writing} onSend={send} onStop={stop} />
+      <KeyboardSpacer />
       {models ? (
         <ModelSheet
           client={client}
@@ -212,10 +303,33 @@ export function ChatScreen({ initial, onBack, lang }: { initial: Chat; onBack: (
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
-  listPad: { paddingVertical: 8, flexGrow: 1 },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 6 },
+  listPad: { paddingVertical: space.sm, flexGrow: 1 },
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: space.xxl, gap: 6 },
   emptyTitle: { fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.ink },
-  emptyText: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 20, color: colors.inkDim, textAlign: 'center' },
-  msg: { paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.line },
-  notice: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
+  emptyText: {
+    fontFamily: fonts.sans,
+    fontSize: type.small,
+    lineHeight: 20,
+    color: colors.inkDim,
+    textAlign: 'center',
+  },
+  msg: { paddingHorizontal: gutter, paddingVertical: space.sm, borderTopWidth: 1, borderTopColor: colors.line },
+  notice: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.inkDim },
+  jump: {
+    position: 'absolute',
+    right: gutter,
+    bottom: space.md,
+    minHeight: touch - 8,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface2,
+  },
+  jumpPressed: { backgroundColor: colors.pressed },
+  jumpText: { fontFamily: fonts.sansMedium, fontSize: type.small, color: colors.ink },
+  jumpArrow: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
 });

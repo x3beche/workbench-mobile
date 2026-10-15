@@ -135,3 +135,16 @@ describe('Composer', () => {
     expect(await screen.findByDisplayValue('Merhaba dünya')).toBeTruthy();
   });
 });
+
+describe('Composer box', () => {
+  it('is readable while typing: 16 px text, growing to six lines and scrolling after', async () => {
+    const { StyleSheet } = jest.requireActual('react-native');
+    const { MAX_LINES } = jest.requireActual('../Composer');
+    await renderComposer();
+    const style = StyleSheet.flatten(screen.getByTestId('composer-input').props.style);
+    expect(style.fontSize).toBeGreaterThanOrEqual(16);
+    expect(MAX_LINES).toBe(6);
+    expect(style.maxHeight).toBe(style.lineHeight * MAX_LINES + style.paddingTop + style.paddingBottom);
+    expect(screen.getByTestId('composer-input').props.multiline).toBe(true);
+  });
+});

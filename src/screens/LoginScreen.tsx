@@ -1,6 +1,7 @@
 /** Sign in to the chosen server with an email address and password, as on the web. */
 import { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '../api/client';
@@ -8,7 +9,7 @@ import { displayServer } from '../api/server';
 import { Button, ErrorText, Field, Wordmark } from '../components/ui';
 import { useSession } from '../state/session';
 import * as prefs from '../storage/prefs';
-import { colors, fonts, type } from '../theme/tokens';
+import { colors, fonts, gutter, space, type } from '../theme/tokens';
 
 export function LoginScreen() {
   const { client, server, signedIn, changeServer, notice } = useSession();
@@ -51,56 +52,54 @@ export function LoginScreen() {
 
   return (
     <SafeAreaView style={st.safe}>
-      <KeyboardAvoidingView style={st.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={st.scroll} keyboardShouldPersistTaps="handled">
-          <View style={st.card}>
-            <Wordmark sub="Sign in to continue." />
-            <View style={st.serverRow}>
-              <Text style={st.server} numberOfLines={1} testID="login-server">
-                {server ? displayServer(server) : ''}
-              </Text>
-              <Button label="Change" variant="quiet" onPress={changeServer} accessibilityLabel="Change server" />
-            </View>
-            <Field
-              testID="login-email"
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              keyboardType="email-address"
-              textContentType="username"
-              returnKeyType="next"
-              onSubmitEditing={() => pw.current?.focus()}
-              error={!!error}
-            />
-            <Field
-              ref={pw}
-              testID="login-password"
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="current-password"
-              textContentType="password"
-              returnKeyType="go"
-              onSubmitEditing={go}
-              error={!!error}
-            />
-            {error ? <ErrorText>{error}</ErrorText> : null}
-            <Button testID="login-submit" label="Sign in" variant="primary" busy={busy} onPress={go} />
+      {/* The focused field and the button under it scroll clear of the keyboard. */}
+      <KeyboardAwareScrollView contentContainerStyle={st.scroll} keyboardShouldPersistTaps="handled" bottomOffset={96}>
+        <View style={st.card}>
+          <Wordmark sub="Sign in to continue." />
+          <View style={st.serverRow}>
+            <Text style={st.server} numberOfLines={1} testID="login-server">
+              {server ? displayServer(server) : ''}
+            </Text>
+            <Button label="Change" variant="quiet" onPress={changeServer} accessibilityLabel="Change server" />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          <Field
+            testID="login-email"
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            keyboardType="email-address"
+            textContentType="username"
+            returnKeyType="next"
+            onSubmitEditing={() => pw.current?.focus()}
+            error={!!error}
+          />
+          <Field
+            ref={pw}
+            testID="login-password"
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="current-password"
+            textContentType="password"
+            returnKeyType="go"
+            onSubmitEditing={go}
+            error={!!error}
+          />
+          {error ? <ErrorText>{error}</ErrorText> : null}
+          <Button testID="login-submit" label="Sign in" variant="primary" busy={busy} onPress={go} />
+        </View>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
 
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
-  flex: { flex: 1 },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 20 },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: gutter, paddingVertical: space.xl },
   card: { gap: 14 },
   serverRow: {
     flexDirection: 'row',

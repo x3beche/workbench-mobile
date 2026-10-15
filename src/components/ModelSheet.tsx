@@ -10,8 +10,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type WorkbenchClient } from '../api/client';
 import type { Model, Provider } from '../api/types';
-import { colors, fonts, radius, type } from '../theme/tokens';
+import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
+import { Appear } from './Appear';
 import { Choice } from './Choice';
+import { KeyboardSpacer } from './KeyboardSpacer';
 import { Button, ErrorText } from './ui';
 
 export function ModelSheet({
@@ -41,7 +43,11 @@ export function ModelSheet({
       .providers()
       .then((all) => setProviders(all.filter((p) => p.set)))
       .catch((e) =>
-        setError(e instanceof ApiError && e.status === 403 ? 'Your account may not choose models on this server.' : 'The providers could not be read.'),
+        setError(
+          e instanceof ApiError && e.status === 403
+            ? 'Your account may not choose models on this server.'
+            : 'The providers could not be read.',
+        ),
       );
   }, [client]);
 
@@ -73,50 +79,59 @@ export function ModelSheet({
   return (
     <Modal visible animationType="none" onRequestClose={onClose}>
       <SafeAreaView style={s.safe}>
-        <View style={s.head}>
-          <Text style={s.title}>Model</Text>
-          <Button label="Close" variant="quiet" onPress={onClose} />
-        </View>
-        <View style={s.body}>
-          {providers && providers.length > 1 ? (
-            <Choice label="Provider" options={providers.map((p) => ({ id: p.id, label: p.name }))} value={prov} onChange={setProv} />
-          ) : null}
-          <TextInput
-            style={s.search}
-            value={q}
-            onChangeText={setQ}
-            placeholder="Find a model"
-            placeholderTextColor={colors.inkDim}
-            autoCapitalize="none"
-            autoCorrect={false}
-            accessibilityLabel="Find a model"
+        <Appear from="below">
+          <View style={s.head}>
+            <Text style={s.title}>Model</Text>
+            <Button label="Close" variant="quiet" onPress={onClose} />
+          </View>
+          <View style={s.body}>
+            {providers && providers.length > 1 ? (
+              <Choice
+                label="Provider"
+                options={providers.map((p) => ({ id: p.id, label: p.name }))}
+                value={prov}
+                onChange={setProv}
+              />
+            ) : null}
+            <TextInput
+              style={s.search}
+              value={q}
+              onChangeText={setQ}
+              placeholder="Find a model"
+              placeholderTextColor={colors.inkDim}
+              autoCapitalize="none"
+              autoCorrect={false}
+              accessibilityLabel="Find a model"
+            />
+            {error ? <ErrorText>{error}</ErrorText> : null}
+          </View>
+          {models === null && !error ? <ActivityIndicator style={s.wait} color={colors.inkDim} /> : null}
+          <FlatList
+            data={shown}
+            keyExtractor={(m) => m.id}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            renderItem={({ item }) => {
+              const on = prov === provider && item.id === model;
+              return (
+                <Pressable
+                  onPress={() => pick(item)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: on }}
+                  style={({ pressed }) => [s.row, pressed && s.pressed]}
+                >
+                  <Text style={[s.name, on && s.on]} numberOfLines={1}>
+                    {item.name || item.id}
+                  </Text>
+                  <Text style={s.id} numberOfLines={1}>
+                    {saving === item.id ? 'Saving' : item.id}
+                  </Text>
+                </Pressable>
+              );
+            }}
           />
-          {error ? <ErrorText>{error}</ErrorText> : null}
-        </View>
-        {models === null && !error ? <ActivityIndicator style={s.wait} color={colors.inkDim} /> : null}
-        <FlatList
-          data={shown}
-          keyExtractor={(m) => m.id}
-          keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => {
-            const on = prov === provider && item.id === model;
-            return (
-              <Pressable
-                onPress={() => pick(item)}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: on }}
-                style={({ pressed }) => [s.row, pressed && s.pressed]}
-              >
-                <Text style={[s.name, on && s.on]} numberOfLines={1}>
-                  {item.name || item.id}
-                </Text>
-                <Text style={s.id} numberOfLines={1}>
-                  {saving === item.id ? 'Saving' : item.id}
-                </Text>
-              </Pressable>
-            );
-          }}
-        />
+          <KeyboardSpacer />
+        </Appear>
       </SafeAreaView>
     </Modal>
   );
@@ -125,22 +140,22 @@ export function ModelSheet({
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   head: {
-    minHeight: 52,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: 16,
-    paddingRight: 8,
+    paddingLeft: gutter,
+    paddingRight: space.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
   title: { fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.ink },
-  body: { padding: 12, gap: 10 },
+  body: { paddingHorizontal: gutter, paddingVertical: space.md, gap: 10 },
   search: {
-    minHeight: 40,
+    minHeight: touch,
     paddingHorizontal: 12,
     fontFamily: fonts.sans,
-    fontSize: type.small,
+    fontSize: type.input,
     color: colors.ink,
     backgroundColor: colors.surface2,
     borderWidth: 1,
@@ -148,7 +163,15 @@ const s = StyleSheet.create({
     borderRadius: radius.sm,
   },
   wait: { marginTop: 24 },
-  row: { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.line, gap: 2 },
+  row: {
+    minHeight: 56,
+    justifyContent: 'center',
+    paddingHorizontal: gutter,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+    gap: 2,
+  },
   pressed: { backgroundColor: colors.hover },
   name: { fontFamily: fonts.sans, fontSize: type.body, color: colors.inkDim },
   on: { fontFamily: fonts.sansSemi, color: colors.inkBright },

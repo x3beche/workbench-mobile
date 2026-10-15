@@ -3,13 +3,15 @@
  * the conversation. The transcript is never sent without that look.
  */
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { VoiceLang, WorkbenchClient } from '../api/client';
-import { colors, fonts, radius, type } from '../theme/tokens';
+import { colors, fonts, gutter, motion, radius, type } from '../theme/tokens';
 import { useVoiceRecorder } from '../voice/useVoiceRecorder';
 import { langLabel } from '../voice/voice';
+import { Appear } from './Appear';
+import { KeyboardSpacer } from './KeyboardSpacer';
 import { RecordingBar } from './RecordingBar';
 import { Button, ErrorText, Hint } from './ui';
 
@@ -49,8 +51,8 @@ export function VoiceNoteSheet({
   return (
     <Modal visible transparent animationType="none" onRequestClose={close}>
       <Pressable style={s.scrim} onPress={close} accessibilityLabel="Close" />
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <SafeAreaView edges={['bottom']} style={s.sheet}>
+      <Appear from="below" fill={false} duration={motion.sheet}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={s.sheet}>
           <View style={s.head}>
             <Text style={s.title}>Voice note</Text>
             <Text style={s.lang}>{langLabel(lang)}</Text>
@@ -75,8 +77,20 @@ export function VoiceNoteSheet({
               <Hint>Read it over and correct it before sending.</Hint>
               <View style={s.row}>
                 <Button label="Discard" variant="quiet" onPress={close} />
-                <Button label="Record again" onPress={() => { setText(null); start(); }} />
-                <Button label="Send" variant="primary" disabled={!text.trim()} onPress={send} testID="voice-note-send" />
+                <Button
+                  label="Record again"
+                  onPress={() => {
+                    setText(null);
+                    start();
+                  }}
+                />
+                <Button
+                  label="Send"
+                  variant="primary"
+                  disabled={!text.trim()}
+                  onPress={send}
+                  testID="voice-note-send"
+                />
               </View>
             </>
           ) : (
@@ -85,8 +99,9 @@ export function VoiceNoteSheet({
               <Button label="Try again" onPress={start} />
             </View>
           )}
+          <KeyboardSpacer />
         </SafeAreaView>
-      </KeyboardAvoidingView>
+      </Appear>
     </Modal>
   );
 }
@@ -97,7 +112,9 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface2,
     borderTopWidth: 1,
     borderTopColor: colors.line,
-    padding: 16,
+    paddingHorizontal: gutter,
+    paddingTop: gutter,
+    paddingBottom: 8,
     gap: 12,
   },
   head: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
@@ -108,13 +125,13 @@ const s = StyleSheet.create({
     maxHeight: 260,
     padding: 12,
     fontFamily: fonts.sans,
-    fontSize: type.body,
-    lineHeight: 21,
+    fontSize: type.input,
+    lineHeight: type.inputLine,
     color: colors.ink,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.md,
   },
-  row: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 },
 });

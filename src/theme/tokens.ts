@@ -62,6 +62,9 @@ export const fonts = {
 export const type = {
   body: 15,
   bodyLine: 23,
+  /** What is being typed: a little larger, so it reads while it is written. */
+  input: 16,
+  inputLine: 22,
   small: 13,
   tiny: 12,
   title: 17,
@@ -70,4 +73,16 @@ export const type = {
 
 export const radius = { sm: 5, md: 6, lg: 8, bubble: 10 } as const;
 
-export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
+export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
+
+/** The side margin of every screen: text and controls never sit closer to the edge. */
+export const gutter = space.lg;
+
+/** The smallest thing a finger is asked to hit. */
+export const touch = 44;
+
+/**
+ * Motion: short, opacity and transform only, and none at all when the
+ * system asks for reduced motion (components/Appear.tsx).
+ */
+export const motion = { enter: 220, sheet: 180, shift: 12 } as const;
