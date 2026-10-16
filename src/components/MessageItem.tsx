@@ -9,6 +9,7 @@ import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, T
 
 import type { ChatMessage, Step } from '../api/types';
 import type { Writing } from '../lib/answer';
+import { useSmoothText } from '../lib/drain';
 import { chunks, stepDetail, stepLabel, stepState } from '../lib/steps';
 import { clock } from '../lib/time';
 import { colors, fonts, gutter, motion, radius, space, type } from '../theme/tokens';
@@ -236,13 +237,16 @@ export function TypingDots() {
 
 /** The answer being written, as far as it got: laid out as the finished answer will be, so nothing jumps when it lands. */
 export function WritingItem({ w, model }: { w: Writing; model?: string }) {
+  const reduce = useReduceMotion();
   const waiting = !w.text && !w.thinking && !w.steps.length && !w.error;
+  // The words arrive in the server's pieces; they are let out smoothly.
+  const text = useSmoothText(w.text, !reduce);
   return (
     <View style={s.msg} accessibilityLiveRegion="polite" testID="writing">
       <Head model={model} />
       {waiting ? <TypingDots /> : null}
       {w.thinking ? <Thinking text={w.thinking} live={!w.text} /> : null}
-      <Body text={w.text} steps={w.steps} />
+      <Body text={text} steps={w.steps} />
       {w.error ? <Text style={s.error}>{w.error}</Text> : null}
     </View>
   );

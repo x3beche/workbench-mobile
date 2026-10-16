@@ -21,6 +21,7 @@ Status at the time of writing (October 2026), checked against
 | Archive, pin, trash, restore, delete forever (`PATCH`/`DELETE /api/cc/chats/{id}`, `/restore`, `/empty-trash`) | works | blocked by CORS (change 1) |
 | Files (`/api/files*`: list, folders, virtual tree, mini, PDF pages, upload, move, copy, trash) | works | blocked by CORS (change 1) |
 | Export a conversation (`POST /api/cc/chats/{id}/export`, backend/chat_export.py; kept in Files > In the app > Chat/Exports, then downloaded) | works; an older server without it gets the app's own Markdown or a PDF printed on the phone | blocked by CORS (change 1) |
+| The workspace's rooms (3D Drawing, PCB Design, Firmware): `GET /api/chat/rooms`, `GET /api/chat?room=`, `POST /api/chat` with `room` | works since 1.3.0; an older server without `/api/chat/rooms` simply gives the drawer no rooms - the conversations are all it shows | blocked by CORS (change 1) |
 
 ## 1. CORS and the cookie for a web build served from another origin (optional)
 
@@ -206,3 +207,30 @@ update installs over the old one. Proposed text:
 ```
 
 with the Turkish lines for `frontend/src/app/i18n.ts`.
+
+## 8. The rooms on the phone: nothing to change (new in 1.3.0)
+
+The workspace's three rooms - 3D Drawing, PCB Design and Firmware - are on the
+phone now, leading the drawer above the conversations. No server change is
+needed: the app reads and writes exactly what the web app's Rooms list does.
+
+- The list: `GET /api/chat/rooms` - `room`, `count`, `last` (`role`, `text`,
+  `at`, `by`), `waiting`, `urgent` and `agent_at` (`backend/chat.py
+  rooms()`). `agent_at` is what lets the drawer say how much of a room the
+  agent wrote since it was last read on that phone; the phone remembers the
+  last read itself, per server and per room.
+- A room's thread: `GET /api/chat?room=<cad|pcb|firmware>`, oldest first.
+- Saying something in a room: `POST /api/chat` with `room` (and `urgent`
+  where the app marks it), which is what tells the agent working in that room.
+
+An older server without `/api/chat/rooms` gives the drawer no rooms - it
+shows the conversations, as it did before - so the app is safe on 1.x
+servers back to the rooms' own release.
+
+One thing would make this better, and is not needed: the rooms have no
+stream. `RoomThread` on the web re-reads every 2 s and so does the phone, so
+a line the agent writes appears within about two seconds. A stream for a
+room - `GET /api/chat/live?room=`, the shape of the conversation's own
+`/live` (`cc_chat.py:1174`) - would let a phone show the agent's answer as it
+is written, and let the two of them stop polling.
+

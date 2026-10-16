@@ -105,3 +105,19 @@ export async function setLastChat(server: string, id: string | null): Promise<vo
   else delete all[server];
   await writeJson(LAST_CHAT, all);
 }
+
+const ROOM_SEEN = 'workbench.roomSeen';
+
+/** When each room was last read here, on `server`, keyed by the room's own name. */
+export async function roomsSeen(server: string): Promise<Record<string, string>> {
+  const all = await readJson<Record<string, Record<string, string>>>(ROOM_SEEN, {});
+  const mine = all[server];
+  return mine && typeof mine === 'object' ? mine : {};
+}
+
+/** A room was read now: what the agent writes after this is what is unread. */
+export async function setRoomSeen(server: string, room: string, at: string): Promise<void> {
+  const all = await readJson<Record<string, Record<string, string>>>(ROOM_SEEN, {});
+  all[server] = { ...(all[server] ?? {}), [room]: at };
+  await writeJson(ROOM_SEEN, all);
+}

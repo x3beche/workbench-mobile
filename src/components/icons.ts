@@ -18,6 +18,7 @@ export { default as ChevronRight } from 'lucide-react-native/icons/chevron-right
 export { default as CircleAlert } from 'lucide-react-native/icons/circle-alert';
 export { default as CircuitBoard } from 'lucide-react-native/icons/circuit-board';
 export { default as Copy } from 'lucide-react-native/icons/copy';
+export { default as Cpu } from 'lucide-react-native/icons/cpu';
 export { default as Download } from 'lucide-react-native/icons/download';
 export { default as Ellipsis } from 'lucide-react-native/icons/ellipsis';
 export { default as File } from 'lucide-react-native/icons/file';

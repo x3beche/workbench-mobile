@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { ApiError, CHAT_TRASH_DAYS, isMissingRoute, type VoiceLang } from '../api/client';
-import type { Chat, ChatScope, Ideas } from '../api/types';
+import type { Chat, ChatScope, Ideas, Room, RoomId } from '../api/types';
 import { AccountSheet } from '../components/AccountSheet';
 import { Appear } from '../components/Appear';
 import { Drawer } from '../components/Drawer';
@@ -37,12 +37,14 @@ import { ActionList, Dialog, Sheet, type Action } from '../components/Sheet';
 import type { SwipeAction } from '../components/SwipeRow';
 import { chatToHtml, chatToMarkdown, exportName } from '../lib/exportChat';
 import { tick } from '../lib/feel';
+import { knownRooms } from '../lib/rooms';
 import { shareFile, sharePdf } from '../lib/share';
 import { useSession } from '../state/session';
 import * as prefs from '../storage/prefs';
 import { colors, drawerMax, fonts, motion, radius, type, wideAt } from '../theme/tokens';
 import { ChatScreen, type Suggestion } from './ChatScreen';
 import { FilesScreen, type FilesHandle } from './FilesScreen';
+import { RoomScreen } from './RoomScreen';
 
 /** Where to begin when the server has no example questions of its own (the web app's STARTERS). */
 export const STARTERS: Suggestion[] = [
@@ -96,6 +98,10 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
     { chat: Chat; what: 'rename' | 'delete' | 'forever' } | { chat?: undefined; what: 'empty' } | null
   >(null);
   const [page, setPage] = useState<'chat' | 'files'>('chat');
+  /** The workspace's room open on screen, if any (3D Drawing, PCB Design, Firmware). */
+  const [room, setRoom] = useState<RoomId | null>(null);
+  const [rooms, setRooms] = useState<Room[] | null>(null);
+  const [roomsSeen, setRoomsSeen] = useState<Record<string, string>>({});
   const files = useRef<FilesHandle>(null);
   const [scope, setScope] = useState<ChatScope>('live');
   const [scoped, setScoped] = useState<{ scope: ChatScope; chats: Chat[] } | null>(null);
@@ -139,6 +145,41 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
   useEffect(() => {
     if (scope !== 'live') loadScoped(scope);
   }, [scope, loadScoped]);
+
+  /**
+   * The workspace's rooms, so the drawer can lead with them. A server older
+   * than the rooms answer with nothing, and the drawer simply has none.
+   */
+  const loadRooms = useCallback((): Promise<void> => {
+    if (!client) return Promise.resolve();
+    return client.rooms().then(
+      (got) => setRooms(knownRooms(got)),
+      () => undefined,
+    );
+  }, [client]);
+
+  useEffect(() => {
+    loadRooms();
+    if (!server) return;
+    let live = true;
+    prefs.roomsSeen(server).then((got) => live && setRoomsSeen(got));
+    return () => {
+      live = false;
+    };
+  }, [loadRooms, server]);
+
+  // The agent writes in a room on its own time: its last line and what is
+  // unread are read again now and then, not on every line drawn.
+  useEffect(() => {
+    const t = setInterval(() => loadRooms(), 30_000);
+    return () => clearInterval(t);
+  }, [loadRooms]);
+
+  /** A room was read: its badge is counted again from what is remembered here. */
+  const roomSeen = useCallback(() => {
+    loadRooms();
+    if (server) prefs.roomsSeen(server).then(setRoomsSeen);
+  }, [loadRooms, server]);
 
   const load = useCallback((): Promise<void> => {
     if (!client) return Promise.resolve();
@@ -200,6 +241,7 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
 
   const openChat = (chat: Chat) => {
     setPage('chat');
+    setRoom(null);
     if (chat.id === openId) {
       setDrawer(false);
       return;
@@ -207,9 +249,18 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
     show(chat);
   };
 
+  /** A room is not a conversation: it takes the screen on its own, and Back returns to the chat. */
+  const openRoom = (which: RoomId) => {
+    tick();
+    setPage('chat');
+    setRoom(which);
+    setDrawer(false);
+  };
+
   const newChat = () => {
     tick();
     setPage('chat');
+    setRoom(null);
     if (!openId) {
       setDrawer(false);
       return;
@@ -219,14 +270,19 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
 
   const openFiles = () => {
     setPage('files');
+    setRoom(null);
     setDrawer(false);
   };
 
-  // Back: the drawer first, then the conversation before, then out of the app.
+  // Back: the drawer first, then the room, then the conversation before, then out of the app.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (drawer && !wide) {
         setDrawer(false);
+        return true;
+      }
+      if (room) {
+        setRoom(null);
         return true;
       }
       if (page === 'files') {
@@ -241,7 +297,7 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
       return false;
     });
     return () => sub.remove();
-  }, [drawer, wide, show, page]);
+  }, [drawer, wide, show, page, room]);
 
   const created = useCallback((chat: Chat) => {
     setOpenId(chat.id);
@@ -396,7 +452,10 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
       openId={openId}
       onOpen={openChat}
       onNew={newChat}
-      onRefresh={() => (scope === 'live' ? load() : loadScoped(scope))}
+      onRefresh={() => {
+        loadRooms();
+        return scope === 'live' ? load() : loadScoped(scope);
+      }}
       onActions={setActions}
       onAccount={() => setAccount(true)}
       scope={scope}
@@ -405,13 +464,31 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
       onEmptyTrash={() => setAsk({ what: 'empty' })}
       onFiles={openFiles}
       filesOn={page === 'files'}
+      rooms={rooms}
+      roomsSeen={roomsSeen}
+      openRoom={room}
+      onRoom={openRoom}
     />
   );
 
   return (
     <View style={s.root}>
       <Drawer open={drawer || wide} onOpenChange={setDrawer} width={drawerWidth} wide={wide} panel={panel}>
-        {page === 'files' ? (
+        {room ? (
+          <Appear key={`room-${room}`} duration={motion.fade}>
+            <RoomScreen
+              room={room}
+              client={client}
+              server={server}
+              user={user}
+              lang={lang}
+              wide={wide}
+              onMenu={() => setDrawer(true)}
+              onClose={() => setRoom(null)}
+              onSeen={roomSeen}
+            />
+          </Appear>
+        ) : page === 'files' ? (
           <Appear key="files" duration={motion.fade}>
             <FilesScreen ref={files} client={client} user={user} can={can} wide={wide} onMenu={() => setDrawer(true)} />
           </Appear>

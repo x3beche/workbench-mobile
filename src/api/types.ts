@@ -121,6 +121,45 @@ export interface Ideas {
   start?: { provider: string; model: string };
 }
 
+// ---- the agent rooms (backend/chat.py: /api/chat/rooms, /api/chat) --------
+
+/** A room of the workspace chat: 3D Drawing, PCB Design or Firmware. */
+export type RoomId = 'cad' | 'pcb' | 'firmware';
+
+/** The last thing said in a room. */
+export interface RoomLast {
+  role: 'user' | 'agent';
+  text: string;
+  at: string;
+  by?: string | null;
+}
+
+/**
+ * A room as GET /api/chat/rooms gives it: what was said in it, what waits to
+ * be read, and when the agent last wrote (what is unread is counted from
+ * those - the server sends its last 99).
+ */
+export interface Room {
+  room: RoomId;
+  count: number;
+  waiting: number;
+  urgent: number;
+  last: RoomLast | null;
+  agent_at: string[];
+}
+
+/** One line of a room's thread (GET /api/chat?room=). */
+export interface RoomLine {
+  id: string;
+  at: string;
+  role: 'user' | 'agent';
+  text: string;
+  urgent?: boolean;
+  room?: RoomId;
+  by?: Who;
+  seen_at?: string | null;
+}
+
 /** 202 from POST /messages: an answer was being written, so the line waits. */
 export interface Queued {
   queued?: { id: string; content: string };

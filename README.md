@@ -67,7 +67,10 @@ Then you sign in with the same e-mail address and password as on the web.
   swipe to the right), follows the finger and springs open or shut; the
   conversation dims behind it. A tap on the dimmed side, a swipe to the
   left or Back puts it away. At its top: search (titles at once, what was
-  said in them from the server) and New chat; then Chats, Archived and
+  said in them from the server) and New chat; then the workspace's own rooms
+  - 3D Drawing, PCB Design and Firmware - each with the last thing said in
+  it and, until it is read here, how much the agent wrote since; then Chats,
+  Archived and
   Trash as three tabs, and the conversations by Pinned, Today, Yesterday,
   Previous 7 days and Older, one line each, the open one in heavier,
   brighter ink (pull to refresh). A swipe to the left on a row shows
@@ -108,10 +111,19 @@ Then you sign in with the same e-mail address and password as on the web.
   where they ran, each opening to what it found. A long press on a line
   copies it or opens it to select a part. Your line shows the moment it is
   sent, three dots wait for the first words, and the answer is written in
-  place - laid out as it will stay, so nothing jumps when it is done. A
-  conversation in which someone else's answer is being written is followed
-  live. The list follows the newest line unless you scroll up to read; then
-  a round arrow brings you back.
+  place - laid out as it will stay, so nothing jumps when it is done. The
+  words are let out a frame at a time rather than in the pieces the server
+  sends them in (a piece every ~0.2 s), so an answer reads as a steady hand
+  and not in lumps. A conversation in which someone else's answer is being
+  written is followed live. The list follows the newest line unless you scroll
+  up to read; then a round arrow brings you back.
+- **A room**: the three rooms the workspace is worked in - 3D Drawing, PCB
+  Design, Firmware - opened from the top of the drawer, each with the agent
+  that works in it. A room is the workspace's own thread and not a
+  conversation: it takes the screen, Back returns to the conversation, and a
+  line written in it goes to the agent that draws, routes and flashes. The
+  thread is read again every two seconds, and what was read is remembered per
+  room, which is what the drawer counts from.
 - **Typing**: a rounded box floats right above the keyboard, the conversation
   shrinks above it with the newest lines in view, and the box grows with
   what you write up to six lines (16 px text), then scrolls inside. Its round
@@ -122,13 +134,14 @@ Then you sign in with the same e-mail address and password as on the web.
   correct - nothing is sent by itself. Voice note (the round button, with
   nothing typed) records, shows the transcript for review, then sends it.
   The language is Auto, Türkçe or English (Account).
-- **Back** (Android) closes a sheet, then the drawer, then goes back to the
-  conversation open before, then leaves the app.
+- **Back** (Android) closes a sheet, then the drawer, then the room, then goes
+  back to the conversation open before, then leaves the app.
 
-The device keeps only the server list, the last e-mail address and the last
-open conversation per server, and the voice language. Never a password. A
-file shared or saved is written to the app's cache first, then handed over. The session is the server's own
-HttpOnly cookie, kept by the platform's cookie store.
+The device keeps only the server list, the last e-mail address, the last
+open conversation and which rooms were last read on each server, and the
+voice language. Never a password. A file shared or saved is written to the
+app's cache first, then handed over. The session is the server's own HttpOnly
+cookie, kept by the platform's cookie store.
 
 ## Run it
 
@@ -221,10 +234,11 @@ chmod 600 ~/.secrets/workbench-mobile/*
 
 **Uninstall the old app once.** Versions 1.0.0 to 1.2.0 were signed with
 the debug key. Android installs an update only when it is signed with the
-same key as the app on the phone, so 1.2.1 cannot be installed over them
-("App not installed" / "package conflicts with an existing package").
-Uninstall Workbench once, then install 1.2.1; from then on every build
-signed with the upload key installs over the one before, as an update. The
+same key as the app on the phone, so a release from 1.2.1 on cannot be
+installed over them ("App not installed" / "package conflicts with an
+existing package"). Uninstall Workbench once, then install this release; from
+then on every build signed with the upload key installs over the one before,
+as an update. The
 app keeps nothing that cannot be typed again: the server list and the last
 e-mail address are gone, the conversations and files are on the server.
 

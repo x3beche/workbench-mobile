@@ -19,6 +19,9 @@ import type {
   Model,
   Provider,
   Queued,
+  Room,
+  RoomId,
+  RoomLine,
   StoredFile,
   Transcript,
   TrashFile,
@@ -363,6 +366,32 @@ export class WorkbenchClient {
       throw new ApiError(res.status, errorMessage(res.status, res.text));
     }
     return res;
+  }
+
+  // ---- the agent rooms ----------------------------------------------------
+
+  /**
+   * The three rooms of the workspace chat (3D Drawing, PCB Design,
+   * Firmware), each with its last line, what waits to be read, and when the
+   * agent last wrote in it.
+   */
+  rooms(): Promise<Room[]> {
+    return this.request<Room[]>('GET', '/api/chat/rooms');
+  }
+
+  /**
+   * A room's thread, oldest first (`limit` for the last few lines, 0 for all
+   * of them). The rooms have no stream, so this is read again while one is
+   * open on screen.
+   */
+  roomHistory(room: RoomId, limit = 0): Promise<RoomLine[]> {
+    const cap = limit > 0 ? `&limit=${limit}` : '';
+    return this.request<RoomLine[]>('GET', `/api/chat?room=${encodeURIComponent(room)}${cap}`);
+  }
+
+  /** Say something in a room: the agent working in it is told, and answers there. */
+  sayRoom(room: RoomId, text: string, urgent = false): Promise<RoomLine> {
+    return this.request<RoomLine>('POST', '/api/chat', { room, text, urgent });
   }
 
   // ---- files --------------------------------------------------------------

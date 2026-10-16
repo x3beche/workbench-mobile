@@ -1,5 +1,6 @@
 /**
- * What the drawer holds: search and New chat at the top, then Chats,
+ * What the drawer holds: search and New chat at the top, then the workspace's
+ * rooms (3D Drawing, PCB Design, Firmware) with their last line, then Chats,
  * Archived and Trash as three tabs over the conversations (by day, one line
  * each, the open one in heavier, brighter ink). A swipe to the left on a
  * row shows its buttons (Archive and Delete; Unarchive; Restore and Delete
@@ -22,8 +23,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CHAT_TRASH_DAYS, type WorkbenchClient } from '../api/client';
 import { displayServer } from '../api/server';
-import type { Chat, ChatScope, User } from '../api/types';
+import type { Chat, ChatScope, Room, RoomId, User } from '../api/types';
 import { filterChats, groupChats, groupOf, initials, rowTime } from '../lib/groups';
+import { ROOM_ICON, ROOM_LABEL, roomSnippet, unread as unreadOf } from '../lib/rooms';
+import { shortTime } from '../lib/time';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
 import { ChevronRight, FolderOpen, Search, SquarePen, X } from './icons';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
@@ -57,6 +60,10 @@ export function DrawerPanel({
   onEmptyTrash,
   onFiles,
   filesOn = false,
+  rooms,
+  roomsSeen,
+  openRoom,
+  onRoom,
 }: {
   client: WorkbenchClient | null;
   server: string | null;
@@ -78,6 +85,13 @@ export function DrawerPanel({
   onFiles?: () => void;
   /** Files is what is open. */
   filesOn?: boolean;
+  /** The workspace's rooms, above the conversations. */
+  rooms?: Room[] | null;
+  /** The room open on screen, if any. */
+  openRoom?: RoomId | null;
+  onRoom?: (room: RoomId) => void;
+  /** When each room was last read on this phone, for counting what is unread. */
+  roomsSeen?: Record<string, string>;
 }) {
   const [q, setQ] = useState('');
   const [found, setFound] = useState<{ q: string; scope: ChatScope; chats: Chat[] } | null>(null);
@@ -209,17 +223,35 @@ export function DrawerPanel({
           />
         }
         ListHeaderComponent={
-          error ? (
-            <View style={s.note}>
-              <ErrorText>{error}</ErrorText>
-              <Button label="Try again" onPress={refresh} testID="chats-retry" />
-            </View>
-          ) : scope === 'trash' && chats?.length && !q.trim() && onEmptyTrash ? (
-            <View style={s.trashHead}>
-              <Text style={s.trashNote}>Kept {trashDays} days, then deleted for good.</Text>
-              <Button label="Empty trash" variant="danger" onPress={onEmptyTrash} testID="empty-trash" />
-            </View>
-          ) : null
+          <>
+            {/* The rooms lead the list, as they do on the web: the workspace's own
+                threads, above the conversations. */}
+            {!q.trim() && onRoom && rooms?.length ? (
+              <View testID="drawer-rooms">
+                <Text style={s.group}>Rooms</Text>
+                {rooms.map((r) => (
+                  <RoomRow
+                    key={r.room}
+                    room={r}
+                    on={r.room === openRoom}
+                    unread={unreadOf(r, roomsSeen?.[r.room])}
+                    onPress={() => onRoom(r.room)}
+                  />
+                ))}
+              </View>
+            ) : null}
+            {error ? (
+              <View style={s.note}>
+                <ErrorText>{error}</ErrorText>
+                <Button label="Try again" onPress={refresh} testID="chats-retry" />
+              </View>
+            ) : scope === 'trash' && chats?.length && !q.trim() && onEmptyTrash ? (
+              <View style={s.trashHead}>
+                <Text style={s.trashNote}>Kept {trashDays} days, then deleted for good.</Text>
+                <Button label="Empty trash" variant="danger" onPress={onEmptyTrash} testID="empty-trash" />
+              </View>
+            ) : null}
+          </>
         }
         ListEmptyComponent={
           chats === null && !error ? (
@@ -282,6 +314,60 @@ export function DrawerPanel({
         )}
       </Pressable>
     </SafeAreaView>
+  );
+}
+
+/**
+ * A room in the drawer: its icon and name, when it was last written in - or
+ * how much of it is unread - and the last line, cut at two lines.
+ */
+function RoomRow({
+  room,
+  on,
+  unread,
+  onPress,
+}: {
+  room: Room;
+  on: boolean;
+  unread: number;
+  onPress: () => void;
+}) {
+  const Icon = ROOM_ICON[room.room];
+  return (
+    <Pressable
+      testID={`room-${room.room}`}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      accessibilityLabel={ROOM_LABEL[room.room]}
+      accessibilityHint="The agent's own thread for this room"
+      style={s.room}
+    >
+      {({ pressed }) => (
+        <>
+          <View style={s.roomIco}>
+            <Glyph icon={Icon} size={20} color={pressed ? colors.inkDim : colors.ink} />
+          </View>
+          <View style={s.roomText}>
+            <View style={s.roomTop}>
+              <Text style={[s.title, on && s.titleOn, pressed && s.dimText]} numberOfLines={1}>
+                {ROOM_LABEL[room.room]}
+              </Text>
+              {unread ? (
+                <View style={s.badge}>
+                  <Text style={s.badgeText}>{unread > 99 ? '99+' : unread}</Text>
+                </View>
+              ) : room.last ? (
+                <Text style={s.when}>{shortTime(room.last.at)}</Text>
+              ) : null}
+            </View>
+            <Text style={s.snip} numberOfLines={2}>
+              {roomSnippet(room)}
+            </Text>
+          </View>
+        </>
+      )}
+    </Pressable>
   );
 }
 
@@ -382,6 +468,30 @@ const s = StyleSheet.create({
   title: { flex: 1, fontFamily: fonts.sans, fontSize: 15, color: colors.ink },
   titleOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
   when: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  // A room is two lines: its name and when, then the last thing said in it.
+  room: {
+    backgroundColor: colors.surface,
+    minHeight: touch,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingHorizontal: gutter,
+    paddingVertical: space.sm + 2,
+  },
+  roomIco: { width: 20, paddingTop: 2, alignItems: 'center' },
+  roomText: { flex: 1, minWidth: 0, gap: 3 },
+  roomTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  snip: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },
+  badge: {
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+  },
+  badgeText: { fontFamily: fonts.sansMedium, fontSize: type.tiny, color: colors.inkOnAccent },
   note: { paddingHorizontal: gutter, paddingVertical: space.md, gap: space.sm, alignItems: 'flex-start' },
   wait: { marginTop: space.xl },
   empty: {
