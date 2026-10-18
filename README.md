@@ -148,13 +148,34 @@ Then you sign in with the same e-mail address and password as on the web.
   busy - or they stop part way, that recording is written out the old way
   instead, and nothing said in between is lost. In Expo Go (no such
   module) it records as before.
+- **Updates in the app** (from 1.5.0): the app asks the server it is signed
+  in to for its latest Android build (`GET /api/public/m/app.json`, the one
+  Settings > Mobile app publishes) when it starts, when it comes back to the
+  front - at most every four hours - and when Account is opened. A newer
+  build (a higher versionCode) puts a dot on the account at the bottom of the
+  drawer, with "Update 1.4.0 → 1.5.0" under the name, and Account's App block
+  shows both versions and the download's size ("Installed 1.4.0 → New 1.5.0 ·
+  39.6 MB"), what changed when the server says, and **Download and install**.
+  The APK (`GET /api/public/m/app.apk`) is downloaded into the app's cache
+  with its progress (Cancel stops it), checked against the size and SHA-256
+  the server gave, and handed to Android's package installer, which asks
+  before it installs; a file that does not match is deleted and never
+  offered. If Android does not yet let Workbench install apps, the app says
+  so and opens that one switch ("Install unknown apps" for Workbench), then
+  goes on (the app declares `REQUEST_INSTALL_PACKAGES` for this, in
+  app.json). Up to date, Account says "Installed 1.5.0 — up to date", with Check
+  for updates beside it. The APK is deleted once the app starts again. In
+  English or Turkish - Turkish when the voice language is Türkçe, or Auto on
+  a phone set to Turkish. The web build shows the versions only. 1.4.0 and
+  older cannot do this: 1.5.0 is installed by hand once, and from then on
+  each build published on the server is offered in the app.
 - **Back** (Android) closes a sheet, then the drawer, then the room, then goes
   back to the conversation open before, then leaves the app.
 
 The device keeps only the server list, the last e-mail address, the last
 open conversation and which rooms were last read on each server, the voice
 language and when its words appear. Never a password. A file shared or saved is written to the
-app's cache first, then handed over. The session is the server's own HttpOnly
+app's cache first, then handed over; so is an update's APK, deleted again when the app next starts. The session is the server's own HttpOnly
 cookie, kept by the platform's cookie store.
 
 ## Run it
@@ -197,7 +218,7 @@ TARGET=https://workbench.example.com node scripts/dev-proxy.mjs
 ```
 
 `MOCK=1 node scripts/dev-proxy.mjs` answers from a made-up server instead
-(`scripts/mock-api.mjs`, no account needed, with archived and deleted
+(`scripts/mock-api.mjs`, no account needed, `MOCK_UPDATE=1` to offer a newer build, with archived and deleted
 conversations, and Files from `scripts/mock-files.mjs`); add `MOCK_HOLD=1` to leave
 answers half-written, or `MOCK_SIGNIN=1` to start signed out (the password
 `mock` signs in, any other is refused).
@@ -306,6 +327,7 @@ drawn by `scripts/make-icons.js` from the web app's section mark.
 | Models | `GET /api/llm/settings` (providers with a key), `GET /api/llm/models?provider=` |
 | Voice | `POST /api/voice/transcribe` multipart `audio`, `lang`, `purpose` |
 | Live voice | `WS /api/voice/live`: `start` `{lang, purpose, format: "pcm16"}`, binary 16 kHz mono PCM16 frames, `stop`; back `ready`, `partial` (the tail, replaces), `final` (appended), `done` (the whole text), `error` (`code`: down, busy, auth, ...); the session cookie signs it in |
+| The app's own update | `GET /api/public/m/app.json` (`version`, `versionCode`, `size`, `sha256`, `url`; `notes` when the server gives them), `GET /api/public/m/app.apk`; no session needed |
 | Export | `POST /api/cc/chats/{id}/export` `{format: md\|pdf, lang}` (the file kept in Files), then `GET /api/files/{fileId}` |
 | Archive, pin, trash | `GET /api/cc/chats?archived=1` / `?trash=1`, `PATCH .../{id}` (`archived`, `pinned`), `POST .../{id}/restore`, `DELETE .../{id}?forever=1`, `POST /api/cc/chats/empty-trash` |
 | What the account may do | `GET /api/auth/state` (`can`: `draw` to change files, `delete` for anyone's) |
@@ -330,10 +352,16 @@ src/
                         Composer, RecordingBar, sheets and dialogs, icons (Lucide), controls
   lib/                  Markdown parser, answer-stream reducer, day groups, tool steps, times,
                         Files (what each side shows, rights), chat export, share (native / web)
+  update/               the in-app update: app.json read and compared (release.ts), the download,
+                        its checksum and the installer (apk.ts; apk.web.ts shows versions only),
+                        the hook Account and the drawer read (useUpdate.ts), English and Turkish
   voice/                recorder hook; live voice to text (live.ts: the socket's protocol;
                         pcmMic.ts / pcmMic.web.ts: the 16 kHz microphone; pcm.ts); pure helpers
   theme/tokens.ts       Spartan Dark, copied from the web app's styles.css
   theme/scrollbars*     the web build's scrollbars, as the web app's (thin, faint thumb, no track)
+modules/workbench-installer/
+                        the app's own small Expo module (Android, Kotlin): may this app install
+                        an APK ("Install unknown apps"), and a file's SHA-256 computed natively
 scripts/                dev proxy, screenshots, Android build
 ```
 

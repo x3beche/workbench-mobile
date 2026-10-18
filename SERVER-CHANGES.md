@@ -260,3 +260,56 @@ room - `GET /api/chat/live?room=`, the shape of the conversation's own
 `/live` (`cc_chat.py:1174`) - would let a phone show the agent's answer as it
 is written, and let the two of them stop polling.
 
+
+## 9. The app's own update: works as it is, release notes would be better (new in 1.5.0)
+
+From 1.5.0 the app updates itself from the server it is signed in to: it
+reads `GET /api/public/m/app.json` (`backend/mobile_app.py`, `app_json`) and,
+when `versionCode` is higher than its own, offers `GET /api/public/m/app.apk`
+in Account, checked against `size` and `sha256` before Android's installer
+gets it. No server change is needed for that. What the app relies on, to keep:
+
+- `versionCode` in the answer (an APK whose manifest cannot be read and
+  that is published without `--version-code` gets `null`; the app then
+  compares `version` by number, which is less safe);
+- `size` and `sha256` of exactly the file `app.apk` answers - the app
+  deletes a download that does not match, so the two must change together
+  (they do: `publish()` writes the APK, then `latest.json`);
+- the routes open without a session (`/api/public/`), and the rate limits
+  (`apk-json` 120 a minute, `apk-file` 20 in ten minutes) as they are: a
+  phone asks for app.json at start, on coming back to the front at most every
+  four hours, and when Account is opened at most once a minute;
+- `url` a path on the same server (the app does not follow it elsewhere).
+
+**Release notes (proposed).** app.json has no word on what changed, so
+Account can only show the two versions and the size. The app already reads
+`notes` - one text, or `{"en": ..., "tr": ...}` - and shows it under the new
+version as "What's new". Proposed in `backend/mobile_app.py`:
+
+```diff
+ def publish(src: Path, *, version: str | None = None, version_code: int | None = None,
+-            built_at: str | None = None, move: bool = False) -> dict:
++            built_at: str | None = None, move: bool = False, notes: dict | None = None) -> dict:
+ ...
+     info = {"version": ver, "versionCode": code, "file": name, "size": size, "sha256": digest,
+             "built_at": built_at or now_iso(), "published_at": now_iso(),
+             "min_sdk": sdk, "min_android": ANDROID.get(sdk) if sdk else None,
+-            "abis": got["abis"], "package": got["package"]}
++            "abis": got["abis"], "package": got["package"],
++            # What changed, per language ({"en": ..., "tr": ...}), at most a few lines.
++            "notes": {k: v.strip()[:2000] for k, v in (notes or {}).items() if k in ("en", "tr") and v.strip()} or None}
+```
+
+```diff
+ def public_info(info: dict) -> dict:
+     return {**{k: info.get(k) for k in ("version", "versionCode", "size", "sha256", "built_at", "published_at",
+-                                        "min_sdk", "min_android", "abis", "file")},
++                                        "min_sdk", "min_android", "abis", "file", "notes", "package")},
+             "url": "/api/public/m/app.apk"}
+```
+
+and `notes_en` / `notes_tr` form fields on `POST /api/mobile/apk` (two text
+areas in Settings > Mobile app), and `--notes-en` / `--notes-tr` for
+`python -m backend.mobile_app publish`. `package` in the public answer would
+let the app also refuse a build of another app before downloading it
+(Android refuses to install it over Workbench anyway).
