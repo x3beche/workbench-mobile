@@ -23,14 +23,16 @@ function deviceLocale(): string | undefined {
 
 export interface UpdateStrings {
   section: string;
-  upToDate: (v: string) => string;
-  installedOnly: (v: string) => string;
-  available: string;
-  fromTo: (from: string, to: string) => string;
+  /** The value line: the version on this phone, or the one the server has. */
+  version: (v: string) => string;
+  ready: (v: string) => string;
+  /** Under "Version 1.5.1 is ready": the one installed now. */
+  youHave: (v: string) => string;
+  upToDate: string;
   whatsNew: string;
   check: string;
   checking: string;
-  none: (v: string) => string;
+  none: string;
   checkFailed: (why: string) => string;
   offline: string;
   downloadInstall: string;
@@ -45,80 +47,79 @@ export interface UpdateStrings {
   openSetting: string;
   tryAgain: string;
   webOnly: string;
-  drawer: (from: string, to: string) => string;
+  /** Under the name in the drawer. */
+  drawer: (v: string) => string;
   errors: Record<'network' | 'cancelled' | 'size' | 'hash' | 'storage' | 'install', string>;
   http: (status: number) => string;
 }
 
 const en: UpdateStrings = {
   section: 'App',
-  upToDate: (v) => `Installed ${v} — up to date`,
-  installedOnly: (v) => `Installed ${v}`,
-  available: 'Update available',
-  fromTo: (a, b) => `Installed ${a} → New ${b}`,
+  version: (v) => `Version ${v}`,
+  ready: (v) => `Version ${v} is ready`,
+  youHave: (v) => `You have ${v}`,
+  upToDate: 'Up to date',
   whatsNew: "What's new",
-  check: 'Check for updates',
-  checking: 'Checking for updates…',
-  none: (v) => `Installed ${v} — this server offers no app download`,
-  checkFailed: (why) => `Could not check for updates: ${why}`,
-  offline: 'the server could not be reached.',
+  check: 'Check',
+  checking: 'Checking…',
+  none: 'This server has no app download',
+  checkFailed: (why) => `Couldn't check: ${why}`,
+  offline: "Can't reach the server",
   downloadInstall: 'Download and install',
   downloading: (got, total) => `Downloading ${got} of ${total}`,
   downloadingNoTotal: (got) => `Downloading ${got}`,
   cancel: 'Cancel',
-  verifying: 'Checking the download…',
+  verifying: 'Verifying the download…',
   installing: 'Opening the installer…',
-  notInstalled: 'The update was not installed.',
+  notInstalled: 'Not installed yet.',
   install: 'Install',
-  permission:
-    'Android has to allow Workbench to install apps. Turn on "Allow from this source" in the setting, then come back here.',
-  openSetting: 'Open the setting',
+  permission: 'Android needs your permission first. Turn on "Allow from this source", then come back here.',
+  openSetting: 'Open settings',
   tryAgain: 'Try again',
-  webOnly: 'Updates install in the Android app.',
-  drawer: (a, b) => `Update ${a} → ${b}`,
+  webOnly: 'Install updates from the Android app.',
+  drawer: (v) => `Update ready: ${v}`,
   errors: {
-    network: 'The download stopped: the server could not be reached. Try again when the phone is online.',
+    network: "The download stopped. Check the connection and try again.",
     cancelled: 'Download cancelled.',
-    size: 'The download is incomplete: its size does not match what the server says. Try again.',
-    hash: 'The download does not match the server’s checksum, so it was deleted. Try again.',
-    storage: 'There is not enough room on the phone for the download.',
-    install: 'The installer could not be opened.',
+    size: 'The download is incomplete. Try again.',
+    hash: "The download didn't pass the check, so it was deleted. Try again.",
+    storage: 'Not enough space on the phone.',
+    install: "Couldn't open the installer.",
   },
   http: (n) => `The server refused the download (HTTP ${n}).`,
 };
 
 const tr: UpdateStrings = {
   section: 'Uygulama',
-  upToDate: (v) => `Yüklü ${v} — güncel`,
-  installedOnly: (v) => `Yüklü ${v}`,
-  available: 'Güncelleme var',
-  fromTo: (a, b) => `Yüklü ${a} → Yeni ${b}`,
+  version: (v) => `Sürüm ${v}`,
+  ready: (v) => `Sürüm ${v} hazır`,
+  youHave: (v) => `Yüklü olan ${v}`,
+  upToDate: 'Güncel',
   whatsNew: 'Yenilikler',
-  check: 'Güncellemeleri denetle',
-  checking: 'Güncellemeler denetleniyor…',
-  none: (v) => `Yüklü ${v} — bu sunucuda uygulama indirmesi yok`,
-  checkFailed: (why) => `Güncellemeler denetlenemedi: ${why}`,
-  offline: 'sunucuya ulaşılamadı.',
+  check: 'Denetle',
+  checking: 'Denetleniyor…',
+  none: 'Bu sunucuda uygulama indirmesi yok',
+  checkFailed: (why) => `Denetlenemedi: ${why}`,
+  offline: 'Sunucuya ulaşılamıyor',
   downloadInstall: 'İndir ve yükle',
   downloading: (got, total) => `İndiriliyor: ${got} / ${total}`,
   downloadingNoTotal: (got) => `İndiriliyor: ${got}`,
   cancel: 'İptal',
-  verifying: 'İndirilen dosya doğrulanıyor…',
+  verifying: 'Dosya doğrulanıyor…',
   installing: 'Yükleyici açılıyor…',
-  notInstalled: 'Güncelleme yüklenmedi.',
+  notInstalled: 'Henüz yüklenmedi.',
   install: 'Yükle',
-  permission:
-    'Android’in Workbench’e uygulama yükleme izni vermesi gerekiyor. Ayarda "Bu kaynaktan izin ver"i açın, sonra buraya dönün.',
-  openSetting: 'Ayarı aç',
+  permission: 'Önce Android’in izin vermesi gerekiyor. "Bu kaynaktan izin ver"i açıp buraya dönün.',
+  openSetting: 'Ayarları aç',
   tryAgain: 'Yeniden dene',
-  webOnly: 'Güncellemeler Android uygulamasında yüklenir.',
-  drawer: (a, b) => `Güncelleme ${a} → ${b}`,
+  webOnly: 'Güncellemeyi Android uygulamasından yükleyin.',
+  drawer: (v) => `Güncelleme hazır: ${v}`,
   errors: {
-    network: 'İndirme durdu: sunucuya ulaşılamadı. Telefon çevrimiçi olunca yeniden deneyin.',
+    network: 'İndirme yarıda kaldı. Bağlantıyı kontrol edip yeniden deneyin.',
     cancelled: 'İndirme iptal edildi.',
-    size: 'İndirme eksik: boyutu sunucunun söylediğiyle tutmuyor. Yeniden deneyin.',
-    hash: 'İndirilen dosya sunucunun sağlama toplamıyla eşleşmedi, silindi. Yeniden deneyin.',
-    storage: 'Telefonda indirme için yeterli yer yok.',
+    size: 'İndirme eksik kaldı. Yeniden deneyin.',
+    hash: 'İndirilen dosya doğrulanamadı ve silindi. Yeniden deneyin.',
+    storage: 'Telefonda yeterli yer yok.',
     install: 'Yükleyici açılamadı.',
   },
   http: (n) => `Sunucu indirmeyi reddetti (HTTP ${n}).`,

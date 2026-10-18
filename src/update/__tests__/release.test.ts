@@ -219,10 +219,31 @@ describe('strings', () => {
     expect(uiLang('auto', undefined)).toBe('en');
   });
 
-  it('shows both versions, in both languages', () => {
-    expect(updateStrings('en').fromTo('1.4.0', '1.5.0')).toBe('Installed 1.4.0 → New 1.5.0');
-    expect(updateStrings('tr').fromTo('1.4.0', '1.5.0')).toBe('Yüklü 1.4.0 → Yeni 1.5.0');
-    expect(updateStrings('en').upToDate('1.4.0')).toBe('Installed 1.4.0 — up to date');
-    expect(updateStrings('tr').upToDate('1.4.0')).toBe('Yüklü 1.4.0 — güncel');
+  it('says the versions plainly, in both languages', () => {
+    expect(updateStrings('en').version('1.5.0')).toBe('Version 1.5.0');
+    expect(updateStrings('tr').version('1.5.0')).toBe('Sürüm 1.5.0');
+    expect(updateStrings('en').ready('1.5.1')).toBe('Version 1.5.1 is ready');
+    expect(updateStrings('tr').ready('1.5.1')).toBe('Sürüm 1.5.1 hazır');
+    expect(updateStrings('en').drawer('1.5.1')).toBe('Update ready: 1.5.1');
+    expect(updateStrings('tr').drawer('1.5.1')).toBe('Güncelleme hazır: 1.5.1');
+  });
+
+  it('has no dashes or arrows in anything it says', () => {
+    for (const lang of ['en', 'tr'] as const) {
+      const t = updateStrings(lang);
+      const said = [
+        ...Object.values(t).filter((v): v is string => typeof v === 'string'),
+        ...Object.values(t.errors),
+        t.version('1'),
+        t.ready('1'),
+        t.youHave('1'),
+        t.checkFailed('x'),
+        t.downloading('1', '2'),
+        t.downloadingNoTotal('1'),
+        t.drawer('1'),
+        t.http(500),
+      ];
+      for (const line of said) expect(line).not.toMatch(/[\u2013\u2014\u2192]|->/);
+    }
   });
 });

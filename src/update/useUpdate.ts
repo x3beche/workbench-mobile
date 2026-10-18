@@ -2,7 +2,7 @@
  * The in-app update, held for as long as the app is signed in to a server:
  * the server is asked for its latest build when the app starts, when it
  * comes back to the front (at most every few hours), when Account is opened
- * and when "Check for updates" is tapped; a newer one can be downloaded and
+ * and when Check is tapped; a newer one can be downloaded and
  * handed to Android's installer from Account, and the download goes on
  * while Account is closed.
  */

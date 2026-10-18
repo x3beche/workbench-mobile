@@ -125,7 +125,7 @@ export function Workspace({
   const update = useUpdate(client, server);
   const updateNote =
     update.check.state === 'available'
-      ? updateStrings(uiLang(lang)).drawer(update.installed.version, update.check.release.version)
+      ? updateStrings(uiLang(lang)).drawer(update.check.release.version)
       : null;
 
   const say = useCallback((text: string, bad = false) => setToast({ text, bad }), []);

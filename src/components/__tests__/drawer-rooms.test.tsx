@@ -123,10 +123,10 @@ async function panel(over: Partial<React.ComponentProps<typeof DrawerPanel>> = {
 });
 
 (canRender ? describe : describe.skip)('an update in the drawer', () => {
-  it('puts a dot on the account and both versions under the name', async () => {
-    await panel({ updateNote: 'Update 1.4.0 → 1.5.0' });
+  it('puts a dot on the account and the new version under the name', async () => {
+    await panel({ updateNote: 'Update ready: 1.5.0' });
     expect(screen.getByTestId('update-dot')).toBeTruthy();
-    expect(screen.getByTestId('drawer-update')).toHaveTextContent('Update 1.4.0 → 1.5.0');
+    expect(screen.getByTestId('drawer-update')).toHaveTextContent('Update ready: 1.5.0');
     expect(screen.queryByText('wb.example')).toBeNull();
   });
 

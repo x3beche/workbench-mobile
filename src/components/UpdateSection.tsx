@@ -1,10 +1,11 @@
 /**
- * Account's App block: the version installed and, when the server has a
- * newer build, both versions side by side with the download's size, what
- * changed when the server says, and "Download and install" (Android); then
- * the download's progress, the check of its checksum, and the installer.
- * Up to date, it says so, with "Check for updates" beside it. The web build
- * shows the versions only.
+ * Account's App block, drawn like the rows above it (a small dim label, the
+ * value in body text): "Version 1.5.0" with "Up to date" under it and a
+ * quiet Check on the right. When the server has a newer build: "Version
+ * 1.5.1 is ready", the version installed and the download's size under it,
+ * what changed when the server says, and "Download and install" (Android);
+ * then the download's progress, the check of its checksum, and the
+ * installer. The web build shows the versions only.
  */
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
@@ -21,27 +22,38 @@ function failureText(f: UpdateFailure, t: UpdateStrings): string {
 export function UpdateSection({ update, t, lang }: { update: Update; t: UpdateStrings; lang: UiLang }) {
   const { installed, check, checking, job, canInstall } = update;
   const size = (n: number | null | undefined) => formatSize(n, lang);
-  const checkButton = (
-    <Button label={t.check} variant="quiet" busy={checking} onPress={() => update.recheck()} testID="update-check" />
-  );
-
   if (check.state !== 'available') {
-    let line: string;
+    let sub: string | null = null;
     let bad = false;
-    if (check.state === 'current') line = t.upToDate(installed.version);
-    else if (check.state === 'none') line = t.none(installed.version);
+    if (checking) sub = t.checking;
+    else if (check.state === 'current') sub = t.upToDate;
+    else if (check.state === 'none') sub = t.none;
     else if (check.state === 'error') {
-      line = t.checkFailed(check.offline ? t.offline : check.message);
+      sub = check.offline ? t.offline : t.checkFailed(check.message);
       bad = true;
-    } else line = checking ? t.checking : t.installedOnly(installed.version);
+    }
     return (
       <View style={s.block} testID="update-section">
         <Text style={s.label}>{t.section}</Text>
         <View style={s.row}>
-          <Text style={[s.value, bad && s.bad]} testID="update-status">
-            {line}
-          </Text>
-          {checkButton}
+          <View style={s.flex} testID="update-status">
+            <Text style={s.value} numberOfLines={1}>
+              {t.version(installed.version)}
+            </Text>
+            {sub ? (
+              <Text style={[s.sub, bad && s.bad]} numberOfLines={2}>
+                {sub}
+              </Text>
+            ) : null}
+          </View>
+          <Button
+            label={t.check}
+            variant="quiet"
+            disabled={checking}
+            onPress={() => update.recheck()}
+            style={s.check}
+            testID="update-check"
+          />
         </View>
       </View>
     );
@@ -56,14 +68,14 @@ export function UpdateSection({ update, t, lang }: { update: Update; t: UpdateSt
   return (
     <View style={s.block} testID="update-section">
       <Text style={s.label}>{t.section}</Text>
-      <View style={s.row}>
-        <View style={s.flex}>
-          <Text style={s.title}>{t.available}</Text>
-          <Text style={s.versions} testID="update-status">
-            {t.fromTo(installed.version, release.version)}
-            {bytes ? ` · ${bytes}` : ''}
-          </Text>
-        </View>
+      <View testID="update-status">
+        <Text style={s.value} numberOfLines={1}>
+          {t.ready(release.version)}
+        </Text>
+        <Text style={s.sub} numberOfLines={1}>
+          {t.youHave(installed.version)}
+          {bytes ? ` · ${bytes}` : ''}
+        </Text>
       </View>
       {notes ? (
         <View style={s.notes}>
@@ -123,10 +135,11 @@ const s = StyleSheet.create({
   block: { paddingHorizontal: gutter, paddingTop: space.md, gap: 6 },
   label: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  value: { flex: 1, fontFamily: fonts.sans, fontSize: type.body, color: colors.ink },
-  bad: { fontSize: type.small, color: colors.danger },
-  title: { fontFamily: fonts.sansSemi, fontSize: type.body, color: colors.inkBright },
-  versions: { fontFamily: fonts.sans, fontSize: type.small, color: colors.ink, marginTop: 2 },
+  value: { fontFamily: fonts.sans, fontSize: type.body, color: colors.ink },
+  sub: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 18, color: colors.inkDim, marginTop: 1 },
+  bad: { color: colors.danger },
+  // A quiet text button whose word lines up with the sheet's right margin.
+  check: { marginRight: -8 },
   dim: { flexShrink: 1, fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.inkDim },
   notes: { gap: 4, paddingTop: space.xs },
   notesText: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.ink },

@@ -153,9 +153,10 @@ Then you sign in with the same e-mail address and password as on the web.
   Settings > Mobile app publishes) when it starts, when it comes back to the
   front - at most every four hours - and when Account is opened. A newer
   build (a higher versionCode) puts a dot on the account at the bottom of the
-  drawer, with "Update 1.4.0 → 1.5.0" under the name, and Account's App block
-  shows both versions and the download's size ("Installed 1.4.0 → New 1.5.0 ·
-  39.6 MB"), what changed when the server says, and **Download and install**.
+  drawer, with "Update ready: 1.5.1" under the name, and Account's App block
+  says "Version 1.5.1 is ready" with the version installed and the download's
+  size under it ("You have 1.5.0 · 39.7 MB"), what changed when the server
+  says, and **Download and install**.
   The APK (`GET /api/public/m/app.apk`) is downloaded into the app's cache
   with its progress (Cancel stops it), checked against the size and SHA-256
   the server gave, and handed to Android's package installer, which asks
@@ -163,8 +164,8 @@ Then you sign in with the same e-mail address and password as on the web.
   offered. If Android does not yet let Workbench install apps, the app says
   so and opens that one switch ("Install unknown apps" for Workbench), then
   goes on (the app declares `REQUEST_INSTALL_PACKAGES` for this, in
-  app.json). Up to date, Account says "Installed 1.5.0 — up to date", with Check
-  for updates beside it. The APK is deleted once the app starts again. In
+  app.json). Up to date, Account shows "Version 1.5.0" with "Up to date" under
+  it and a quiet Check on the right. The APK is deleted once the app starts again. In
   English or Turkish - Turkish when the voice language is Türkçe, or Auto on
   a phone set to Turkish. The web build shows the versions only. 1.4.0 and
   older cannot do this: 1.5.0 is installed by hand once, and from then on

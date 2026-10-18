@@ -5,7 +5,7 @@
  * each, the open one in heavier, brighter ink). A swipe to the left on a
  * row shows its buttons (Archive and Delete; Unarchive; Restore and Delete
  * forever in the trash). At the bottom: Files, and the account, which opens
- * Account - with a dot and the two versions when an update is ready there.
+ * Account - with a dot and "Update ready: 1.5.1" when an update is ready there.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -77,7 +77,7 @@ export function DrawerPanel({
   onRefresh: () => Promise<void>;
   onActions: (chat: Chat) => void;
   onAccount: () => void;
-  /** "Update 1.4.0 → 1.5.0" when the server has a newer build: said under the name, with a dot. */
+  /** "Update ready: 1.5.1" when the server has a newer build: said under the name, with a dot. */
   updateNote?: string | null;
   /** Which conversations the list shows: Chats, Archived or Trash. */
   scope?: ChatScope;
