@@ -33,6 +33,20 @@ jest.mock('expo-print', () => ({ printToFileAsync: jest.fn(async () => ({ uri: '
 // so the composers record with expo-audio as in Expo Go.
 jest.mock('@siteed/audio-studio', () => ({ AudioStudioModule: undefined }));
 jest.mock('expo-file-system', () => ({ File: jest.fn(), Directory: jest.fn(), Paths: { cache: 'file:///cache' } }));
+// The in-app update's native pieces: the installed version, the content:// address, the installer.
+jest.mock('expo-file-system/legacy', () => ({ getContentUriAsync: jest.fn(async (uri) => uri) }));
+jest.mock('expo-intent-launcher', () => ({
+  startActivityAsync: jest.fn(async () => ({ resultCode: 0 })),
+  ActivityAction: {
+    MANAGE_UNKNOWN_APP_SOURCES: 'android.settings.MANAGE_UNKNOWN_APP_SOURCES',
+    SECURITY_SETTINGS: 'android.settings.SECURITY_SETTINGS',
+  },
+}));
+jest.mock('expo-application', () => ({
+  applicationId: 'dev.workbench.mobile',
+  nativeApplicationVersion: null,
+  nativeBuildVersion: null,
+}));
 
 // The row swipe's handlers are worklets on a phone (Metro runs the worklets plugin over the
 // library); under Jest's reanimated mock they are plain functions and the library says so.

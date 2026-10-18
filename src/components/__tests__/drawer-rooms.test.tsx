@@ -121,3 +121,18 @@ async function panel(over: Partial<React.ComponentProps<typeof DrawerPanel>> = {
     expect(screen.queryByText('Rooms')).toBeNull();
   });
 });
+
+(canRender ? describe : describe.skip)('an update in the drawer', () => {
+  it('puts a dot on the account and both versions under the name', async () => {
+    await panel({ updateNote: 'Update 1.4.0 → 1.5.0' });
+    expect(screen.getByTestId('update-dot')).toBeTruthy();
+    expect(screen.getByTestId('drawer-update')).toHaveTextContent('Update 1.4.0 → 1.5.0');
+    expect(screen.queryByText('wb.example')).toBeNull();
+  });
+
+  it('shows the server as before when there is none', async () => {
+    await panel();
+    expect(screen.queryByTestId('update-dot')).toBeNull();
+    expect(screen.getByText('wb.example')).toBeTruthy();
+  });
+});

@@ -3,6 +3,8 @@
  * without an account: the routes the app uses, answering as the real server
  * does (backend/cc_chat.py). Used by `MOCK=1 node scripts/dev-proxy.mjs`.
  * MOCK_HOLD=1 keeps an answer's stream open half-written (for screenshots).
+ * MOCK_UPDATE=1 offers a newer Android build than this one at
+ * /api/public/m/app.json (Account's update), else the same one.
  * MOCK_SIGNIN=1 starts signed out; the password "mock" signs in, any other
  * gets a wrong-password answer (for the sign-in screenshots).
  * An answer starts after a short wait (the typing dots), runs two tools
@@ -237,6 +239,29 @@ export async function handle(req, res) {
     return json(res, 403, { detail: 'that change did not come from the app' });
   }
   if (p === '/api/health') return json(res, 200, { ok: true, db: 'mock' });
+  if (p === '/api/public/m/app.json') {
+    const newer = process.env.MOCK_UPDATE === '1';
+    return json(res, 200, {
+      version: newer ? '1.6.0' : '1.5.0',
+      versionCode: newer ? 9 : 8,
+      size: 39_800_000,
+      sha256: '0'.repeat(64),
+      published_at: ago(60),
+      min_sdk: 24,
+      min_android: '7.0',
+      abis: ['arm64-v8a'],
+      file: newer ? 'workbench-1.6.0.apk' : 'workbench-1.5.0.apk',
+      url: '/api/public/m/app.apk',
+      ...(newer
+        ? {
+            notes: {
+              en: 'Faster drawer.\nUpdates from Account.',
+              tr: 'Daha hızlı çekmece.\nGüncellemeler Hesap ekranından.',
+            },
+          }
+        : {}),
+    });
+  }
   if (p === '/api/auth/state') {
     const user = signedIn ? me : null;
     return json(res, 200, {

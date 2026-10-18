@@ -5,7 +5,7 @@
  * each, the open one in heavier, brighter ink). A swipe to the left on a
  * row shows its buttons (Archive and Delete; Unarchive; Restore and Delete
  * forever in the trash). At the bottom: Files, and the account, which opens
- * Account.
+ * Account - with a dot and the two versions when an update is ready there.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -54,6 +54,7 @@ export function DrawerPanel({
   onRefresh,
   onActions,
   onAccount,
+  updateNote = null,
   scope = 'live',
   onScope,
   swipeActions,
@@ -76,6 +77,8 @@ export function DrawerPanel({
   onRefresh: () => Promise<void>;
   onActions: (chat: Chat) => void;
   onAccount: () => void;
+  /** "Update 1.4.0 → 1.5.0" when the server has a newer build: said under the name, with a dot. */
+  updateNote?: string | null;
   /** Which conversations the list shows: Chats, Archived or Trash. */
   scope?: ChatScope;
   onScope?: (scope: ChatScope) => void;
@@ -293,21 +296,28 @@ export function DrawerPanel({
         testID="open-account"
         onPress={onAccount}
         accessibilityRole="button"
-        accessibilityLabel={`Account: ${who}`}
+        accessibilityLabel={`Account: ${who}${updateNote ? `. ${updateNote}` : ''}`}
         style={s.account}
       >
         {({ pressed }) => (
           <>
             <View style={s.avatar}>
               <Text style={s.avatarText}>{initials(user?.name || user?.email)}</Text>
+              {updateNote ? <View style={s.dot} testID="update-dot" /> : null}
             </View>
             <View style={s.flex}>
               <Text style={[s.name, pressed && s.dimText]} numberOfLines={1}>
                 {who}
               </Text>
-              <Text style={s.server} numberOfLines={1}>
-                {server ? displayServer(server) : ''}
-              </Text>
+              {updateNote ? (
+                <Text style={s.updateNote} numberOfLines={1} testID="drawer-update">
+                  {updateNote}
+                </Text>
+              ) : (
+                <Text style={s.server} numberOfLines={1}>
+                  {server ? displayServer(server) : ''}
+                </Text>
+              )}
             </View>
             <Glyph icon={ChevronRight} size={18} color={colors.inkDim} />
           </>
@@ -321,17 +331,7 @@ export function DrawerPanel({
  * A room in the drawer: its icon and name, when it was last written in - or
  * how much of it is unread - and the last line, cut at two lines.
  */
-function RoomRow({
-  room,
-  on,
-  unread,
-  onPress,
-}: {
-  room: Room;
-  on: boolean;
-  unread: number;
-  onPress: () => void;
-}) {
+function RoomRow({ room, on, unread, onPress }: { room: Room; on: boolean; unread: number; onPress: () => void }) {
   const Icon = ROOM_ICON[room.room];
   return (
     <Pressable
@@ -540,6 +540,19 @@ const s = StyleSheet.create({
     backgroundColor: colors.hover,
   },
   avatarText: { fontFamily: fonts.sansSemi, fontSize: type.small, color: colors.ink },
+  // An update waiting in Account: a small dot of ink on the avatar's edge, ringed by the drawer's ground.
+  dot: {
+    position: 'absolute',
+    top: -1,
+    right: -1,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.surface,
+    backgroundColor: colors.inkBright,
+  },
+  updateNote: { fontFamily: fonts.sansMedium, fontSize: type.tiny, color: colors.ink, marginTop: 1 },
   name: { fontFamily: fonts.sansMedium, fontSize: 15, color: colors.ink },
   server: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim, marginTop: 1 },
 });

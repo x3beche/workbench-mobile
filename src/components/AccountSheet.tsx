@@ -1,5 +1,9 @@
-/** Account, from the drawer: who is signed in where, the voice language and when its words appear, and the ways out. */
+/**
+ * Account, from the drawer: who is signed in where, the voice language and
+ * when its words appear, the app's version and its update, and the ways out.
+ */
 import Constants from 'expo-constants';
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { VoiceLang } from '../api/client';
@@ -7,10 +11,14 @@ import { displayServer } from '../api/server';
 import { initials } from '../lib/groups';
 import { useSession } from '../state/session';
 import { colors, fonts, gutter, space, type } from '../theme/tokens';
+import { SETTINGS_RECHECK_MS } from '../update/release';
+import { uiLang, updateStrings } from '../update/strings';
+import type { Update } from '../update/useUpdate';
 import { VOICE_LANGS, VOICE_MODES, type VoiceMode } from '../voice/voice';
 import { Choice } from './Choice';
 import { LogOut, Server } from './icons';
 import { ActionList, Sheet, type Action } from './Sheet';
+import { UpdateSection } from './UpdateSection';
 
 /** Mount it to open it. */
 export function AccountSheet({
@@ -19,14 +27,23 @@ export function AccountSheet({
   onLang,
   voiceMode = 'live',
   onVoiceMode = () => undefined,
+  update,
 }: {
   onClose: () => void;
   lang: VoiceLang;
   onLang: (l: VoiceLang) => void;
   voiceMode?: VoiceMode;
   onVoiceMode?: (m: VoiceMode) => void;
+  /** The in-app update (src/update): the versions, and the download where it can be installed. */
+  update?: Update;
 }) {
   const { user, server, signOut, changeServer } = useSession();
+  const recheck = update?.recheck;
+  // Opening Account asks the server again, unless it was asked a moment ago.
+  useEffect(() => {
+    recheck?.(SETTINGS_RECHECK_MS);
+  }, [recheck]);
+  const ui = uiLang(lang);
   const actions: Action[] = [
     {
       id: 'change-server',
@@ -82,9 +99,10 @@ export function AccountSheet({
         <Text style={s.label}>Words appear</Text>
         <Choice label="Words appear" options={VOICE_MODES} value={voiceMode} onChange={onVoiceMode} />
       </View>
+      {update ? <UpdateSection update={update} t={updateStrings(ui)} lang={ui} /> : null}
       <View style={s.rule} />
       <ActionList actions={actions} />
-      {version ? <Text style={s.version}>Workbench mobile {version}</Text> : null}
+      {version && !update ? <Text style={s.version}>Workbench mobile {version}</Text> : null}
     </Sheet>
   );
 }

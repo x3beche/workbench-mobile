@@ -42,6 +42,8 @@ import { shareFile, sharePdf } from '../lib/share';
 import { useSession } from '../state/session';
 import * as prefs from '../storage/prefs';
 import { colors, drawerMax, fonts, motion, radius, type, wideAt } from '../theme/tokens';
+import { uiLang, updateStrings } from '../update/strings';
+import { useUpdate } from '../update/useUpdate';
 import type { VoiceMode } from '../voice/voice';
 import { ChatScreen, type Suggestion } from './ChatScreen';
 import { FilesScreen, type FilesHandle } from './FilesScreen';
@@ -119,6 +121,12 @@ export function Workspace({
   const [scoped, setScoped] = useState<{ scope: ChatScope; chats: Chat[] } | null>(null);
   const [can, setCan] = useState<string[] | null>(null);
   const [toast, setToast] = useState<{ text: string; bad?: boolean } | null>(null);
+
+  const update = useUpdate(client, server);
+  const updateNote =
+    update.check.state === 'available'
+      ? updateStrings(uiLang(lang)).drawer(update.installed.version, update.check.release.version)
+      : null;
 
   const say = useCallback((text: string, bad = false) => setToast({ text, bad }), []);
   useEffect(() => {
@@ -470,6 +478,7 @@ export function Workspace({
       }}
       onActions={setActions}
       onAccount={() => setAccount(true)}
+      updateNote={updateNote}
       scope={scope}
       onScope={setScope}
       swipeActions={swipeActions}
@@ -531,6 +540,7 @@ export function Workspace({
           onLang={onLang}
           voiceMode={voiceMode}
           onVoiceMode={onVoiceMode}
+          update={update}
         />
       ) : null}
       {actions ? (
