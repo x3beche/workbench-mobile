@@ -23,6 +23,7 @@ import { ErrorText, Glyph, IconButton } from '../components/ui';
 import { asChatMessage, ROOM_ICON, ROOM_LABEL } from '../lib/rooms';
 import * as prefs from '../storage/prefs';
 import { colors, fonts, gutter, motion, space, touch, type } from '../theme/tokens';
+import type { VoiceMode } from '../voice/voice';
 
 /** How often a room's thread is read again while it is open. */
 const EVERY = 2000;
@@ -33,6 +34,7 @@ export function RoomScreen({
   server,
   user,
   lang,
+  voiceMode = 'record',
   wide = false,
   onMenu,
   onClose,
@@ -44,6 +46,8 @@ export function RoomScreen({
   user: User | null;
   /** What dictation here is transcribed as. */
   lang: VoiceLang;
+  /** When dictated words appear: while speaking or after recording. */
+  voiceMode?: VoiceMode;
   /** The drawer is a column beside it: no button for it. */
   wide?: boolean;
   onMenu?: () => void;
@@ -187,6 +191,7 @@ export function RoomScreen({
         <Composer
           client={client}
           lang={lang}
+          mode={voiceMode}
           writing={false}
           onSend={send}
           onStop={() => undefined}

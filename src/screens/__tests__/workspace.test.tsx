@@ -76,6 +76,8 @@ const mockClient = {
     ),
   ),
   ideas: jest.fn(async (): Promise<Ideas | null> => IDEAS),
+  // The workspace's rooms (1.3.0): none here, as from an older server - the drawer test covers them.
+  rooms: jest.fn(async () => []),
   getChat: jest.fn(async (id: string) => full(CHATS.find((c) => c.id === id) ?? listed(id, 'Gone', 1))),
   live: jest.fn(async () => undefined),
   createChat: jest.fn(async (provider?: string, model?: string) => {
@@ -329,6 +331,18 @@ describe('workspace', () => {
     expect(screen.getByTestId('account-sheet')).toBeTruthy();
     expect(screen.getByText('Voice language')).toBeTruthy();
     expect(screen.getByText('Sign out')).toBeTruthy();
+  });
+
+  it('chooses in Account whether dictated words appear live or after recording', async () => {
+    const onVoiceMode = jest.fn();
+    await render(<Workspace lang="auto" onLang={jest.fn()} voiceMode="live" onVoiceMode={onVoiceMode} />);
+    await act(async () => undefined);
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    await fireEvent.press(screen.getByTestId('open-account'));
+    expect(screen.getByText('Words appear')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Live' }).props.accessibilityState).toEqual({ checked: true });
+    await fireEvent.press(screen.getByText('After recording'));
+    expect(onVoiceMode).toHaveBeenCalledWith('record');
   });
 
   it('swipe actions on a row archive or delete it (delete asks first)', async () => {

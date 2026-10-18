@@ -1,17 +1,20 @@
 /**
  * What the app remembers on the device: the last few servers, the address
- * last signed in with on each, the voice language and the conversation last
- * open on each. Never a password or a session - the session is a cookie the platform keeps.
+ * last signed in with on each, the voice language and when its words
+ * appear, and the conversation last open on each. Never a password or a
+ * session - the session is a cookie the platform keeps.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { VoiceLang } from '../api/client';
+import type { VoiceMode } from '../voice/voice';
 
 export const MAX_SERVERS = 5;
 const SERVERS = 'workbench.servers';
 const EMAILS = 'workbench.emails';
 const CURRENT = 'workbench.current';
 const VOICE_LANG = 'workbench.voiceLang';
+const VOICE_MODE = 'workbench.voiceMode';
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
   try {
@@ -89,6 +92,16 @@ export async function voiceLang(): Promise<VoiceLang> {
 
 export async function setVoiceLang(lang: VoiceLang): Promise<void> {
   await writeJson(VOICE_LANG, lang);
+}
+
+/** Words while speaking (the default) or after recording. */
+export async function voiceMode(): Promise<VoiceMode> {
+  const got = await readJson<string>(VOICE_MODE, 'live');
+  return got === 'record' ? 'record' : 'live';
+}
+
+export async function setVoiceMode(mode: VoiceMode): Promise<void> {
+  await writeJson(VOICE_MODE, mode);
 }
 
 const LAST_CHAT = 'workbench.lastChat';

@@ -153,6 +153,32 @@ sends. Keep:
 The app shows the server's `detail` for 400, 502 and 503, and a plain
 "this server cannot transcribe voice yet" for a 404 (an older server).
 
+## 4b. Live voice to text: nothing to change, what the app relies on (new in 1.4.0)
+
+The app streams to `WS /api/voice/live` (`backend/voice_live.py`, commits
+f899c68 + 0812ae7) as the web app's composer does: `start` with `lang`,
+`purpose` and `format: "pcm16"` (`polish: false`), 16 kHz mono PCM16 frames
+of 100 ms, `stop`, and it reads `ready`, `partial`, `final`, `done` and
+`error`. Keep:
+
+- **Sign-in by the session cookie.** React Native's WebSocket sends the
+  platform's cookies for the address (OkHttp's cookie jar on Android,
+  NSHTTPCookieStorage on iOS), so the phone needs no agent token. Its
+  `Origin` is the server's own `https://host` (React Native sets it from the
+  socket's address), so the "Origin host = Host" check passes. A browser on
+  the review site (`workbench-mobil.medipol.dev`) has that site's Origin,
+  which its nginx maps (verified 2026-10-18).
+- **`error` before `ready`** for down, busy and refused, then a close: the
+  app records on and writes the recording out with
+  `POST /api/voice/transcribe` - as a WAV (`audio/wav`, 16 kHz mono, about
+  1.9 MB a minute; five minutes is 9.6 MB, under `MAX_BYTES`). A server
+  without the route (the upgrade refused) is treated the same way.
+- `final` text concatenated as sent (Whisper's words carry their leading
+  space), `partial` replacing the tail, `done.text` the whole text.
+
+`scripts/dev-proxy.mjs` does not pass WebSocket upgrades, so behind it the
+web build falls back to the recording, which is what it is there to test.
+
 ## 5. Files: smaller answers for a phone - done
 
 Made in redline-studio (October 2026, `backend/files_api.py`,

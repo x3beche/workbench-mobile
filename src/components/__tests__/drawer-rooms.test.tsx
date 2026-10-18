@@ -74,8 +74,8 @@ async function panel(over: Partial<React.ComponentProps<typeof DrawerPanel>> = {
     expect(screen.getByText('3D Drawing')).toBeTruthy();
     expect(screen.getByText('PCB Design')).toBeTruthy();
     expect(screen.getByText('Firmware')).toBeTruthy();
-    const tree = JSON.stringify(screen.toJSON());
-    expect(tree.indexOf('Rooms')).toBeLessThan(tree.indexOf('Rail sag'));
+    // In the order they are drawn: the rooms' heading before the first conversation.
+    expect(screen.getAllByText(/^(Rooms|Rail sag)$/).map((t) => t.props.children)).toEqual(['Rooms', 'Rail sag']);
   });
 
   it('reads each room with who wrote last and what they said', async () => {
@@ -93,7 +93,8 @@ async function panel(over: Partial<React.ComponentProps<typeof DrawerPanel>> = {
 
   it('counts everything for a room never opened on this phone', async () => {
     await panel();
-    expect(screen.getByText('1')).toBeTruthy();
+    // 3D Drawing and PCB Design each have one line from the agent; Firmware none.
+    expect(screen.getAllByText('1')).toHaveLength(2);
   });
 
   it('opens a room when its row is pressed', async () => {
@@ -110,7 +111,7 @@ async function panel(over: Partial<React.ComponentProps<typeof DrawerPanel>> = {
 
   it('leaves the rooms out of a search', async () => {
     await panel();
-    fireEvent.changeText(screen.getByTestId('drawer-search'), 'rail');
+    await fireEvent.changeText(screen.getByTestId('drawer-search'), 'rail');
     expect(screen.queryByText('Rooms')).toBeNull();
   });
 

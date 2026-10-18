@@ -10,6 +10,24 @@ export const VOICE_LANGS: { id: VoiceLang; label: string }[] = [
   { id: 'en', label: 'English' },
 ];
 
+/**
+ * When the words appear: while speaking (the server's own Whisper over
+ * WS /api/voice/live, where it offers it), or once the recording is done
+ * (POST /api/voice/transcribe, the voice job's model). Live falls back to
+ * after-recording by itself.
+ */
+export type VoiceMode = 'live' | 'record';
+
+export const VOICE_MODES: { id: VoiceMode; label: string }[] = [
+  { id: 'live', label: 'Live' },
+  { id: 'record', label: 'After recording' },
+];
+
+/** Said in place of the live words when the server does not offer them. */
+export const NO_LIVE = 'Live voice to text is not available here - the words are written out when you stop.';
+/** Said when the live words stop part way. */
+export const LIVE_BROKE = 'Live voice to text stopped - the recording is written out when you stop.';
+
 export function langLabel(lang: VoiceLang): string {
   return VOICE_LANGS.find((l) => l.id === lang)?.label ?? 'Auto';
 }

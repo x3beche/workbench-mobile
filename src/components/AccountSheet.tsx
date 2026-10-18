@@ -1,4 +1,4 @@
-/** Account, from the drawer: who is signed in where, the voice language, and the ways out. */
+/** Account, from the drawer: who is signed in where, the voice language and when its words appear, and the ways out. */
 import Constants from 'expo-constants';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -7,7 +7,7 @@ import { displayServer } from '../api/server';
 import { initials } from '../lib/groups';
 import { useSession } from '../state/session';
 import { colors, fonts, gutter, space, type } from '../theme/tokens';
-import { VOICE_LANGS } from '../voice/voice';
+import { VOICE_LANGS, VOICE_MODES, type VoiceMode } from '../voice/voice';
 import { Choice } from './Choice';
 import { LogOut, Server } from './icons';
 import { ActionList, Sheet, type Action } from './Sheet';
@@ -17,10 +17,14 @@ export function AccountSheet({
   onClose,
   lang,
   onLang,
+  voiceMode = 'live',
+  onVoiceMode = () => undefined,
 }: {
   onClose: () => void;
   lang: VoiceLang;
   onLang: (l: VoiceLang) => void;
+  voiceMode?: VoiceMode;
+  onVoiceMode?: (m: VoiceMode) => void;
 }) {
   const { user, server, signOut, changeServer } = useSession();
   const actions: Action[] = [
@@ -73,6 +77,10 @@ export function AccountSheet({
       <View style={s.block}>
         <Text style={s.label}>Voice language</Text>
         <Choice label="Voice language" options={VOICE_LANGS} value={lang} onChange={onLang} />
+      </View>
+      <View style={s.block}>
+        <Text style={s.label}>Words appear</Text>
+        <Choice label="Words appear" options={VOICE_MODES} value={voiceMode} onChange={onVoiceMode} />
       </View>
       <View style={s.rule} />
       <ActionList actions={actions} />

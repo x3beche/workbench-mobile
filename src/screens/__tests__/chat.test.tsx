@@ -196,6 +196,7 @@ describe('lines', () => {
       feed!({ type: 'text', gen: 'g1', text: 'Keep it short.', at: 0 });
     });
     expect(screen.queryByTestId('typing')).toBeNull();
-    expect(screen.getByText('Keep it short.')).toBeTruthy();
+    // The words are let out a frame at a time (lib/drain), so they are there a few frames on.
+    expect(await screen.findByText('Keep it short.')).toBeTruthy();
   });
 });

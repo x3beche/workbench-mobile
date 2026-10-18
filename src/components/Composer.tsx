@@ -4,7 +4,9 @@
  * microphone (dictate: the recording is transcribed by the server and put in
  * the box to read over) and one round button - Send when there is text,
  * Stop while an answer is written, Voice note otherwise. Nothing is sent
- * until Send is pressed.
+ * until Send is pressed. With live voice to text the words come into the box
+ * while they are spoken - settled ones in ink, the unsure tail dimmed - and
+ * stay there, when it is stopped, to read over like any other.
  */
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -12,10 +14,13 @@ import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import type { VoiceLang, WorkbenchClient } from '../api/client';
 import { tick } from '../lib/feel';
 import { colors, fonts, radius, space, type } from '../theme/tokens';
+import { joinWords } from '../voice/live';
 import { useVoiceRecorder } from '../voice/useVoiceRecorder';
+import type { VoiceMode } from '../voice/voice';
 import { ArrowUp, AudioLines, Mic, Square } from './icons';
+import { LiveWords } from './LiveWords';
 import { RecordingBar } from './RecordingBar';
-import { ErrorText, Glyph, IconButton } from './ui';
+import { ErrorText, Glyph, Hint, IconButton } from './ui';
 
 /** The box grows with the text up to this many lines, then scrolls inside. */
 export const MAX_LINES = 6;
@@ -35,23 +40,31 @@ export const Composer = forwardRef<
   {
     client: WorkbenchClient | null;
     lang: VoiceLang;
+    /** When the dictated words appear: while speaking (where the server offers it) or after. */
+    mode?: VoiceMode;
     writing: boolean;
     onSend: (text: string) => Promise<boolean>;
     onStop: () => void;
     onVoiceNote?: () => void;
   }
->(function Composer({ client, lang, writing, onSend, onStop, onVoiceNote }, ref) {
+>(function Composer({ client, lang, mode = 'record', writing, onSend, onStop, onVoiceNote }, ref) {
   const [text, setText] = useState('');
   // Native multiline inputs grow by themselves between min and max height;
   // the web's textarea does not, so there its content height is followed.
   const [webHeight, setWebHeight] = useState(MIN_H);
   const [focused, setFocused] = useState(false);
   const input = useRef<TextInput>(null);
-  const voice = useVoiceRecorder(client, lang, 'chat', (got) => {
-    if (!got) return;
-    setText((now) => (now.trim() ? `${now.trimEnd()} ${got}` : got));
-    input.current?.focus();
-  });
+  const voice = useVoiceRecorder(
+    client,
+    lang,
+    'chat',
+    (got) => {
+      if (!got) return;
+      setText((now) => joinWords(now.trimEnd(), got));
+      input.current?.focus();
+    },
+    mode,
+  );
 
   useImperativeHandle(ref, () => ({
     fill: (t: string) => {
@@ -74,11 +87,19 @@ export const Composer = forwardRef<
     });
   };
 
+  const notice = voice.notice ? (
+    <View style={s.error}>
+      <Hint>{voice.notice}</Hint>
+    </View>
+  ) : null;
+
   if (voice.phase !== 'idle') {
     return (
       <View style={s.wrap}>
-        <View style={[s.field, s.recording]}>
-          <View style={s.flex}>
+        {notice}
+        <View style={[s.field, s.recording, voice.live && s.liveField]}>
+          {voice.live ? <LiveWords base={text.trim()} words={voice.live} lines={MAX_LINES} /> : null}
+          <View style={voice.live ? s.liveBar : s.flex}>
             <RecordingBar phase={voice.phase} elapsed={voice.elapsed} onCancel={voice.cancel} onDone={voice.finish} />
           </View>
         </View>
@@ -101,7 +122,9 @@ export const Composer = forwardRef<
         <View style={s.error}>
           <ErrorText>{voice.error}</ErrorText>
         </View>
-      ) : null}
+      ) : (
+        notice
+      )}
       <View style={[s.field, focused && s.focused]}>
         <TextInput
           ref={input}
@@ -114,6 +137,7 @@ export const Composer = forwardRef<
             if (Platform.OS === 'web' && t.length < text.length) setWebHeight(MIN_H);
             setText(t);
             if (voice.error) voice.setError(null);
+            if (voice.notice) voice.setNotice(null);
           }}
           placeholder="Message"
           placeholderTextColor={colors.inkDim}
@@ -179,6 +203,9 @@ const s = StyleSheet.create({
   // Focus is told by the hairline getting lighter (the browser's own ring is off on the web).
   focused: { borderColor: colors.pressed },
   recording: { paddingLeft: 10, paddingVertical: 2 },
+  // Live words: the text above, the recording's row under it, in the one box.
+  liveField: { flexDirection: 'column', alignItems: 'stretch', paddingLeft: 6 },
+  liveBar: { paddingLeft: 4 },
   flex: { flex: 1 },
   input: {
     flex: 1,

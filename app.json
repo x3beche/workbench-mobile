@@ -3,7 +3,7 @@
     "name": "Workbench",
     "slug": "workbench-mobile",
     "scheme": "workbench",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -19,7 +19,7 @@
         "NSCameraUsageDescription": "Workbench uses the camera only when you take a photo to upload to Files.",
         "NSPhotoLibraryUsageDescription": "Workbench reads the photos you pick, to upload them to Files."
       },
-      "buildNumber": "6"
+      "buildNumber": "7"
     },
     "android": {
       "package": "dev.workbench.mobile",
@@ -30,7 +30,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 6,
+      "versionCode": 7,
       "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
@@ -44,6 +44,26 @@
         "expo-audio",
         {
           "microphonePermission": "Workbench records your voice only while you hold a recording open, to turn it into text for a chat message."
+        }
+      ],
+      [
+        "@siteed/audio-studio",
+        {
+          "enablePhoneStateHandling": false,
+          "enableNotifications": false,
+          "enableBackgroundAudio": false,
+          "enableDeviceDetection": false,
+          "iosBackgroundModes": {
+            "useVoIP": false,
+            "useAudio": false,
+            "useProcessing": false,
+            "useLocation": false,
+            "useExternalAccessory": false
+          },
+          "iosConfig": {
+            "allowBackgroundAudioControls": false,
+            "microphoneUsageDescription": "Workbench records your voice only while you hold a recording open, to turn it into text for a chat message."
+          }
         }
       ],
       [

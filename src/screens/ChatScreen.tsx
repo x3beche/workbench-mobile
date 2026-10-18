@@ -38,6 +38,7 @@ import { copy } from '../lib/feel';
 import { greeting } from '../lib/groups';
 import { useSession } from '../state/session';
 import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
+import type { VoiceMode } from '../voice/voice';
 
 type Action = { kind: 'load'; chat: Chat } | { kind: 'event'; ev: ChatEvent };
 
@@ -71,6 +72,7 @@ export function ChatScreen({
   suggestions = [],
   wide = false,
   lang,
+  voiceMode = 'record',
   onMenu,
   onNew,
   onCreated,
@@ -86,6 +88,8 @@ export function ChatScreen({
   /** The drawer is a column beside it: no button for it. */
   wide?: boolean;
   lang: VoiceLang;
+  /** When dictated words appear: while speaking or after recording. */
+  voiceMode?: VoiceMode;
   onMenu?: () => void;
   onNew?: () => void;
   /** The new conversation is on the server now. */
@@ -487,6 +491,7 @@ export function ChatScreen({
           ref={composer}
           client={client}
           lang={lang}
+          mode={voiceMode}
           writing={!!view.writing}
           onSend={send}
           onStop={stop}
@@ -504,7 +509,13 @@ export function ChatScreen({
         />
       ) : null}
       {voiceNote ? (
-        <VoiceNoteSheet client={client} lang={lang} onClose={() => setVoiceNote(false)} onSend={send} />
+        <VoiceNoteSheet
+          client={client}
+          lang={lang}
+          mode={voiceMode}
+          onClose={() => setVoiceNote(false)}
+          onSend={send}
+        />
       ) : null}
       {menu ? (
         <Sheet onClose={() => setMenu(null)} testID="message-menu">

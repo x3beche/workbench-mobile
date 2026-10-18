@@ -9,9 +9,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { VoiceLang, WorkbenchClient } from '../api/client';
 import { colors, fonts, gutter, motion, radius, type } from '../theme/tokens';
 import { useVoiceRecorder } from '../voice/useVoiceRecorder';
-import { langLabel } from '../voice/voice';
+import { langLabel, type VoiceMode } from '../voice/voice';
 import { Appear } from './Appear';
 import { KeyboardSpacer } from './KeyboardSpacer';
+import { LiveWords } from './LiveWords';
 import { RecordingBar } from './RecordingBar';
 import { Button, ErrorText, Hint } from './ui';
 
@@ -19,16 +20,19 @@ import { Button, ErrorText, Hint } from './ui';
 export function VoiceNoteSheet({
   client,
   lang,
+  mode = 'record',
   onClose,
   onSend,
 }: {
   client: WorkbenchClient | null;
   lang: VoiceLang;
+  /** Live: the words show while they are spoken, then stay to be read over. */
+  mode?: VoiceMode;
   onClose: () => void;
   onSend: (text: string) => Promise<boolean>;
 }) {
   const [text, setText] = useState<string | null>(null);
-  const voice = useVoiceRecorder(client, lang, 'note', (got) => setText(got ?? ''));
+  const voice = useVoiceRecorder(client, lang, 'note', (got) => setText(got ?? ''), mode);
   const { start, cancel, phase, finish } = voice;
 
   // Opening the sheet is asking to record.
@@ -57,7 +61,12 @@ export function VoiceNoteSheet({
             <Text style={s.title}>Voice note</Text>
             <Text style={s.lang}>{langLabel(lang)}</Text>
           </View>
-          {voice.error ? <ErrorText>{voice.error}</ErrorText> : null}
+          {voice.error ? <ErrorText>{voice.error}</ErrorText> : voice.notice ? <Hint>{voice.notice}</Hint> : null}
+          {phase !== 'idle' && voice.live ? (
+            <View style={s.live}>
+              <LiveWords words={voice.live} lines={8} />
+            </View>
+          ) : null}
           {phase !== 'idle' ? (
             <RecordingBar phase={phase} elapsed={voice.elapsed} onCancel={close} onDone={finish} doneLabel="Stop" />
           ) : text !== null ? (
@@ -118,6 +127,15 @@ const s = StyleSheet.create({
     gap: 12,
   },
   head: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  // As the transcript's box below, so the words stay where they are when it takes them.
+  live: {
+    minHeight: 110,
+    paddingHorizontal: 2,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+  },
   title: { fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.ink },
   lang: { fontFamily: fonts.mono, fontSize: type.tiny, color: colors.inkDim },
   input: {

@@ -29,6 +29,9 @@ jest.mock('expo-sharing', () => ({
   shareAsync: jest.fn(async () => undefined),
 }));
 jest.mock('expo-print', () => ({ printToFileAsync: jest.fn(async () => ({ uri: 'file:///cache/print.pdf' })) }));
+// The PCM microphone (live voice to text) is a native module: not there unless a test brings one,
+// so the composers record with expo-audio as in Expo Go.
+jest.mock('@siteed/audio-studio', () => ({ AudioStudioModule: undefined }));
 jest.mock('expo-file-system', () => ({ File: jest.fn(), Directory: jest.fn(), Paths: { cache: 'file:///cache' } }));
 
 // The row swipe's handlers are worklets on a phone (Metro runs the worklets plugin over the

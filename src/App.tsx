@@ -24,6 +24,7 @@ import { SessionProvider, useSession } from './state/session';
 import * as prefs from './storage/prefs';
 import { installScrollbars } from './theme/scrollbars';
 import { colors } from './theme/tokens';
+import type { VoiceMode } from './voice/voice';
 
 // The native splash (app.json, expo-splash-screen: the mark on the theme's
 // ground) stays until the first screen can be drawn, then fades into it.
@@ -37,9 +38,11 @@ const SPLASH_MAX_MS = 4000;
 function Screens() {
   const { phase, server, user } = useSession();
   const [lang, setLang] = useState<VoiceLang>('auto');
+  const [voiceMode, setVoiceMode] = useState<VoiceMode>('live');
 
   useEffect(() => {
     prefs.voiceLang().then(setLang);
+    prefs.voiceMode().then(setVoiceMode);
   }, []);
 
   // The splash goes once there is a screen to show (or after SPLASH_MAX_MS, on the spinner).
@@ -61,6 +64,11 @@ function Screens() {
   const changeLang = (l: VoiceLang) => {
     setLang(l);
     prefs.setVoiceLang(l);
+  };
+
+  const changeVoiceMode = (m: VoiceMode) => {
+    setVoiceMode(m);
+    prefs.setVoiceMode(m);
   };
 
   if (phase === 'boot') {
@@ -87,7 +95,7 @@ function Screens() {
   // A new server or account starts afresh, never in someone else's conversation.
   return (
     <Appear key={`${server}|${user?.id ?? ''}`}>
-      <Workspace lang={lang} onLang={changeLang} />
+      <Workspace lang={lang} onLang={changeLang} voiceMode={voiceMode} onVoiceMode={changeVoiceMode} />
     </Appear>
   );
 }

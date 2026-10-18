@@ -84,7 +84,7 @@ Then you sign in with the same e-mail address and password as on the web.
   server without the route gets the app's own Markdown or a PDF printed on
   the phone.
   At the bottom: Files, and the account, which opens Account: the server,
-  the voice language, Change server and Sign out. On a screen 860 px or
+  the voice language, when its words appear, Change server and Sign out. On a screen 860 px or
   wider the drawer is a column that stays open.
 - **Files**, as on the web: My files (one's own folders and uploads), In
   the app (what Workbench keeps - projects, the Chat's files, Parts,
@@ -134,12 +134,26 @@ Then you sign in with the same e-mail address and password as on the web.
   correct - nothing is sent by itself. Voice note (the round button, with
   nothing typed) records, shows the transcript for review, then sends it.
   The language is Auto, Türkçe or English (Account).
+- **Live voice to text** (from 1.4.0; Account > Words appear: Live, the
+  default, or After recording): where the server offers it, the words come
+  into the box while they are spoken, written by the server's own Whisper
+  (`WS /api/voice/live`) - the settled words in ink, the tail that may still
+  change dimmed after them - and when it is stopped the server's whole text
+  stays in the box to read over, never sent by itself. The phone's
+  microphone hands its sound over as 16 kHz PCM every 100 ms
+  ([@siteed/audio-studio](https://github.com/deeeed/audiolab), an Expo
+  module with a config plugin; the web build takes it with an AudioWorklet,
+  as the web app does) and writes the same sound to a WAV, so when the
+  server does not offer live words - an older server, the service down or
+  busy - or they stop part way, that recording is written out the old way
+  instead, and nothing said in between is lost. In Expo Go (no such
+  module) it records as before.
 - **Back** (Android) closes a sheet, then the drawer, then the room, then goes
   back to the conversation open before, then leaves the app.
 
 The device keeps only the server list, the last e-mail address, the last
-open conversation and which rooms were last read on each server, and the
-voice language. Never a password. A file shared or saved is written to the
+open conversation and which rooms were last read on each server, the voice
+language and when its words appear. Never a password. A file shared or saved is written to the
 app's cache first, then handed over. The session is the server's own HttpOnly
 cookie, kept by the platform's cookie store.
 
@@ -291,6 +305,7 @@ drawn by `scripts/make-icons.js` from the web app's section mark.
 | Stop | `POST /api/cc/chats/{id}/stop` |
 | Models | `GET /api/llm/settings` (providers with a key), `GET /api/llm/models?provider=` |
 | Voice | `POST /api/voice/transcribe` multipart `audio`, `lang`, `purpose` |
+| Live voice | `WS /api/voice/live`: `start` `{lang, purpose, format: "pcm16"}`, binary 16 kHz mono PCM16 frames, `stop`; back `ready`, `partial` (the tail, replaces), `final` (appended), `done` (the whole text), `error` (`code`: down, busy, auth, ...); the session cookie signs it in |
 | Export | `POST /api/cc/chats/{id}/export` `{format: md\|pdf, lang}` (the file kept in Files), then `GET /api/files/{fileId}` |
 | Archive, pin, trash | `GET /api/cc/chats?archived=1` / `?trash=1`, `PATCH .../{id}` (`archived`, `pinned`), `POST .../{id}/restore`, `DELETE .../{id}?forever=1`, `POST /api/cc/chats/empty-trash` |
 | What the account may do | `GET /api/auth/state` (`can`: `draw` to change files, `delete` for anyone's) |
@@ -315,7 +330,8 @@ src/
                         Composer, RecordingBar, sheets and dialogs, icons (Lucide), controls
   lib/                  Markdown parser, answer-stream reducer, day groups, tool steps, times,
                         Files (what each side shows, rights), chat export, share (native / web)
-  voice/                recorder hook and its pure helpers
+  voice/                recorder hook; live voice to text (live.ts: the socket's protocol;
+                        pcmMic.ts / pcmMic.web.ts: the 16 kHz microphone; pcm.ts); pure helpers
   theme/tokens.ts       Spartan Dark, copied from the web app's styles.css
   theme/scrollbars*     the web build's scrollbars, as the web app's (thin, faint thumb, no track)
 scripts/                dev proxy, screenshots, Android build

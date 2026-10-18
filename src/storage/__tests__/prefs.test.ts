@@ -73,4 +73,12 @@ describe('emails and voice language', () => {
     await AsyncStorage.setItem('workbench.voiceLang', '"de"');
     expect(await prefs.voiceLang()).toBe('auto');
   });
+
+  it('has the words appear live by default and keeps "after recording"', async () => {
+    expect(await prefs.voiceMode()).toBe('live');
+    await prefs.setVoiceMode('record');
+    expect(await prefs.voiceMode()).toBe('record');
+    await AsyncStorage.setItem('workbench.voiceMode', '"later"');
+    expect(await prefs.voiceMode()).toBe('live');
+  });
 });

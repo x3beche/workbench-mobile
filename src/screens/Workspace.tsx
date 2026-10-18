@@ -42,6 +42,7 @@ import { shareFile, sharePdf } from '../lib/share';
 import { useSession } from '../state/session';
 import * as prefs from '../storage/prefs';
 import { colors, drawerMax, fonts, motion, radius, type, wideAt } from '../theme/tokens';
+import type { VoiceMode } from '../voice/voice';
 import { ChatScreen, type Suggestion } from './ChatScreen';
 import { FilesScreen, type FilesHandle } from './FilesScreen';
 import { RoomScreen } from './RoomScreen';
@@ -77,7 +78,18 @@ export function suggestionsFrom(ideas: Ideas | null): Suggestion[] {
 /** What is open: a conversation (by id, with what the list knew of it) or a new one. */
 type Open = { key: number; chat: Chat | null };
 
-export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: VoiceLang) => void }) {
+export function Workspace({
+  lang,
+  onLang,
+  voiceMode = 'live',
+  onVoiceMode = () => undefined,
+}: {
+  lang: VoiceLang;
+  onLang: (l: VoiceLang) => void;
+  /** When dictated words appear (Account: "Words appear"). */
+  voiceMode?: VoiceMode;
+  onVoiceMode?: (m: VoiceMode) => void;
+}) {
   const { client, server, user } = useSession();
   const { width } = useWindowDimensions();
   const wide = width >= wideAt;
@@ -482,6 +494,7 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
               server={server}
               user={user}
               lang={lang}
+              voiceMode={voiceMode}
               wide={wide}
               onMenu={() => setDrawer(true)}
               onClose={() => setRoom(null)}
@@ -500,6 +513,7 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
               suggestions={suggestions}
               wide={wide}
               lang={lang}
+              voiceMode={voiceMode}
               onMenu={() => setDrawer(true)}
               onNew={newChat}
               onCreated={created}
@@ -510,7 +524,15 @@ export function Workspace({ lang, onLang }: { lang: VoiceLang; onLang: (l: Voice
           </Appear>
         ) : null}
       </Drawer>
-      {account ? <AccountSheet onClose={() => setAccount(false)} lang={lang} onLang={onLang} /> : null}
+      {account ? (
+        <AccountSheet
+          onClose={() => setAccount(false)}
+          lang={lang}
+          onLang={onLang}
+          voiceMode={voiceMode}
+          onVoiceMode={onVoiceMode}
+        />
+      ) : null}
       {actions ? (
         <Sheet onClose={() => setActions(null)} title={actions.title} testID="chat-actions">
           {/* eslint-disable-next-line react-hooks/refs -- refs are read in the actions' handlers, not while drawing */}
