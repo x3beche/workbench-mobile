@@ -15,6 +15,7 @@ import { SETTINGS_RECHECK_MS } from '../update/release';
 import { uiLang, updateStrings } from '../update/strings';
 import type { Update } from '../update/useUpdate';
 import { VOICE_LANGS, VOICE_MODES, type VoiceMode } from '../voice/voice';
+import { accountStrings, localized } from './accountStrings';
 import { Choice } from './Choice';
 import { LogOut, Server } from './icons';
 import { ActionList, Sheet, type Action } from './Sheet';
@@ -44,10 +45,11 @@ export function AccountSheet({
     recheck?.(SETTINGS_RECHECK_MS);
   }, [recheck]);
   const ui = uiLang(lang);
+  const t = accountStrings(ui);
   const actions: Action[] = [
     {
       id: 'change-server',
-      label: 'Change server',
+      label: t.changeServer,
       icon: Server,
       onPress: () => {
         onClose();
@@ -58,7 +60,7 @@ export function AccountSheet({
   if (user) {
     actions.push({
       id: 'sign-out',
-      label: 'Sign out',
+      label: t.signOut,
       icon: LogOut,
       danger: true,
       onPress: () => {
@@ -76,7 +78,7 @@ export function AccountSheet({
         </View>
         <View style={s.flex}>
           <Text style={s.name} numberOfLines={1}>
-            {user?.name || user?.email || 'Local mode'}
+            {user?.name || user?.email || t.localMode}
           </Text>
           {user?.email && user?.name ? (
             <Text style={s.dim} numberOfLines={1}>
@@ -86,18 +88,18 @@ export function AccountSheet({
         </View>
       </View>
       <View style={s.block}>
-        <Text style={s.label}>Server</Text>
+        <Text style={s.label}>{t.server}</Text>
         <Text style={s.value} numberOfLines={1}>
           {server ? displayServer(server) : ''}
         </Text>
       </View>
       <View style={s.block}>
-        <Text style={s.label}>Voice language</Text>
-        <Choice label="Voice language" options={VOICE_LANGS} value={lang} onChange={onLang} />
+        <Text style={s.label}>{t.voiceLanguage}</Text>
+        <Choice label={t.voiceLanguage} options={localized(VOICE_LANGS, t)} value={lang} onChange={onLang} />
       </View>
       <View style={s.block}>
-        <Text style={s.label}>Words appear</Text>
-        <Choice label="Words appear" options={VOICE_MODES} value={voiceMode} onChange={onVoiceMode} />
+        <Text style={s.label}>{t.wordsAppear}</Text>
+        <Choice label={t.wordsAppear} options={localized(VOICE_MODES, t)} value={voiceMode} onChange={onVoiceMode} />
       </View>
       {update ? <UpdateSection update={update} t={updateStrings(ui)} lang={ui} /> : null}
       <View style={s.rule} />
