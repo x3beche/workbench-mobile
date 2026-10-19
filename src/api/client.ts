@@ -569,6 +569,14 @@ export class WorkbenchClient {
     return { state: 'ready', uri: await blobToDataUri(await res.blob()) };
   }
 
+  /** Someone's picture (one's own, here) as a data URI; null when there is none. */
+  async avatar(userId: string, v?: number | string | null): Promise<string | null> {
+    const path = `/api/me/avatar/${encodeURIComponent(userId)}?v=${encodeURIComponent(String(v ?? ''))}`;
+    const res = await this.send(path, { headers: { Accept: 'image/*' } });
+    if (!res.ok) return null;
+    return blobToDataUri(await res.blob());
+  }
+
   /** A raw request with the session, the timeout and the app's own errors - for answers that are not JSON. */
   private async send(path: string, init: RequestInit, timeoutMs = TIMEOUT_MS): Promise<Response> {
     const ctl = new AbortController();

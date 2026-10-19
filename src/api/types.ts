@@ -4,6 +4,9 @@ export interface User {
   id: string;
   name?: string | null;
   email?: string;
+  /** A picture of their own (GET /api/me/avatar/{id}?v=avatar_v); else the initials. */
+  has_avatar?: boolean;
+  avatar_v?: number | string | null;
 }
 
 export interface AuthState {

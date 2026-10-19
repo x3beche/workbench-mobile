@@ -8,7 +8,6 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { VoiceLang } from '../api/client';
 import { displayServer } from '../api/server';
-import { initials } from '../lib/groups';
 import { useSession } from '../state/session';
 import { colors, fonts, gutter, space, type } from '../theme/tokens';
 import { SETTINGS_RECHECK_MS } from '../update/release';
@@ -16,6 +15,7 @@ import { uiLang, updateStrings } from '../update/strings';
 import type { Update } from '../update/useUpdate';
 import { VOICE_LANGS, VOICE_MODES, type VoiceMode } from '../voice/voice';
 import { accountStrings, localized } from './accountStrings';
+import { Avatar } from './Avatar';
 import { Choice } from './Choice';
 import { LogOut, Server } from './icons';
 import { ActionList, Sheet, type Action } from './Sheet';
@@ -38,7 +38,7 @@ export function AccountSheet({
   /** The in-app update (src/update): the versions, and the download where it can be installed. */
   update?: Update;
 }) {
-  const { user, server, signOut, changeServer } = useSession();
+  const { user, server, client, signOut, changeServer } = useSession();
   const recheck = update?.recheck;
   // Opening Account asks the server again, unless it was asked a moment ago.
   useEffect(() => {
@@ -73,9 +73,7 @@ export function AccountSheet({
   return (
     <Sheet onClose={onClose} testID="account-sheet">
       <View style={s.who}>
-        <View style={s.avatar}>
-          <Text style={s.avatarText}>{initials(user?.name || user?.email)}</Text>
-        </View>
+        <Avatar client={client} user={user} size={48} fontSize={type.title} />
         <View style={s.flex}>
           <Text style={s.name} numberOfLines={1}>
             {user?.name || user?.email || t.localMode}

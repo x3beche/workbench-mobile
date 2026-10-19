@@ -24,10 +24,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CHAT_TRASH_DAYS, type WorkbenchClient } from '../api/client';
 import { displayServer } from '../api/server';
 import type { Chat, ChatScope, Room, RoomId, User } from '../api/types';
-import { filterChats, groupChats, groupOf, initials, rowTime } from '../lib/groups';
+import { filterChats, groupChats, groupOf, rowTime } from '../lib/groups';
 import { ROOM_ICON, ROOM_LABEL, roomSnippet, unread as unreadOf } from '../lib/rooms';
 import { shortTime } from '../lib/time';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
+import { Avatar } from './Avatar';
 import { ChevronRight, FolderOpen, Search, SquarePen, X } from './icons';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
 import { Tabs } from './Tabs';
@@ -301,10 +302,9 @@ export function DrawerPanel({
       >
         {({ pressed }) => (
           <>
-            <View style={s.avatar}>
-              <Text style={s.avatarText}>{initials(user?.name || user?.email)}</Text>
+            <Avatar client={client} user={user} size={36} fontSize={type.small}>
               {updateNote ? <View style={s.dot} testID="update-dot" /> : null}
-            </View>
+            </Avatar>
             <View style={s.flex}>
               <Text style={[s.name, pressed && s.dimText]} numberOfLines={1}>
                 {who}
