@@ -7,8 +7,21 @@ import type { VoiceLang } from '../api/client';
 
 export type UiLang = 'en' | 'tr';
 
-/** Auto follows the phone: Turkish when it is set to Turkish, else English. */
+/** The app's language as chosen in Settings > Language: English, Türkçe, or Auto (null). */
+let chosen: UiLang | null = null;
+
+/** Settings > Language: the app's words in English or Turkish, whatever the voice; null for Auto. */
+export function setAppLanguage(lang: UiLang | null): void {
+  chosen = lang;
+}
+
+/**
+ * The language the app speaks: the one chosen in Settings > Language; with
+ * Auto, the voice language's (as before), and with that on Auto too, the
+ * phone's - Turkish when it is set to Turkish, else English.
+ */
 export function uiLang(lang: VoiceLang, locale: string | undefined = deviceLocale()): UiLang {
+  if (chosen) return chosen;
   if (lang === 'tr' || lang === 'en') return lang;
   return locale && /^tr\b/i.test(locale) ? 'tr' : 'en';
 }

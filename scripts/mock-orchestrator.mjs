@@ -266,3 +266,91 @@ export function handleRooms(req, res, p, url, body) {
   // Slow enough for the loader at the top to be seen.
   return setTimeout(() => json(res, 200, out), before ? 700 : 0), true;
 }
+
+// ---- Analytics (1.5.7): the routes the web app's Chat cards and Settings read ----
+const DAY = 86_400_000;
+const isoDay = (i) => new Date(Date.now() - i * DAY).toISOString().slice(0, 10);
+const wave = (i, a, b) => Math.round(a + b * (0.5 + 0.5 * Math.sin(i * 1.3)) * (i % 5 === 3 ? 0.2 : 1));
+
+export function handleAnalytics(req, res, p, url) {
+  if (p === '/api/llm/summary') {
+    const days = 14;
+    const by_day = Array.from({ length: days }, (_, k) => {
+      const i = days - 1 - k;
+      const or = wave(i, 20_000, 160_000);
+      const an = wave(i + 2, 5_000, 60_000);
+      return { day: isoDay(i), calls: Math.round((or + an) / 4000), tokens: or + an, cost_usd: (or + an) / 400_000, by: { openrouter: or, anthropic: an } };
+    });
+    return json(res, 200, {
+      days, t0: 0, step: DAY / 1000,
+      month: { calls: 1840, input: 6_100_000, output: 1_300_000, tokens: 7_400_000, cost_usd: 18.42, unpriced_calls: 0, providers: 2 },
+      today: { calls: 46, tokens: by_day.at(-1).tokens, cost_usd: 0.61, answers: 12 },
+      answers: { n: 120, tps_median: 64, ttft_ms_median: 820 },
+      by_day,
+      providers: [{ id: 'openrouter', name: 'OpenRouter' }, { id: 'anthropic', name: 'Anthropic' }],
+    }), true;
+  }
+  if (p === '/api/llm/usage') {
+    const n = 30;
+    const step = DAY / 1000;
+    const t0 = Math.floor((Date.now() - (n - 1) * DAY) / 1000);
+    const models = ['anthropic/claude-sonnet-4.5', 'openai/gpt-5', 'anthropic/claude-haiku-4.5', 'qwen/qwen3-coder'];
+    const cost = models.map((m, j) => ({ name: m, values: Array.from({ length: n }, (_, i) => (wave(i + j * 3, 0, 100) / 100) * [0.9, 0.5, 0.15, 0.08][j]) }));
+    return json(res, 200, {
+      provider: 'all', days: n, step,
+      totals: { calls: 1840, input: 6_100_000, output: 1_300_000, cost_usd: 18.42, unpriced_calls: 12 },
+      by_provider: [
+        { name: 'OpenRouter', calls: 1310, input: 4_300_000, output: 900_000, cost_usd: 12.1 },
+        { name: 'Anthropic', calls: 530, input: 1_800_000, output: 400_000, cost_usd: 6.32 },
+      ],
+      by_model: [
+        { name: 'anthropic/claude-sonnet-4.5', calls: 820, input: 0, output: 0, cost_usd: 11.2 },
+        { name: 'openai/gpt-5', calls: 410, input: 0, output: 0, cost_usd: 5.1 },
+        { name: 'anthropic/claude-haiku-4.5', calls: 450, input: 0, output: 0, cost_usd: 1.6 },
+        { name: 'qwen/qwen3-coder', calls: 160, input: 0, output: 0, cost_usd: 0.52 },
+      ],
+      by_kind: [],
+      calls: { t0, step, n, series: [] },
+      tokens: { t0, step, n, series: [] },
+      cost: { t0, step, n, series: cost },
+    }), true;
+  }
+  if (p === '/api/cc/tools-usage') {
+    const names = ['part_search', 'read_board', 'model_build', 'datasheet', 'render', 'web_search'];
+    const days = Array.from({ length: 7 }, (_, k) => ({
+      day: isoDay(6 - k),
+      by: Object.fromEntries(names.map((t, j) => [t, Math.max(0, wave(k + j, 0, 9 - j))])),
+    }));
+    const tools = Object.fromEntries(names.map((t) => {
+      const week = days.reduce((a, d) => a + (d.by[t] || 0), 0);
+      return [t, { uses: week * 4, done: week * 4 - 1, week, week_done: Math.max(0, week - 1) }];
+    }));
+    return json(res, 200, { tools, mine: 40, days, span: 'week' }), true;
+  }
+  if (p === '/api/me/orchestrator/incidents') {
+    return json(res, 200, { incidents: [
+      { id: 'i1', at: new Date(Date.now() - 3 * 3600_000).toISOString(), kind: 'hang', code: null, signal: null, oom: false, detail: 'no answer for 10 min, restarted' },
+      { id: 'i2', at: new Date(Date.now() - 26 * 3600_000).toISOString(), kind: 'credit', code: 402, signal: null, oom: false, detail: 'OpenRouter: insufficient credits' },
+      { id: 'i3', at: new Date(Date.now() - 50 * 3600_000).toISOString(), kind: 'crash', code: 137, signal: 'SIGKILL', oom: true, detail: 'out of memory at 1536 MB' },
+    ] }), true;
+  }
+  const job = (id, kind, label, state, waited, ran, who) => ({ job: id, kind, label, state, queued_at: null, started_at: null, finished_at: new Date(Date.now() - 600_000).toISOString(), waited_s: waited, ran_s: ran, who: { name: who, email: null } });
+  const limits = { total: 4, queued_per_account: 6, kinds: { build: { limit: 2, running: 1, queued: 2 }, board: { limit: 1, running: 1, queued: 0 }, render: { limit: 2, running: 0, queued: 1 } } };
+  if (p === '/api/pool') {
+    return json(res, 200, { jobs: [job('j1', 'build', 'enclosure-v3', 'running', 12, 40, 'Ada'), job('j2', 'render', 'controller board', 'queued', 31, null, 'Ada')], running: 2, queued: 3, limits }), true;
+  }
+  if (p === '/api/admin/pool') {
+    return json(res, 200, { jobs: [], running: 2, queued: 3, limits, recent: [
+      job('r1', 'build', 'enclosure-v3', 'done', 4, 41, 'Ada Demir'), job('r2', 'board', 'controller', 'done', 95, 30, 'Bora Kaya'),
+      job('r3', 'render', 'lid, 4 views', 'done', 2, 12, 'Ada Demir'), job('r4', 'build', 'fan duct', 'failed', 40, 8, 'Cem Ak'),
+    ] }), true;
+  }
+  if (p === '/api/admin/sandboxes') {
+    return json(res, 200, { running: 2, max_running: 6, sandboxes: [
+      { id: 's1', name: 'Ada Demir', email: 'ada@example.com', env_name: 'main', state: 'running', usage: { cpu_pct: 12, mem_mb: 1800, disk_mb: 4000 }, last_active: new Date().toISOString() },
+      { id: 's2', name: 'Bora Kaya', email: null, env_name: 'pcb', state: 'running', usage: { cpu_pct: 3, mem_mb: 900, disk_mb: 2000 }, last_active: new Date().toISOString() },
+      { id: 's3', name: 'Cem Ak', email: null, env_name: null, state: 'stopped', usage: { cpu_pct: 0, mem_mb: 0, disk_mb: 800 }, last_active: null },
+    ] }), true;
+  }
+  return false;
+}

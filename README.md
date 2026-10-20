@@ -102,8 +102,7 @@ Then you sign in with the same e-mail address and password as on the web.
   and the app hands it to the share sheet (a download on the web); an older
   server without the route gets the app's own Markdown or a PDF printed on
   the phone.
-  At the bottom: Files, and the account, which opens Account: the server,
-  the voice language, when its words appear, Change server and Sign out. On a screen 860 px or
+  At the bottom: Files, Analytics, and the account, which opens Settings. On a screen 860 px or
   wider the drawer is a column that stays open.
 - **Files**, as on the web: My files (one's own folders and uploads), In
   the app (what Workbench keeps - projects, the Chat's files, Parts,
@@ -166,6 +165,27 @@ Then you sign in with the same e-mail address and password as on the web.
   keeps crashing. Keys, agent tokens and sandboxes stay on the web (the
   sandboxes and their setup are the owner's and the admins' there). English
   and Turkish, as Account. A server without an Orchestrator has no row.
+- **Settings** (from 1.5.7; the account at the foot of the drawer opens it):
+  the accounts (switch, add, sign one out), Agent & LLM, the app's
+  **language** (Auto, English, Türkçe - apart from the voice language),
+  the **theme** - every theme of the web app colour for colour
+  (`src/theme/themes.ts`, written from its styles.css by
+  `scripts/make-themes.mjs`), or the phone's own light or dark; the app
+  starts again to wear a new one - the voice language and when its words
+  appear, and the app's version, its update and About. Two sections side by
+  side on a wide screen.
+- **Analytics** (from 1.5.7, in the drawer): what the web app's Chat shows
+  bottom left and more, each from the route the web reads - the Models card
+  (tokens a day for 14 days by provider, this month and today, the answers'
+  median speed; `GET /api/llm/summary`), money a day for 30 days by model
+  with requests by provider and by model (`GET /api/llm/usage`), the Tools
+  card (this week's tool use by day; `GET /api/cc/tools-usage`), the
+  Orchestrator (its state, its sub-agents, the incidents the supervisor
+  kept), the job pool (one's own jobs, how full the server is) and, for the
+  owner and the admins, the latest finished jobs with their wait and run
+  times and every sandbox with what it uses. A section the server has no
+  route for, or the account may not see, is left out. Fine stacked columns
+  and hairline bars in the theme's chart colours.
 - **Typing**: a rounded box floats right above the keyboard, the conversation
   shrinks above it with the newest lines in view, and the box grows with
   what you write up to six lines (16 px text), then scrolls inside. Its round
@@ -354,7 +374,7 @@ Chrome in Docker at 390 x 844, and 900 px wide for the side column, against
 the made-up server, which also runs tools and writes an answer slowly; with
 `TARGET=https://your.server` the server and sign-in screens are taken against
 that server, whose own wrong-password error is shown;
-`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48, and `SHOTS=rooms` a room read a page at a time, 50-53). The keyboard shot
+`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48, `SHOTS=rooms` a room read a page at a time, 50-53, `SHOTS=accounts` 60-63 and `SHOTS=settings` Settings and Analytics, 70-79). The keyboard shot
 makes the window 336 px shorter, as a phone keyboard does, and checks the
 composer is still on screen. `SHOTS_DIR=/some/dir` writes them elsewhere. App icons are
 drawn by `scripts/make-icons.js` from the web app's section mark.
@@ -375,6 +395,7 @@ drawn by `scripts/make-icons.js` from the web app's section mark.
 | Live voice | `WS /api/voice/live`: `start` `{lang, purpose, format: "pcm16"}`, binary 16 kHz mono PCM16 frames, `stop`; back `ready`, `partial` (the tail, replaces), `final` (appended), `done` (the whole text), `error` (`code`: down, busy, auth, ...); the session cookie signs it in |
 | The app's own update | `GET /api/public/m/app.json` (`version`, `versionCode`, `size`, `sha256`, `url`; `notes` when the server gives them), `GET /api/public/m/app.apk`; no session needed |
 | The Orchestrator | `GET /api/me/orchestrator` (state, model, `halted`, `crash_loop`, providers with their models, `mcp_version`), `POST .../start`, `POST .../stop`, `PUT /api/me/llm/agent` `{provider_id, model}`, `GET .../tree`, `GET .../sessions/{sid}`, `GET .../events` (`text/event-stream`: `hello`, `message`, `part`, `delta`, `removed`, `status`, `session`, `error`, `lost`, `bye`) |
+| Analytics | `GET /api/llm/summary?days=14`, `GET /api/llm/usage?provider=all&days=30`, `GET /api/cc/tools-usage?span=week`, `GET /api/me/orchestrator/incidents`, `GET /api/pool`; owner and admins: `GET /api/admin/pool`, `GET /api/admin/sandboxes` |
 | MCP tools | `GET /api/mcp/tools` (`version`, `count`, `agents`, `groups` of tools with their parameters) |
 | Export | `POST /api/cc/chats/{id}/export` `{format: md\|pdf, lang}` (the file kept in Files), then `GET /api/files/{fileId}` |
 | Archive, pin, trash | `GET /api/cc/chats?archived=1` / `?trash=1`, `PATCH .../{id}` (`archived`, `pinned`), `POST .../{id}/restore`, `DELETE .../{id}?forever=1`, `POST /api/cc/chats/empty-trash` |
@@ -406,7 +427,7 @@ src/
                         the hook Account and the drawer read (useUpdate.ts), English and Turkish
   voice/                recorder hook; live voice to text (live.ts: the socket's protocol;
                         pcmMic.ts / pcmMic.web.ts: the 16 kHz microphone; pcm.ts); pure helpers
-  theme/tokens.ts       Spartan Dark, copied from the web app's styles.css
+  theme/tokens.ts       the palette: one of the web app's themes (themes.ts), chosen in Settings
   theme/scrollbars*     the web build's scrollbars, as the web app's (thin, faint thumb, no track)
 modules/workbench-installer/
                         the app's own small Expo module (Android, Kotlin): may this app install

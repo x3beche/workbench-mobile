@@ -29,7 +29,7 @@ import { ROOM_ICON, ROOM_LABEL, roomSnippet, unread as unreadOf } from '../lib/r
 import { shortTime } from '../lib/time';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
 import { Avatar } from './Avatar';
-import { ChevronRight, FolderOpen, Network, Search, SquarePen, X } from './icons';
+import { ChartColumn, ChevronRight, FolderOpen, Network, Search, SquarePen, X } from './icons';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
 import { Tabs } from './Tabs';
 import { Button, ErrorText, Glyph } from './ui';
@@ -69,6 +69,10 @@ export function DrawerPanel({
   orchestrator = null,
   orchOn = false,
   onOrchestrator,
+  onAnalytics,
+  analyticsOn = false,
+  analyticsLabel = 'Analytics',
+  accountOn = false,
 }: {
   client: WorkbenchClient | null;
   server: string | null;
@@ -104,6 +108,12 @@ export function DrawerPanel({
   /** The Orchestrator is open on screen. */
   orchOn?: boolean;
   onOrchestrator?: () => void;
+  /** Analytics: the charts of the models, the tools, the Orchestrator and the job pool. */
+  onAnalytics?: () => void;
+  analyticsOn?: boolean;
+  analyticsLabel?: string;
+  /** Settings (the account at the foot opens it) is what is open. */
+  accountOn?: boolean;
 }) {
   const [q, setQ] = useState('');
   const [found, setFound] = useState<{ q: string; scope: ChatScope; chats: Chat[] } | null>(null);
@@ -304,11 +314,29 @@ export function DrawerPanel({
           )}
         </Pressable>
       ) : null}
+      {onAnalytics ? (
+        <Pressable
+          testID="open-analytics"
+          onPress={onAnalytics}
+          accessibilityRole="button"
+          accessibilityLabel={analyticsLabel}
+          accessibilityState={{ selected: analyticsOn }}
+          style={s.navRow}
+        >
+          {({ pressed }) => (
+            <>
+              <Glyph icon={ChartColumn} size={20} color={pressed ? colors.inkDim : colors.ink} />
+              <Text style={[s.newText, analyticsOn && s.titleOn, pressed && s.dimText]}>{analyticsLabel}</Text>
+            </>
+          )}
+        </Pressable>
+      ) : null}
       <Pressable
         testID="open-account"
         onPress={onAccount}
         accessibilityRole="button"
         accessibilityLabel={`Account: ${who}${updateNote ? `. ${updateNote}` : ''}`}
+        accessibilityState={{ selected: accountOn }}
         style={s.account}
       >
         {({ pressed }) => (
@@ -563,6 +591,7 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.line,
   },
+  navRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: gutter },
   account: {
     minHeight: 64,
     flexDirection: 'row',

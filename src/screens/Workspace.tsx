@@ -18,7 +18,6 @@ import { BackHandler, StyleSheet, Text, useWindowDimensions, View } from 'react-
 
 import { ApiError, CHAT_TRASH_DAYS, isMissingRoute, type VoiceLang } from '../api/client';
 import type { Chat, ChatScope, Ideas, OrchStatus, Room, RoomId } from '../api/types';
-import { AccountSheet } from '../components/AccountSheet';
 import { AgentSheet } from '../components/AgentSheet';
 import { Appear } from '../components/Appear';
 import { Drawer } from '../components/Drawer';
@@ -39,6 +38,7 @@ import type { SwipeAction } from '../components/SwipeRow';
 import { chatToHtml, chatToMarkdown, exportName } from '../lib/exportChat';
 import { tick } from '../lib/feel';
 import { orchStrings } from '../lib/orchStrings';
+import { settingsStrings } from '../lib/settingsStrings';
 import { knownRooms } from '../lib/rooms';
 import { shareFile, sharePdf } from '../lib/share';
 import { useSession } from '../state/session';
@@ -50,7 +50,9 @@ import type { VoiceMode } from '../voice/voice';
 import { ChatScreen, type Suggestion } from './ChatScreen';
 import { FilesScreen, type FilesHandle } from './FilesScreen';
 import { OrchestratorScreen, type OrchestratorHandle } from './OrchestratorScreen';
+import { AnalyticsScreen } from './AnalyticsScreen';
 import { RoomScreen } from './RoomScreen';
+import { SettingsScreen } from './SettingsScreen';
 
 /** Where to begin when the server has no example questions of its own (the web app's STARTERS). */
 export const STARTERS: Suggestion[] = [
@@ -88,12 +90,17 @@ export function Workspace({
   onLang,
   voiceMode = 'live',
   onVoiceMode = () => undefined,
+  appLang = 'auto',
+  onAppLang = () => undefined,
 }: {
   lang: VoiceLang;
   onLang: (l: VoiceLang) => void;
-  /** When dictated words appear (Account: "Words appear"). */
+  /** When dictated words appear (Settings: "Words appear"). */
   voiceMode?: VoiceMode;
   onVoiceMode?: (m: VoiceMode) => void;
+  /** Settings > Language. */
+  appLang?: 'auto' | 'en' | 'tr';
+  onAppLang?: (l: 'auto' | 'en' | 'tr') => void;
 }) {
   const { client, server, user, account: acct } = useSession();
   /** What is remembered per account (the conversation open last, rooms read) is kept under its id. */
@@ -106,7 +113,6 @@ export function Workspace({
   const [listError, setListError] = useState<string | null>(null);
   const [ideas, setIdeas] = useState<Ideas | null>(null);
   const [drawer, setDrawer] = useState(false);
-  const [account, setAccount] = useState(false);
   const [ready, setReady] = useState(false);
   const [open, setOpen] = useState<Open>({ key: 0, chat: null });
   // The id of the open conversation once it is on the server (a new one gets it on its first line).
@@ -116,7 +122,7 @@ export function Workspace({
   const [ask, setAsk] = useState<
     { chat: Chat; what: 'rename' | 'delete' | 'forever' } | { chat?: undefined; what: 'empty' } | null
   >(null);
-  const [page, setPage] = useState<'chat' | 'files'>('chat');
+  const [page, setPage] = useState<'chat' | 'files' | 'settings' | 'analytics'>('chat');
   /** The workspace's room open on screen, if any (3D Drawing, PCB Design, Firmware). */
   const [room, setRoom] = useState<RoomId | null>(null);
   /** The Orchestrator is open on screen (read-only, above the rooms in the drawer). */
@@ -131,11 +137,14 @@ export function Workspace({
   const [scope, setScope] = useState<ChatScope>('live');
   const [scoped, setScoped] = useState<{ scope: ChatScope; chats: Chat[] } | null>(null);
   const [can, setCan] = useState<string[] | null>(null);
+  /** The account's role: the owner and the admins see the server's pool and the sandboxes in Analytics. */
+  const [role, setRole] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; bad?: boolean } | null>(null);
 
   const update = useUpdate(client, server);
   const ui = uiLang(lang);
   const ot = useMemo(() => orchStrings(ui), [ui]);
+  const stt = useMemo(() => settingsStrings(ui), [ui]);
   const updateNote =
     update.check.state === 'available'
       ? updateStrings(uiLang(lang)).drawer(update.check.release.version)
@@ -153,7 +162,11 @@ export function Workspace({
     if (!client) return;
     let live = true;
     client.authState().then(
-      (st) => live && setCan(st.can ?? null),
+      (st) => {
+        if (!live) return;
+        setCan(st.can ?? null);
+        setRole(st.mode === 'off' ? 'owner' : (st.role ?? null));
+      },
       () => undefined,
     );
     return () => {
@@ -329,8 +342,11 @@ export function Workspace({
     show(null);
   };
 
-  const openFiles = () => {
-    setPage('files');
+  const openFiles = () => openPage('files');
+
+  /** Files, Settings or Analytics: a page of its own in place of the conversation. */
+  const openPage = (which: 'files' | 'settings' | 'analytics') => {
+    setPage(which);
     setRoom(null);
     setOrch(false);
     setDrawer(false);
@@ -353,6 +369,10 @@ export function Workspace({
       }
       if (page === 'files') {
         if (!files.current?.back()) setPage('chat');
+        return true;
+      }
+      if (page !== 'chat') {
+        setPage('chat');
         return true;
       }
       const prev = history.current.pop();
@@ -523,7 +543,11 @@ export function Workspace({
         return scope === 'live' ? load() : loadScoped(scope);
       }}
       onActions={setActions}
-      onAccount={() => setAccount(true)}
+      onAccount={() => openPage('settings')}
+      accountOn={page === 'settings'}
+      onAnalytics={() => openPage('analytics')}
+      analyticsOn={page === 'analytics'}
+      analyticsLabel={stt.analytics}
       updateNote={updateNote}
       scope={scope}
       onScope={setScope}
@@ -572,6 +596,37 @@ export function Workspace({
               onSeen={roomSeen}
             />
           </Appear>
+        ) : page === 'settings' ? (
+          <Appear key="settings" duration={motion.fade}>
+            <SettingsScreen
+              t={stt}
+              ot={ot}
+              ui={ui}
+              lang={lang}
+              onLang={onLang}
+              voiceMode={voiceMode}
+              onVoiceMode={onVoiceMode}
+              appLang={appLang}
+              onAppLang={onAppLang}
+              update={update}
+              orch={orchSt}
+              onAgent={() => setAgentSheet(true)}
+              wide={wide}
+              onMenu={() => setDrawer(true)}
+            />
+          </Appear>
+        ) : page === 'analytics' ? (
+          <Appear key="analytics" duration={motion.fade}>
+            <AnalyticsScreen
+              client={client}
+              t={stt}
+              ot={ot}
+              lang={ui}
+              admin={role === 'owner' || role === 'admin'}
+              wide={wide}
+              onMenu={() => setDrawer(true)}
+            />
+          </Appear>
         ) : page === 'files' ? (
           <Appear key="files" duration={motion.fade}>
             <FilesScreen ref={files} client={client} user={user} can={can} wide={wide} onMenu={() => setDrawer(true)} />
@@ -595,21 +650,6 @@ export function Workspace({
           </Appear>
         ) : null}
       </Drawer>
-      {account ? (
-        <AccountSheet
-          onClose={() => setAccount(false)}
-          lang={lang}
-          onLang={onLang}
-          voiceMode={voiceMode}
-          onVoiceMode={onVoiceMode}
-          update={update}
-          agentLabel={orchSt ? ot.agentLlm : undefined}
-          onAgent={() => {
-            setAccount(false);
-            setAgentSheet(true);
-          }}
-        />
-      ) : null}
       {agentSheet ? (
         <AgentSheet
           client={client}

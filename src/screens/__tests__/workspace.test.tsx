@@ -341,17 +341,35 @@ describe('workspace', () => {
     }
   });
 
-  it('opens Account from the bottom of the drawer', async () => {
+  it('opens Settings from the account at the bottom of the drawer, and Back comes back', async () => {
     await start();
     await fireEvent.press(screen.getByTestId('open-drawer'));
     expect(screen.getByText('wb.example.com')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('open-account'));
-    expect(screen.getByTestId('account-sheet')).toBeTruthy();
+    expect(screen.getByTestId('settings-screen')).toBeTruthy();
     expect(screen.getByText('Voice language')).toBeTruthy();
     expect(screen.getByText('Sign out')).toBeTruthy();
+    expect(screen.getByText('Language')).toBeTruthy();
+    expect(screen.getByTestId('theme-spartan-dark').props.accessibilityState).toEqual({ checked: true });
+    expect(screen.getByTestId('theme-dracula')).toBeTruthy();
+    await act(async () => {
+      back();
+    });
+    expect(screen.queryByTestId('settings-screen')).toBeNull();
   });
 
-  it('lists every account in Account, the open one marked; a tap switches, one signs out alone, another is added', async () => {
+  it('changes the language of the app in Settings, apart from the voice', async () => {
+    const onAppLang = jest.fn();
+    await render(<Workspace lang="auto" onLang={jest.fn()} appLang="auto" onAppLang={onAppLang} />);
+    await act(async () => undefined);
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    await fireEvent.press(screen.getByTestId('open-account'));
+    // The first Türkçe is the app's language; the voice language has one too.
+    await fireEvent.press(screen.getAllByRole('radio', { name: 'Türkçe' })[0]);
+    expect(onAppLang).toHaveBeenCalledWith('tr');
+  });
+
+  it('lists every account in Settings, the open one marked; a tap switches, one signs out alone, another is added', async () => {
     await start();
     await fireEvent.press(screen.getByTestId('open-drawer'));
     await fireEvent.press(screen.getByTestId('open-account'));
@@ -359,7 +377,6 @@ describe('workspace', () => {
     expect(screen.getByText('bo@other.example · other.example')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('account-a2'));
     expect(mockSwitch).toHaveBeenCalledWith('a2');
-    await fireEvent.press(screen.getByTestId('open-account'));
     await fireEvent.press(screen.getByTestId('account-remove-a2'));
     expect(screen.getByText('Sign out of Bo?')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('dialog-confirm'));

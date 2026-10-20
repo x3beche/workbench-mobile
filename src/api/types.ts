@@ -379,3 +379,107 @@ export interface McpCatalog {
   agents: { id: string; server: string; name: string }[];
   groups: { name: string; tools: McpTool[] }[];
 }
+
+// ---- Analytics (the routes the web app's Chat cards and Settings read) ----
+
+/** GET /api/llm/summary?days=14 (backend/llm_api.py): every provider together. */
+export interface LlmSummary {
+  days: number;
+  month: { calls: number; input: number; output: number; tokens: number; cost_usd: number | null; unpriced_calls: number; providers: number };
+  today: { calls: number; tokens: number; cost_usd: number | null; answers: number };
+  answers: { n: number; tps_median: number | null; ttft_ms_median: number | null };
+  /** Each day; `by`: its tokens by provider id. */
+  by_day: { day: string; calls: number; tokens: number; cost_usd: number | null; by?: Record<string, number> }[];
+  providers?: { id: string; name: string }[];
+}
+
+export interface TimeSeries {
+  t0: number;
+  step: number;
+  n: number;
+  series: { name: string; values: (number | null)[] }[];
+}
+
+export interface UsageRow {
+  name: string;
+  calls: number;
+  input: number;
+  output: number;
+  cost_usd: number | null;
+}
+
+/** GET /api/llm/usage?provider=all&days=30: calls, tokens and money over time, by job, model and provider. */
+export interface LlmUsage {
+  days: number;
+  step: number;
+  totals: { calls: number; input: number; output: number; cost_usd: number | null; unpriced_calls: number };
+  by_provider: UsageRow[];
+  by_model: UsageRow[];
+  by_kind: UsageRow[];
+  calls: TimeSeries;
+  tokens: TimeSeries;
+  cost: TimeSeries;
+}
+
+/** GET /api/cc/tools-usage?span=week: the Chat's tools, by day. */
+export interface ToolsUsage {
+  tools: Record<string, { uses: number; done: number; week: number; week_done?: number }>;
+  mine: number;
+  days: { day: string; by: Record<string, number> }[];
+  span?: string;
+}
+
+/** GET /api/me/orchestrator/incidents: what the supervisor kept (crash, out of memory, key refused, ...). */
+export interface Incident {
+  id: string;
+  at: string | null;
+  kind: string;
+  code: number | null;
+  signal: string | null;
+  oom: boolean;
+  detail: string | null;
+}
+
+export interface PoolJob {
+  job: string;
+  kind: string;
+  label: string | null;
+  state: string;
+  queued_at: string | null;
+  started_at: string | null;
+  finished_at?: string | null;
+  waited_s: number | null;
+  ran_s: number | null;
+  place?: number | null;
+  why?: string | null;
+  who?: { name: string | null; email: string | null };
+}
+
+/** GET /api/pool: one's own jobs waiting or running, and how full the server is. */
+export interface MyPool {
+  jobs: PoolJob[];
+  running: number;
+  queued: number;
+  limits: { total: number; queued_per_account: number; kinds: Record<string, { limit: number; running: number; queued: number }> };
+}
+
+/** GET /api/admin/pool (owner and admins): every job, the latest finished, the memory. */
+export interface AdminPool extends MyPool {
+  recent: PoolJob[];
+  memory?: { total_mb?: number; available_mb?: number; reserved_mb?: number };
+}
+
+/** GET /api/admin/sandboxes (owner and admins): every sandbox, what it uses. */
+export interface AdminSandboxes {
+  sandboxes: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    env_name: string | null;
+    state: string;
+    usage: { cpu_pct: number; mem_mb: number; disk_mb: number };
+    last_active: string | null;
+  }[];
+  running: number;
+  max_running: number;
+}

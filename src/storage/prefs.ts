@@ -145,3 +145,15 @@ export async function forgetRoomsSeen(scope: string): Promise<void> {
   delete all[scope];
   await writeJson(ROOM_SEEN, all);
 }
+
+const APP_LANG = 'workbench.appLang';
+
+/** Settings > Language: 'en', 'tr', or 'auto' (the voice language's, then the phone's). */
+export async function appLang(): Promise<'auto' | 'en' | 'tr'> {
+  const got = await readJson<string>(APP_LANG, 'auto');
+  return got === 'en' || got === 'tr' ? got : 'auto';
+}
+
+export async function setAppLang(lang: 'auto' | 'en' | 'tr'): Promise<void> {
+  await writeJson(APP_LANG, lang);
+}

@@ -1,54 +1,102 @@
 /**
- * Spartan Dark, the Workbench web app's default theme.
+ * The palette: one of the web app's themes, token for token (themes.ts,
+ * written from redline-studio's frontend/src/styles.css by
+ * scripts/make-themes.mjs), chosen in Settings > Theme - Spartan Dark unless
+ * another was chosen, or the phone's own light or dark with "Follow the
+ * phone". The names are the CSS custom properties' (without the dashes,
+ * camel-cased), so a colour can be traced back to the web app in one search.
  *
- * Every value is copied from `:root[data-theme="spartan-dark"]` in the web
- * app's `frontend/src/styles.css` (redline-studio). Keep the names the same as
- * the CSS custom properties (without the leading dashes, camel-cased) so a
- * colour can be traced back to the web app in one search.
+ * It is chosen once, when this file is first loaded and before any style is
+ * made from it; a new choice is worn after the app starts again (Settings
+ * restarts it).
  *
- * Nothing in the app carries a colour literal outside this file.
+ * Nothing in the app carries a colour literal outside this file and themes.ts.
  */
-export const spartanDark = {
-  surface: '#09090b',
-  surface2: '#18181b',
-  hover: '#27272a',
-  pressed: '#3f3f46',
-  line: '#27272a',
+import { Appearance } from 'react-native';
 
-  ink: '#fafafa',
-  inkDim: '#a1a1aa',
-  inkBright: '#ffffff',
-  inkOnAccent: '#18181b',
+import { readThemePref } from '../storage/themePref';
+import { THEMES, type ThemeDef } from './themes';
 
-  accent: '#fafafa',
-  accentDeep: '#27272a',
-  warn: '#e88c30',
+export interface Palette {
+  surface: string;
+  surface2: string;
+  hover: string;
+  pressed: string;
+  line: string;
+  ink: string;
+  inkDim: string;
+  inkBright: string;
+  inkOnAccent: string;
+  accent: string;
+  accentDeep: string;
+  warn: string;
   /** A warning banner's ground: the warn colour at 9 %, as the web app mixes it. */
-  warnSoft: 'rgba(232, 140, 48, 0.09)',
-  danger: '#ef4444',
-  ok: '#2eb88a',
-
+  warnSoft: string;
+  danger: string;
+  ok: string;
   /** Recording dot: the web app's "pen" red, the colour it uses for live marks. */
-  pen: '#ff2d3f',
-
-  scrim: 'rgba(9, 9, 11, 0.88)',
-
+  pen: string;
+  scrim: string;
   /** Scrollbars: a faint thumb on no track, brighter under the pointer and while dragged (web build). */
-  scrollThumb: 'rgba(161, 161, 170, 0.28)',
-  scrollHover: 'rgba(161, 161, 170, 0.45)',
-  scrollActive: 'rgba(161, 161, 170, 0.65)',
-  shadowSoft: 'rgba(0, 0, 0, 0.55)',
+  scrollThumb: string;
+  scrollHover: string;
+  scrollActive: string;
+  shadowSoft: string;
+  codeKw: string;
+  codeStr: string;
+  codeNum: string;
+  codeCom: string;
+  codeFn: string;
+  /** The charts' series, in order (the web's --series-1 to -8). */
+  series1: string;
+  series2: string;
+  series3: string;
+  series4: string;
+  series5: string;
+  series6: string;
+  series7: string;
+  series8: string;
+}
 
-  codeKw: '#c084fc',
-  codeStr: '#86efac',
-  codeNum: '#fdba74',
-  codeCom: '#71717a',
-  codeFn: '#93c5fd',
-} as const;
+/** The theme a phone wears that never chose one. */
+export const DEFAULT_THEME = 'spartan-dark';
+/** "Follow the phone": these two, by the phone's light or dark. */
+export const SYSTEM_THEME = 'system';
+const SYSTEM_LIGHT = 'light';
+const SYSTEM_DARK = 'spartan-dark';
 
-export type Palette = typeof spartanDark;
+/** `#rrggbb` (or `#rgb`) at `alpha`, as rgba(); anything else as it is. */
+export function withAlpha(hex: string, alpha: number): string {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const h = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1];
+  const n = parseInt(h, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
 
-export const colors: Palette = spartanDark;
+/** The theme for a stored choice: the one named, the phone's for "system", the default for anything unknown. */
+export function themeFor(choice: string | null, scheme: string | null | undefined): ThemeDef {
+  const id = choice === SYSTEM_THEME ? (scheme === 'light' ? SYSTEM_LIGHT : SYSTEM_DARK) : choice || DEFAULT_THEME;
+  return THEMES.find((t) => t.id === id) ?? THEMES.find((t) => t.id === DEFAULT_THEME)!;
+}
+
+export function paletteOf(t: ThemeDef): Palette {
+  const c = t.colors;
+  return { ...(c as unknown as Omit<Palette, 'warnSoft'>), warnSoft: withAlpha(c.warn, 0.09) };
+}
+
+let scheme: string | null | undefined = null;
+try {
+  scheme = Appearance.getColorScheme();
+} catch {
+  scheme = null;
+}
+
+/** The choice stored (a theme's id, or "system"); the default when none. */
+export const themeChoice: string = readThemePref() || DEFAULT_THEME;
+/** The theme worn now. */
+export const theme: ThemeDef = themeFor(themeChoice, scheme);
+export const colors: Palette = paletteOf(theme);
 
 /**
  * Fonts. The web app sets body text in IBM Plex Sans and data in IBM Plex

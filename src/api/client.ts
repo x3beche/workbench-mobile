@@ -10,6 +10,8 @@
  */
 import { streamSse, type StreamResult, type XhrLike } from './sse';
 import type {
+  AdminPool,
+  AdminSandboxes,
   AgentTree,
   AuthState,
   Chat,
@@ -17,7 +19,11 @@ import type {
   ChatScope,
   FileFolder,
   Ideas,
+  Incident,
+  LlmSummary,
+  LlmUsage,
   McpCatalog,
+  MyPool,
   Model,
   OrchEvent,
   OrchStatus,
@@ -29,6 +35,7 @@ import type {
   RoomLine,
   StoredFile,
   Transcript,
+  ToolsUsage,
   TrashFile,
   UploadPart,
   User,
@@ -502,6 +509,36 @@ export class WorkbenchClient {
   /** The MCP server's version and every tool it offers. */
   mcpTools(): Promise<McpCatalog> {
     return this.request<McpCatalog>('GET', '/api/mcp/tools');
+  }
+
+  // ---- analytics (the web app's Chat cards and Settings) --------------------
+
+  llmSummary(days = 14): Promise<LlmSummary> {
+    return this.request<LlmSummary>('GET', `/api/llm/summary?days=${days}`);
+  }
+
+  llmUsage(days = 30): Promise<LlmUsage> {
+    return this.request<LlmUsage>('GET', `/api/llm/usage?provider=all&days=${days}`);
+  }
+
+  toolsUsage(span: 'week' | 'month' = 'week'): Promise<ToolsUsage> {
+    return this.request<ToolsUsage>('GET', `/api/cc/tools-usage?span=${span}`);
+  }
+
+  orchestratorIncidents(): Promise<{ incidents: Incident[] }> {
+    return this.request('GET', '/api/me/orchestrator/incidents');
+  }
+
+  myPool(): Promise<MyPool> {
+    return this.request<MyPool>('GET', '/api/pool');
+  }
+
+  adminPool(): Promise<AdminPool> {
+    return this.request<AdminPool>('GET', '/api/admin/pool');
+  }
+
+  adminSandboxes(): Promise<AdminSandboxes> {
+    return this.request<AdminSandboxes>('GET', '/api/admin/sandboxes');
   }
 
   // ---- files --------------------------------------------------------------

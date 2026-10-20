@@ -22,10 +22,10 @@ import { ServerScreen } from './screens/ServerScreen';
 import { Workspace } from './screens/Workspace';
 import { SessionProvider, useSession } from './state/session';
 import { accountStrings } from './components/accountStrings';
-import { uiLang } from './update/strings';
+import { setAppLanguage, uiLang } from './update/strings';
 import * as prefs from './storage/prefs';
 import { installScrollbars } from './theme/scrollbars';
-import { colors } from './theme/tokens';
+import { colors, theme } from './theme/tokens';
 import type { VoiceMode } from './voice/voice';
 
 // The native splash (app.json, expo-splash-screen: the mark on the theme's
@@ -41,10 +41,16 @@ function Screens() {
   const { phase, server, user, account } = useSession();
   const [lang, setLang] = useState<VoiceLang>('auto');
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('live');
+  /** Settings > Language: the app's own words, apart from the voice's. */
+  const [appLang, setAppLangState] = useState<'auto' | 'en' | 'tr'>('auto');
 
   useEffect(() => {
     prefs.voiceLang().then(setLang);
     prefs.voiceMode().then(setVoiceMode);
+    prefs.appLang().then((l) => {
+      setAppLanguage(l === 'auto' ? null : l);
+      setAppLangState(l);
+    });
   }, []);
 
   // The splash goes once there is a screen to show (or after SPLASH_MAX_MS, on the spinner).
@@ -73,6 +79,12 @@ function Screens() {
     prefs.setVoiceMode(m);
   };
 
+  const changeAppLang = (l: 'auto' | 'en' | 'tr') => {
+    setAppLanguage(l === 'auto' ? null : l);
+    setAppLangState(l);
+    prefs.setAppLang(l);
+  };
+
   if (phase === 'boot') {
     return (
       <View style={s.boot}>
@@ -97,7 +109,14 @@ function Screens() {
   // Each account is drawn afresh (its streams, lists and caches), never in someone else's conversation.
   return (
     <Appear key={`${account?.id ?? ''}|${server}|${user?.id ?? ''}`}>
-      <Workspace lang={lang} onLang={changeLang} voiceMode={voiceMode} onVoiceMode={changeVoiceMode} />
+      <Workspace
+        lang={lang}
+        onLang={changeLang}
+        voiceMode={voiceMode}
+        onVoiceMode={changeVoiceMode}
+        appLang={appLang}
+        onAppLang={changeAppLang}
+      />
     </Appear>
   );
 }
@@ -115,7 +134,7 @@ export default function App() {
     <GestureHandlerRootView style={s.root}>
       <SafeAreaProvider style={s.root}>
         <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
-          <StatusBar style="light" />
+          <StatusBar style={theme.light ? 'dark' : 'light'} />
           {fontsReady || fontError ? (
             <SessionProvider>
               <Screens />

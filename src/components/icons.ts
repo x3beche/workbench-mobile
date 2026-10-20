@@ -12,6 +12,7 @@ export { default as ArrowUp } from 'lucide-react-native/icons/arrow-up';
 export { default as AudioLines } from 'lucide-react-native/icons/audio-lines';
 export { default as Box } from 'lucide-react-native/icons/box';
 export { default as Camera } from 'lucide-react-native/icons/camera';
+export { default as ChartColumn } from 'lucide-react-native/icons/chart-column';
 export { default as Check } from 'lucide-react-native/icons/check';
 export { default as ChevronDown } from 'lucide-react-native/icons/chevron-down';
 export { default as ChevronLeft } from 'lucide-react-native/icons/chevron-left';
