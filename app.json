@@ -3,7 +3,7 @@
     "name": "Workbench",
     "slug": "workbench-mobile",
     "scheme": "workbench",
-    "version": "1.5.7",
+    "version": "1.5.8",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -19,7 +19,7 @@
         "NSCameraUsageDescription": "Workbench uses the camera only when you take a photo to upload to Files.",
         "NSPhotoLibraryUsageDescription": "Workbench reads the photos you pick, to upload them to Files."
       },
-      "buildNumber": "15"
+      "buildNumber": "16"
     },
     "android": {
       "package": "dev.workbench.mobile",
@@ -30,7 +30,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 15,
+      "versionCode": 16,
       "permissions": [
         "android.permission.REQUEST_INSTALL_PACKAGES"
       ],

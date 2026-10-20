@@ -251,15 +251,15 @@ export async function handle(req, res) {
   if (p === '/api/public/m/app.json') {
     const newer = process.env.MOCK_UPDATE === '1';
     return json(res, 200, {
-      version: newer ? '1.6.0' : '1.5.7',
-      versionCode: newer ? 16 : 15,
+      version: newer ? '1.6.0' : '1.5.8',
+      versionCode: newer ? 17 : 16,
       size: 39_800_000,
       sha256: '0'.repeat(64),
       published_at: ago(60),
       min_sdk: 24,
       min_android: '7.0',
       abis: ['arm64-v8a'],
-      file: newer ? 'workbench-1.6.0.apk' : 'workbench-1.5.7.apk',
+      file: newer ? 'workbench-1.6.0.apk' : 'workbench-1.5.8.apk',
       url: '/api/public/m/app.apk',
       ...(newer
         ? {
