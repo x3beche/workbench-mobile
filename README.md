@@ -45,6 +45,12 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/25-trash.png" width="200" alt="The trash: restore or delete forever">
 </p>
 <p>
+  <img src="docs/screenshots/41-orchestrator-live.png" width="200" alt="The Orchestrator, live and read-only">
+  <img src="docs/screenshots/43-orchestrator-agents.png" width="200" alt="Its agents, folded open above the session">
+  <img src="docs/screenshots/45-mcp-tools.png" width="200" alt="The MCP server's tools">
+  <img src="docs/screenshots/47-agent-llm.png" width="200" alt="Agent &amp; LLM: start, stop and the model">
+</p>
+<p>
   <img src="docs/screenshots/21-wide-chat.png" width="520" alt="On a wide screen the drawer is a column that stays open">
   <img src="docs/screenshots/34-wide-scrollbar.png" width="520" alt="The web build's thin scrollbars, as the web app draws them">
 </p>
@@ -124,6 +130,24 @@ Then you sign in with the same e-mail address and password as on the web.
   line written in it goes to the agent that draws, routes and flashes. The
   thread is read again every two seconds, and what was read is remembered per
   room, which is what the drawer counts from.
+- **The Orchestrator** (from 1.5.4): one's own agent on the server, which
+  answers in every room and hands 3D, PCB and firmware work to its agents,
+  pinned at the top of the drawer's Rooms. It is read-only - there is no box:
+  people write in the rooms and it answers there. Its session is read once
+  and kept up by its live stream: text and thinking as they are written, each
+  tool call a compact row that opens to its input and output, a line said in
+  a room as "Answered in 3D Drawing", a hand-off with Open for that agent's
+  own session. Its sub-agents are a tree with each one's state, time and
+  what it does now - a section to fold open on a phone, a column beside it
+  on a wide screen. The top bar has its state and model, "MCP 2.4.0", which
+  lists every tool of the server's MCP server (searchable, with who may use
+  it and its parameters), and Settings: **Agent & LLM**, also in Account -
+  its state and since when, why it stopped, the provider and model it runs
+  on (a pick is saved at once), and Start, Restart and Stop. A banner says
+  when it is not running, its key was refused, its credits ran out or it
+  keeps crashing. Keys, agent tokens and sandboxes stay on the web (the
+  sandboxes and their setup are the owner's and the admins' there). English
+  and Turkish, as Account. A server without an Orchestrator has no row.
 - **Typing**: a rounded box floats right above the keyboard, the conversation
   shrinks above it with the newest lines in view, and the box grows with
   what you write up to six lines (16 px text), then scrolls inside. Its round
@@ -170,7 +194,8 @@ Then you sign in with the same e-mail address and password as on the web.
   a phone set to Turkish. The web build shows the versions only. 1.4.0 and
   older cannot do this: 1.5.0 is installed by hand once, and from then on
   each build published on the server is offered in the app.
-- **Back** (Android) closes a sheet, then the drawer, then the room, then goes
+- **Back** (Android) closes a sheet, then the drawer, then a sub-agent's session
+  and the Orchestrator, then the room, then goes
   back to the conversation open before, then leaves the app.
 
 The device keeps only the server list, the last e-mail address, the last
@@ -309,7 +334,8 @@ Screenshots in `docs/screenshots` are made with `scripts/shots.sh` (headless
 Chrome in Docker at 390 x 844, and 900 px wide for the side column, against
 the made-up server, which also runs tools and writes an answer slowly; with
 `TARGET=https://your.server` the server and sign-in screens are taken against
-that server, whose own wrong-password error is shown). The keyboard shot
+that server, whose own wrong-password error is shown;
+`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48). The keyboard shot
 makes the window 336 px shorter, as a phone keyboard does, and checks the
 composer is still on screen. `SHOTS_DIR=/some/dir` writes them elsewhere. App icons are
 drawn by `scripts/make-icons.js` from the web app's section mark.
@@ -329,6 +355,8 @@ drawn by `scripts/make-icons.js` from the web app's section mark.
 | Voice | `POST /api/voice/transcribe` multipart `audio`, `lang`, `purpose` |
 | Live voice | `WS /api/voice/live`: `start` `{lang, purpose, format: "pcm16"}`, binary 16 kHz mono PCM16 frames, `stop`; back `ready`, `partial` (the tail, replaces), `final` (appended), `done` (the whole text), `error` (`code`: down, busy, auth, ...); the session cookie signs it in |
 | The app's own update | `GET /api/public/m/app.json` (`version`, `versionCode`, `size`, `sha256`, `url`; `notes` when the server gives them), `GET /api/public/m/app.apk`; no session needed |
+| The Orchestrator | `GET /api/me/orchestrator` (state, model, `halted`, `crash_loop`, providers with their models, `mcp_version`), `POST .../start`, `POST .../stop`, `PUT /api/me/llm/agent` `{provider_id, model}`, `GET .../tree`, `GET .../sessions/{sid}`, `GET .../events` (`text/event-stream`: `hello`, `message`, `part`, `delta`, `removed`, `status`, `session`, `error`, `lost`, `bye`) |
+| MCP tools | `GET /api/mcp/tools` (`version`, `count`, `agents`, `groups` of tools with their parameters) |
 | Export | `POST /api/cc/chats/{id}/export` `{format: md\|pdf, lang}` (the file kept in Files), then `GET /api/files/{fileId}` |
 | Archive, pin, trash | `GET /api/cc/chats?archived=1` / `?trash=1`, `PATCH .../{id}` (`archived`, `pinned`), `POST .../{id}/restore`, `DELETE .../{id}?forever=1`, `POST /api/cc/chats/empty-trash` |
 | What the account may do | `GET /api/auth/state` (`can`: `draw` to change files, `delete` for anyone's) |
@@ -348,10 +376,11 @@ src/
   state/session.tsx     server -> sign-in -> app
   storage/prefs.ts      recent servers, last e-mail, voice language
   screens/              Server, Login, Workspace (drawer + conversation or Files), Chat,
-                        Files, FilePreview
+                        Files, FilePreview, Room, Orchestrator
   components/           Drawer, DrawerPanel, SwipeRow, Tabs, FileThumb, Markdown, MessageItem,
                         Composer, RecordingBar, sheets and dialogs, icons (Lucide), controls
-  lib/                  Markdown parser, answer-stream reducer, day groups, tool steps, times,
+  lib/                  the Orchestrator (orchestrator.ts: its tree, the live stream on a transcript,
+                        its calls in words; orchStrings.ts: English and Turkish), Markdown parser, answer-stream reducer, day groups, tool steps, times,
                         Files (what each side shows, rights), chat export, share (native / web)
   update/               the in-app update: app.json read and compared (release.ts), the download,
                         its checksum and the installer (apk.ts; apk.web.ts shows versions only),

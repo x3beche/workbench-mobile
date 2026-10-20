@@ -23,6 +23,8 @@ export const spartanDark = {
   accent: '#fafafa',
   accentDeep: '#27272a',
   warn: '#e88c30',
+  /** A warning banner's ground: the warn colour at 9 %, as the web app mixes it. */
+  warnSoft: 'rgba(232, 140, 48, 0.09)',
   danger: '#ef4444',
   ok: '#2eb88a',
 

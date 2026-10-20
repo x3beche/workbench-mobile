@@ -17,8 +17,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { ApiError, CHAT_TRASH_DAYS, isMissingRoute, type VoiceLang } from '../api/client';
-import type { Chat, ChatScope, Ideas, Room, RoomId } from '../api/types';
+import type { Chat, ChatScope, Ideas, OrchStatus, Room, RoomId } from '../api/types';
 import { AccountSheet } from '../components/AccountSheet';
+import { AgentSheet } from '../components/AgentSheet';
 import { Appear } from '../components/Appear';
 import { Drawer } from '../components/Drawer';
 import { DrawerPanel } from '../components/DrawerPanel';
@@ -37,6 +38,7 @@ import { ActionList, Dialog, Sheet, type Action } from '../components/Sheet';
 import type { SwipeAction } from '../components/SwipeRow';
 import { chatToHtml, chatToMarkdown, exportName } from '../lib/exportChat';
 import { tick } from '../lib/feel';
+import { orchStrings } from '../lib/orchStrings';
 import { knownRooms } from '../lib/rooms';
 import { shareFile, sharePdf } from '../lib/share';
 import { useSession } from '../state/session';
@@ -47,6 +49,7 @@ import { useUpdate } from '../update/useUpdate';
 import type { VoiceMode } from '../voice/voice';
 import { ChatScreen, type Suggestion } from './ChatScreen';
 import { FilesScreen, type FilesHandle } from './FilesScreen';
+import { OrchestratorScreen, type OrchestratorHandle } from './OrchestratorScreen';
 import { RoomScreen } from './RoomScreen';
 
 /** Where to begin when the server has no example questions of its own (the web app's STARTERS). */
@@ -114,6 +117,12 @@ export function Workspace({
   const [page, setPage] = useState<'chat' | 'files'>('chat');
   /** The workspace's room open on screen, if any (3D Drawing, PCB Design, Firmware). */
   const [room, setRoom] = useState<RoomId | null>(null);
+  /** The Orchestrator is open on screen (read-only, above the rooms in the drawer). */
+  const [orch, setOrch] = useState(false);
+  /** Its state as last read: null until then, and while this server has none (an older server). */
+  const [orchSt, setOrchSt] = useState<OrchStatus | null>(null);
+  const [agentSheet, setAgentSheet] = useState(false);
+  const orchView = useRef<OrchestratorHandle>(null);
   const [rooms, setRooms] = useState<Room[] | null>(null);
   const [roomsSeen, setRoomsSeen] = useState<Record<string, string>>({});
   const files = useRef<FilesHandle>(null);
@@ -123,6 +132,8 @@ export function Workspace({
   const [toast, setToast] = useState<{ text: string; bad?: boolean } | null>(null);
 
   const update = useUpdate(client, server);
+  const ui = uiLang(lang);
+  const ot = useMemo(() => orchStrings(ui), [ui]);
   const updateNote =
     update.check.state === 'available'
       ? updateStrings(uiLang(lang)).drawer(update.check.release.version)
@@ -178,6 +189,19 @@ export function Workspace({
     );
   }, [client]);
 
+  /** One's Orchestrator, for its row in the drawer: a server without one (older) leaves the row out. */
+  const loadOrch = useCallback((): Promise<void> => {
+    if (!client) return Promise.resolve();
+    return client.orchestrator().then(
+      (got) => setOrchSt(got),
+      () => undefined,
+    );
+  }, [client]);
+
+  useEffect(() => {
+    loadOrch();
+  }, [loadOrch]);
+
   useEffect(() => {
     loadRooms();
     if (!server) return;
@@ -191,9 +215,12 @@ export function Workspace({
   // The agent writes in a room on its own time: its last line and what is
   // unread are read again now and then, not on every line drawn.
   useEffect(() => {
-    const t = setInterval(() => loadRooms(), 30_000);
+    const t = setInterval(() => {
+      loadRooms();
+      loadOrch();
+    }, 30_000);
     return () => clearInterval(t);
-  }, [loadRooms]);
+  }, [loadRooms, loadOrch]);
 
   /** A room was read: its badge is counted again from what is remembered here. */
   const roomSeen = useCallback(() => {
@@ -262,6 +289,7 @@ export function Workspace({
   const openChat = (chat: Chat) => {
     setPage('chat');
     setRoom(null);
+    setOrch(false);
     if (chat.id === openId) {
       setDrawer(false);
       return;
@@ -274,6 +302,16 @@ export function Workspace({
     tick();
     setPage('chat');
     setRoom(which);
+    setOrch(false);
+    setDrawer(false);
+  };
+
+  /** The Orchestrator takes the screen as a room does; Back returns to the chat. */
+  const openOrch = () => {
+    tick();
+    setPage('chat');
+    setRoom(null);
+    setOrch(true);
     setDrawer(false);
   };
 
@@ -281,6 +319,7 @@ export function Workspace({
     tick();
     setPage('chat');
     setRoom(null);
+    setOrch(false);
     if (!openId) {
       setDrawer(false);
       return;
@@ -291,6 +330,7 @@ export function Workspace({
   const openFiles = () => {
     setPage('files');
     setRoom(null);
+    setOrch(false);
     setDrawer(false);
   };
 
@@ -299,6 +339,10 @@ export function Workspace({
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (drawer && !wide) {
         setDrawer(false);
+        return true;
+      }
+      if (orch) {
+        if (!orchView.current?.back()) setOrch(false);
         return true;
       }
       if (room) {
@@ -317,7 +361,7 @@ export function Workspace({
       return false;
     });
     return () => sub.remove();
-  }, [drawer, wide, show, page, room]);
+  }, [drawer, wide, show, page, room, orch]);
 
   const created = useCallback((chat: Chat) => {
     setOpenId(chat.id);
@@ -489,13 +533,29 @@ export function Workspace({
       roomsSeen={roomsSeen}
       openRoom={room}
       onRoom={openRoom}
+      orchestrator={orchSt ? { label: ot.orchestrator, snip: ot.drawerSnip } : null}
+      orchOn={orch}
+      onOrchestrator={openOrch}
     />
   );
 
   return (
     <View style={s.root}>
       <Drawer open={drawer || wide} onOpenChange={setDrawer} width={drawerWidth} wide={wide} panel={panel}>
-        {room ? (
+        {orch ? (
+          <Appear key="orchestrator" duration={motion.fade}>
+            <OrchestratorScreen
+              ref={orchView}
+              client={client}
+              t={ot}
+              lang={ui}
+              wide={wide}
+              initial={orchSt}
+              onStatus={setOrchSt}
+              onMenu={() => setDrawer(true)}
+            />
+          </Appear>
+        ) : room ? (
           <Appear key={`room-${room}`} duration={motion.fade}>
             <RoomScreen
               room={room}
@@ -541,6 +601,24 @@ export function Workspace({
           voiceMode={voiceMode}
           onVoiceMode={onVoiceMode}
           update={update}
+          agentLabel={orchSt ? ot.agentLlm : undefined}
+          onAgent={() => {
+            setAccount(false);
+            setAgentSheet(true);
+          }}
+        />
+      ) : null}
+      {agentSheet ? (
+        <AgentSheet
+          client={client}
+          t={ot}
+          lang={ui}
+          onClose={() => setAgentSheet(false)}
+          onChanged={setOrchSt}
+          onOpenRoom={() => {
+            setAgentSheet(false);
+            openOrch();
+          }}
         />
       ) : null}
       {actions ? (

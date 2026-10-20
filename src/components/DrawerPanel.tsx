@@ -29,7 +29,7 @@ import { ROOM_ICON, ROOM_LABEL, roomSnippet, unread as unreadOf } from '../lib/r
 import { shortTime } from '../lib/time';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
 import { Avatar } from './Avatar';
-import { ChevronRight, FolderOpen, Search, SquarePen, X } from './icons';
+import { ChevronRight, FolderOpen, Network, Search, SquarePen, X } from './icons';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
 import { Tabs } from './Tabs';
 import { Button, ErrorText, Glyph } from './ui';
@@ -66,6 +66,9 @@ export function DrawerPanel({
   roomsSeen,
   openRoom,
   onRoom,
+  orchestrator = null,
+  orchOn = false,
+  onOrchestrator,
 }: {
   client: WorkbenchClient | null;
   server: string | null;
@@ -96,6 +99,11 @@ export function DrawerPanel({
   onRoom?: (room: RoomId) => void;
   /** When each room was last read on this phone, for counting what is unread. */
   roomsSeen?: Record<string, string>;
+  /** The Orchestrator's row, pinned above the rooms (its name and line, in the app's language); null when the server has none. */
+  orchestrator?: { label: string; snip: string } | null;
+  /** The Orchestrator is open on screen. */
+  orchOn?: boolean;
+  onOrchestrator?: () => void;
 }) {
   const [q, setQ] = useState('');
   const [found, setFound] = useState<{ q: string; scope: ChatScope; chats: Chat[] } | null>(null);
@@ -230,16 +238,19 @@ export function DrawerPanel({
           <>
             {/* The rooms lead the list, as they do on the web: the workspace's own
                 threads, above the conversations. */}
-            {!q.trim() && onRoom && rooms?.length ? (
+            {!q.trim() && ((onRoom && rooms?.length) || (orchestrator && onOrchestrator)) ? (
               <View testID="drawer-rooms">
                 <Text style={s.group}>Rooms</Text>
-                {rooms.map((r) => (
+                {orchestrator && onOrchestrator ? (
+                  <OrchRow label={orchestrator.label} snip={orchestrator.snip} on={orchOn} onPress={onOrchestrator} />
+                ) : null}
+                {(onRoom ? (rooms ?? []) : []).map((r) => (
                   <RoomRow
                     key={r.room}
                     room={r}
                     on={r.room === openRoom}
                     unread={unreadOf(r, roomsSeen?.[r.room])}
-                    onPress={() => onRoom(r.room)}
+                    onPress={() => onRoom?.(r.room)}
                   />
                 ))}
               </View>
@@ -363,6 +374,37 @@ function RoomRow({ room, on, unread, onPress }: { room: Room; on: boolean; unrea
             </View>
             <Text style={s.snip} numberOfLines={2}>
               {roomSnippet(room)}
+            </Text>
+          </View>
+        </>
+      )}
+    </Pressable>
+  );
+}
+
+/** The Orchestrator, pinned above the rooms: read-only, what one's own agent on the server does. */
+function OrchRow({ label, snip, on, onPress }: { label: string; snip: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      testID="room-orchestrator"
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      accessibilityLabel={label}
+      accessibilityHint={snip}
+      style={s.room}
+    >
+      {({ pressed }) => (
+        <>
+          <View style={s.roomIco}>
+            <Glyph icon={Network} size={20} color={pressed ? colors.inkDim : colors.ink} />
+          </View>
+          <View style={s.roomText}>
+            <Text style={[s.title, on && s.titleOn, pressed && s.dimText]} numberOfLines={1}>
+              {label}
+            </Text>
+            <Text style={s.snip} numberOfLines={1}>
+              {snip}
             </Text>
           </View>
         </>

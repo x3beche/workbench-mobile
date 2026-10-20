@@ -17,7 +17,7 @@ import { VOICE_LANGS, VOICE_MODES, type VoiceMode } from '../voice/voice';
 import { accountStrings, localized } from './accountStrings';
 import { Avatar } from './Avatar';
 import { Choice } from './Choice';
-import { LogOut, Server } from './icons';
+import { LogOut, Network, Server } from './icons';
 import { ActionList, Sheet, type Action } from './Sheet';
 import { UpdateSection } from './UpdateSection';
 
@@ -29,6 +29,8 @@ export function AccountSheet({
   voiceMode = 'live',
   onVoiceMode = () => undefined,
   update,
+  agentLabel,
+  onAgent,
 }: {
   onClose: () => void;
   lang: VoiceLang;
@@ -37,6 +39,9 @@ export function AccountSheet({
   onVoiceMode?: (m: VoiceMode) => void;
   /** The in-app update (src/update): the versions, and the download where it can be installed. */
   update?: Update;
+  /** "Agent & LLM": one's Orchestrator, its model, Start and Stop (left out where the server has none). */
+  agentLabel?: string;
+  onAgent?: () => void;
 }) {
   const { user, server, client, signOut, changeServer } = useSession();
   const recheck = update?.recheck;
@@ -46,7 +51,9 @@ export function AccountSheet({
   }, [recheck]);
   const ui = uiLang(lang);
   const t = accountStrings(ui);
-  const actions: Action[] = [
+  const actions: Action[] = [];
+  if (agentLabel && onAgent) actions.push({ id: 'agent-llm', label: agentLabel, icon: Network, onPress: onAgent });
+  actions.push(
     {
       id: 'change-server',
       label: t.changeServer,
@@ -56,7 +63,7 @@ export function AccountSheet({
         changeServer();
       },
     },
-  ];
+  );
   if (user) {
     actions.push({
       id: 'sign-out',

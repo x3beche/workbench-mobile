@@ -10,13 +10,18 @@
  */
 import { streamSse, type StreamResult, type XhrLike } from './sse';
 import type {
+  AgentTree,
   AuthState,
   Chat,
   ChatEvent,
   ChatScope,
   FileFolder,
   Ideas,
+  McpCatalog,
   Model,
+  OrchEvent,
+  OrchStatus,
+  OrchTranscript,
   Provider,
   Queued,
   Room,
@@ -392,6 +397,55 @@ export class WorkbenchClient {
   /** Say something in a room: the agent working in it is told, and answers there. */
   sayRoom(room: RoomId, text: string, urgent = false): Promise<RoomLine> {
     return this.request<RoomLine>('POST', '/api/chat', { room, text, urgent });
+  }
+
+  // ---- the Orchestrator ---------------------------------------------------
+
+  /** One's own Orchestrator: its state, model, why it stopped, the providers to pick from. */
+  orchestrator(): Promise<OrchStatus> {
+    return this.request<OrchStatus>('GET', '/api/me/orchestrator');
+  }
+
+  /** Start it (or start it again on the model chosen). */
+  orchestratorStart(): Promise<OrchStatus> {
+    return this.request<OrchStatus>('POST', '/api/me/orchestrator/start', {}, 90_000);
+  }
+
+  orchestratorStop(): Promise<OrchStatus> {
+    return this.request<OrchStatus>('POST', '/api/me/orchestrator/stop', {}, 60_000);
+  }
+
+  /** The provider and model it runs on (Agent & LLM's choice). */
+  setAgentModel(provider: string, model: string): Promise<unknown> {
+    return this.request('PUT', '/api/me/llm/agent', { provider_id: provider, model });
+  }
+
+  /** Its own session and the sub-agents it started. */
+  orchestratorTree(): Promise<AgentTree> {
+    return this.request<AgentTree>('GET', '/api/me/orchestrator/tree');
+  }
+
+  /** A session's transcript, read-only. */
+  orchestratorSession(sid: string): Promise<OrchTranscript> {
+    return this.request<OrchTranscript>('GET', `/api/me/orchestrator/sessions/${encodeURIComponent(sid)}`);
+  }
+
+  /** What it does, live (text/event-stream) until the stream ends or `signal` stops it. */
+  async orchestratorEvents(h: {
+    onEvent: (ev: OrchEvent) => void;
+    onActivity?: () => void;
+    signal?: AbortSignal;
+  }): Promise<void> {
+    await this.stream('GET', '/api/me/orchestrator/events', null, {
+      onEvent: (ev) => h.onEvent(ev as unknown as OrchEvent),
+      onActivity: h.onActivity,
+      signal: h.signal,
+    });
+  }
+
+  /** The MCP server's version and every tool it offers. */
+  mcpTools(): Promise<McpCatalog> {
+    return this.request<McpCatalog>('GET', '/api/mcp/tools');
   }
 
   // ---- files --------------------------------------------------------------

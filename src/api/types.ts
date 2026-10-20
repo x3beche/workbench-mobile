@@ -249,3 +249,133 @@ export interface TrashFile extends StoredFile {
 
 /** A file picked on the phone to upload: a uri on Android and iOS, a Blob in a browser. */
 export type UploadPart = { uri: string; name: string; type: string } | { blob: Blob; name: string };
+
+// ---- the Orchestrator (backend/orchestrator: /api/me/orchestrator, /api/mcp/tools) ----
+
+/** GET /api/me/orchestrator: one's own Orchestrator, the agent that answers in every room. */
+export interface OrchStatus {
+  state: 'running' | 'starting' | 'restarting' | 'stopped' | 'halted';
+  desired: string;
+  /** Stopped by the supervisor: the key was refused (`auth`), the credits ran out (`credit`), or else. */
+  halted: { kind: string; message: string; at: string | null } | null;
+  error: string | null;
+  crash_loop: boolean;
+  last_failure: { kind: string; at: string | null; code: number | null } | null;
+  next_try_at: string | null;
+  started_at: string | null;
+  provider_id: string | null;
+  model: string | null;
+  session: string | null;
+  /** The provider and model chosen for it in Agent & LLM. */
+  choice: { provider_id: string; model: string } | null;
+  providers: { id: string; name: string; kind?: string; key_hint?: string | null; ok?: boolean | null; models: string[] }[];
+  limits?: { mem_mb: number; cpus: number };
+  mcp_version?: string | null;
+}
+
+export type AgentState = 'running' | 'retry' | 'idle' | 'done' | 'error' | 'stopped';
+
+/** What a session did last, under its name in the tree. */
+export interface AgentStep {
+  kind: 'tool' | 'text' | 'thinking' | 'user';
+  tool?: string;
+  status?: string;
+  text: string;
+}
+
+/** A session in the Orchestrator's tree: its own (the root) or a sub-agent's. */
+export interface AgentNode {
+  id: string;
+  parentID: string | null;
+  title: string;
+  agent: string | null;
+  state: AgentState;
+  started: number | null;
+  updated: number | null;
+  last_step: AgentStep | null;
+  error?: string;
+}
+
+/** GET /api/me/orchestrator/tree. */
+export interface AgentTree {
+  nodes: AgentNode[];
+  root: string | null;
+  reason?: string;
+}
+
+/** A piece of a message in a session's transcript (backend/sandbox/agents.py _part). */
+export interface OrchPart {
+  id?: string;
+  type: 'text' | 'reasoning' | 'tool' | 'subtask' | 'file';
+  text?: string;
+  synthetic?: boolean;
+  agent?: string;
+  tool?: string;
+  status?: string;
+  title?: string;
+  input?: string;
+  output?: string;
+  error?: string;
+  start?: number;
+  end?: number;
+  /** A `task` call's sub-agent session. */
+  session?: string;
+}
+
+export interface OrchMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  agent: string | null;
+  time: number | null;
+  done: number | null;
+  parts: OrchPart[];
+  error?: string;
+}
+
+/** GET /api/me/orchestrator/sessions/{sid}. */
+export interface OrchTranscript {
+  id?: string;
+  parentID?: string | null;
+  title?: string;
+  agent?: string | null;
+  state?: AgentState;
+  messages: OrchMessage[];
+  truncated: boolean;
+  reason?: string;
+  error?: string;
+}
+
+/** One event of GET /api/me/orchestrator/events (backend/orchestrator/live.py shape). */
+export interface OrchEvent {
+  type: string;
+  session?: string | null;
+  message?: string;
+  id?: string;
+  part?: OrchPart | string | null;
+  delta?: string;
+  role?: 'user' | 'assistant';
+  agent?: string | null;
+  time?: number | null;
+  done?: number | null;
+  error?: string;
+  kind?: string | null;
+  status?: string;
+  why?: string;
+  parentID?: string | null;
+  title?: string;
+}
+
+export interface McpTool {
+  name: string;
+  description: string;
+  agents: string[];
+  params: { name: string; type: string; enum: string[] | null; description: string; required: boolean }[];
+}
+
+/** GET /api/mcp/tools: the MCP server's version and every tool, grouped. */
+export interface McpCatalog {
+  version: string;
+  count: number;
+  agents: { id: string; server: string; name: string }[];
+  groups: { name: string; tools: McpTool[] }[];
+}

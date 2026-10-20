@@ -3,10 +3,20 @@
 #   TARGET=https://your.workbench.server sh scripts/shots.sh
 # Needs Docker (zenika/alpine-chrome:with-puppeteer) and a web build in dist/.
 # SHOTS_DIR (default docs/screenshots) is where the pictures go.
+# SHOTS=orchestrator takes only the Orchestrator's (scripts/shots-orchestrator.js).
 set -e
 cd "$(dirname "$0")/.."
 SHOTS_DIR="${SHOTS_DIR:-$PWD/docs/screenshots}"
 mkdir -p "$SHOTS_DIR"
+if [ "$SHOTS" = "orchestrator" ]; then
+  MOCK=1 PORT=8091 node scripts/dev-proxy.mjs & MOCK_PID=$!
+  trap 'kill $MOCK_PID 2>/dev/null' EXIT
+  sleep 1
+  docker run --rm --network host \
+    -v "$PWD/scripts/shots-orchestrator.js:/usr/src/app/shots.js:ro" -v "$SHOTS_DIR:/out" \
+    --entrypoint node zenika/alpine-chrome:with-puppeteer /usr/src/app/shots.js
+  exit 0
+fi
 # Without TARGET the server and sign-in screens come from a made-up server
 # that starts signed out (MOCK_SIGNIN=1).
 if [ -n "$TARGET" ]; then

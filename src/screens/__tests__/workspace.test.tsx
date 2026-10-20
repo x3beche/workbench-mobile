@@ -78,6 +78,10 @@ const mockClient = {
   ideas: jest.fn(async (): Promise<Ideas | null> => IDEAS),
   // The workspace's rooms (1.3.0): none here, as from an older server - the drawer test covers them.
   rooms: jest.fn(async () => []),
+  // The Orchestrator (1.5.4): none here, as from an older server - the drawer and lib tests cover it.
+  orchestrator: jest.fn(async () => {
+    throw new Error('Not Found');
+  }),
   getChat: jest.fn(async (id: string) => full(CHATS.find((c) => c.id === id) ?? listed(id, 'Gone', 1))),
   live: jest.fn(async () => undefined),
   createChat: jest.fn(async (provider?: string, model?: string) => {

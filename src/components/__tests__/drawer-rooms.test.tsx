@@ -136,3 +136,26 @@ async function panel(over: Partial<React.ComponentProps<typeof DrawerPanel>> = {
     expect(screen.getByText('wb.example')).toBeTruthy();
   });
 });
+
+(canRender ? describe : describe.skip)('the Orchestrator in the drawer', () => {
+  const orchestrator = { label: 'Orchestrator', snip: 'What your Orchestrator does, live' };
+
+  it('is pinned above the rooms, read-only, and opens on a press', async () => {
+    const onOrchestrator = jest.fn();
+    await panel({ orchestrator, onOrchestrator });
+    expect(screen.getByText('Orchestrator')).toBeTruthy();
+    expect(screen.getAllByText(/^(Orchestrator|3D Drawing)$/).map((t) => t.props.children)).toEqual([
+      'Orchestrator',
+      '3D Drawing',
+    ]);
+    fireEvent.press(screen.getByTestId('room-orchestrator'));
+    expect(onOrchestrator).toHaveBeenCalled();
+  });
+
+  it('is there even when the server sends no rooms, and not on a server without one', async () => {
+    await panel({ rooms: null, orchestrator, onOrchestrator: jest.fn() });
+    expect(screen.getByTestId('room-orchestrator')).toBeTruthy();
+    await panel({ orchestrator: null, onOrchestrator: jest.fn() });
+    expect(screen.queryByTestId('room-orchestrator')).toBeNull();
+  });
+});
