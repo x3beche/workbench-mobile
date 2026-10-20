@@ -82,6 +82,15 @@ async function scrollTo(page, testID) {
   await page.click(tid('open-analytics'));
   await page.waitForSelector(tid('analytics-models'), { timeout: 15000 });
   await shot(page, '79-analytics-light');
+
+  // Wide: two cards a row.
+  await page.evaluate(() => localStorage.setItem('wb.theme', 'spartan-dark'));
+  await page.reload({ waitUntil: 'networkidle0' });
+  await page.setViewport({ width: 1280, height: 860, deviceScaleFactor: 1 });
+  await page.waitForSelector(tid('open-analytics'), { timeout: 20000 });
+  await page.click(tid('open-analytics'));
+  await page.waitForSelector(tid('analytics-models'), { timeout: 15000 });
+  await shot(page, '80-analytics-wide');
   await browser.close();
 })().catch((e) => {
   console.error(e);

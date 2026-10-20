@@ -32,19 +32,26 @@ export function Columns({
   data,
   height = 96,
   format = String,
+  bare = false,
   testID,
 }: {
   data: Column[];
   height?: number;
   format?: (n: number) => string;
+  /** As in a card (the web's mini stack): no figure above, no days under, finer gaps. */
+  bare?: boolean;
   testID?: string;
 }) {
   const totals = data.map((d) => d.parts.reduce((a, p) => a + Math.max(0, p.value), 0));
   const max = Math.max(0, ...totals);
   return (
     <View testID={testID}>
-      <Text style={s.max}>{max ? format(max) : ''}</Text>
-      <View style={[s.cols, { height }]} accessibilityRole="image">
+      {bare ? null : <Text style={s.max}>{max ? format(max) : ''}</Text>}
+      <View
+        style={[s.cols, bare && s.colsBare, { height }]}
+        accessibilityRole="image"
+        accessibilityLabel={max ? format(max) : undefined}
+      >
         {data.map((d, i) => (
           <View key={`${d.label}-${i}`} style={s.col}>
             {/* Stacked from the bottom: the first series lowest. */}
@@ -57,10 +64,12 @@ export function Columns({
           </View>
         ))}
       </View>
-      <View style={s.axis}>
-        <Text style={s.tick}>{data[0]?.label ?? ''}</Text>
-        <Text style={s.tick}>{data[data.length - 1]?.label ?? ''}</Text>
-      </View>
+      {bare ? null : (
+        <View style={s.axis}>
+          <Text style={s.tick}>{data[0]?.label ?? ''}</Text>
+          <Text style={s.tick}>{data[data.length - 1]?.label ?? ''}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -121,6 +130,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
   },
+  colsBare: { gap: 2, borderBottomWidth: 0 },
   col: { flex: 1, justifyContent: 'flex-end', minWidth: 2, overflow: 'hidden', borderTopLeftRadius: 2, borderTopRightRadius: 2 },
   zero: { height: 1, backgroundColor: colors.line },
   axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 },

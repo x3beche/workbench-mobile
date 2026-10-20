@@ -64,6 +64,16 @@ export interface SettingsStrings {
   nothing: string;
   cannotRead: string;
   refresh: string;
+  /** Analytics' groups, above their cards. */
+  groups: { llm: string; agents: string; work: string; tools: string; server: string };
+  /** A card's period, at the right of its head. */
+  period: { month: string; days30: string; week: string; now: string; latest: string };
+  showAll: string;
+  showLess: string;
+  subAgents: (n: number) => string;
+  waiting: (n: number) => string;
+  running: string;
+  memory: string;
 }
 
 const en: SettingsStrings = {
@@ -124,6 +134,14 @@ const en: SettingsStrings = {
   nothing: 'Nothing yet.',
   cannotRead: 'This could not be read.',
   refresh: 'Refresh',
+  groups: { llm: 'LLM', agents: 'Agents', work: 'Work', tools: 'Tools', server: 'Server' },
+  period: { month: 'this month', days30: '30 days', week: 'this week', now: 'now', latest: 'latest' },
+  showAll: 'Show all',
+  showLess: 'Show less',
+  subAgents: (n) => (n === 1 ? '1 sub-agent' : `${n} sub-agents`),
+  waiting: (n) => `${n} waiting`,
+  running: 'running',
+  memory: 'memory',
 };
 
 const tr: SettingsStrings = {
@@ -184,6 +202,14 @@ const tr: SettingsStrings = {
   nothing: 'Henüz bir şey yok.',
   cannotRead: 'Bu okunamadı.',
   refresh: 'Yenile',
+  groups: { llm: 'LLM', agents: 'Ajanlar', work: 'İşler', tools: 'Araçlar', server: 'Sunucu' },
+  period: { month: 'bu ay', days30: '30 gün', week: 'bu hafta', now: 'şu an', latest: 'son' },
+  showAll: 'Tümünü göster',
+  showLess: 'Daha az göster',
+  subAgents: (n) => `${n} alt ajan`,
+  waiting: (n) => `${n} bekliyor`,
+  running: 'çalışıyor',
+  memory: 'bellek',
 };
 
 export function settingsStrings(lang: UiLang): SettingsStrings {

@@ -183,9 +183,13 @@ Then you sign in with the same e-mail address and password as on the web.
   Orchestrator (its state, its sub-agents, the incidents the supervisor
   kept), the job pool (one's own jobs, how full the server is) and, for the
   owner and the admins, the latest finished jobs with their wait and run
-  times and every sandbox with what it uses. A section the server has no
-  route for, or the account may not see, is left out. Fine stacked columns
-  and hairline bars in the theme's chart colours.
+  times and every sandbox with what it uses. From 1.5.8 each is a bordered
+  card as the web Chat's Models and Tools cards - icon, title and period in
+  its head, the figure large with its unit and a second at the right, a fine
+  chart, a caption; a card with more rows opens to them - grouped under small
+  uppercase labels (LLM, Agents, Work, Tools, Server), two cards a row where
+  they fit. A card the server has no route for, or the account may not see,
+  is left out.
 - **Typing**: a rounded box floats right above the keyboard, the conversation
   shrinks above it with the newest lines in view, and the box grows with
   what you write up to six lines (16 px text), then scrolls inside. Its round

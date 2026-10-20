@@ -52,7 +52,12 @@ function client(over: Partial<Record<string, unknown>> = {}) {
     await render(<AnalyticsScreen client={c} t={settingsStrings('en')} ot={orchStrings('en')} lang="en" />);
     await act(async () => undefined);
     expect(screen.getByTestId('analytics-models')).toBeTruthy();
-    expect(screen.getByText(/2.4M tokens · 120 calls · \$3.50/)).toBeTruthy();
+    // As the web's Models card: the month's tokens large, its calls at the right, under the LLM group.
+    expect(screen.getByTestId('group-llm')).toBeTruthy();
+    expect(screen.getByText('LLM')).toBeTruthy();
+    expect(screen.getByText('2.4M')).toBeTruthy();
+    expect(screen.getByText('120 calls')).toBeTruthy();
+    expect(screen.getByText(/Today 12k tok · 3 answers/)).toBeTruthy();
     expect(screen.getByTestId('analytics-tools')).toBeTruthy();
     expect(screen.queryByTestId('analytics-spend')).toBeNull();
     expect(screen.queryByTestId('analytics-orchestrator')).toBeNull();
@@ -72,7 +77,9 @@ function client(over: Partial<Record<string, unknown>> = {}) {
     await render(<AnalyticsScreen client={c} t={settingsStrings('tr')} ot={orchStrings('tr')} lang="tr" admin />);
     await act(async () => undefined);
     expect(c.adminSandboxes).toHaveBeenCalled();
-    expect(screen.getByText('4 yerin 1 tanesi çalışıyor')).toBeTruthy();
+    expect(screen.getByTestId('group-server')).toBeTruthy();
+    expect(screen.getByText('Sunucu')).toBeTruthy();
+    expect(screen.getByText('1/4')).toBeTruthy();
     expect(screen.getByText('Modeller')).toBeTruthy();
   });
 });
