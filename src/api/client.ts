@@ -132,6 +132,12 @@ export interface SayHandlers {
   signal?: AbortSignal;
 }
 
+/** A room's line by its id: the server names it `_id` (a MongoDB document), the app `id`. */
+function withId(line: RoomLine): RoomLine {
+  const raw = line as RoomLine & { _id?: string };
+  return raw && !raw.id && raw._id ? { ...raw, id: raw._id } : raw;
+}
+
 export class WorkbenchClient {
   private readonly fetchImpl: FetchLike;
   /** How many days the server's conversation trash keeps one: its own word once the trash was listed, else the default. */
@@ -389,14 +395,17 @@ export class WorkbenchClient {
    * of them). The rooms have no stream, so this is read again while one is
    * open on screen.
    */
-  roomHistory(room: RoomId, limit = 0): Promise<RoomLine[]> {
+  async roomHistory(room: RoomId, limit = 0, before?: string): Promise<RoomLine[]> {
     const cap = limit > 0 ? `&limit=${limit}` : '';
-    return this.request<RoomLine[]>('GET', `/api/chat?room=${encodeURIComponent(room)}${cap}`);
+    // The lines before one (a page further back); a server older than paging leaves it out.
+    const back = before ? `&before=${encodeURIComponent(before)}` : '';
+    const got = await this.request<RoomLine[]>('GET', `/api/chat?room=${encodeURIComponent(room)}${cap}${back}`);
+    return (got ?? []).map(withId);
   }
 
   /** Say something in a room: the agent working in it is told, and answers there. */
-  sayRoom(room: RoomId, text: string, urgent = false): Promise<RoomLine> {
-    return this.request<RoomLine>('POST', '/api/chat', { room, text, urgent });
+  async sayRoom(room: RoomId, text: string, urgent = false): Promise<RoomLine> {
+    return withId(await this.request<RoomLine>('POST', '/api/chat', { room, text, urgent }));
   }
 
   // ---- the Orchestrator ---------------------------------------------------

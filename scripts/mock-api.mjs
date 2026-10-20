@@ -15,7 +15,7 @@
 import { Buffer } from 'node:buffer';
 
 import { addExport, handleFiles } from './mock-files.mjs';
-import { handleOrchestrator } from './mock-orchestrator.mjs';
+import { handleOrchestrator, handleRooms } from './mock-orchestrator.mjs';
 
 const ago = (min) => new Date(Date.now() - min * 60_000).toISOString();
 const me = { id: 'u1', name: 'Ada Demir', email: 'ada@example.com' };
@@ -377,6 +377,7 @@ export async function handle(req, res) {
   }
   if (p.startsWith('/api/files') && handleFiles(req, res, p, url, body)) return;
   if (handleOrchestrator(req, res, p, body)) return;
+  if (handleRooms(req, res, p, url, body)) return;
   const m = p.match(/^\/api\/cc\/chats\/([^/]+)(\/.*)?$/);
   if (m) {
     const chat = chats.find((c) => c.id === m[1]);

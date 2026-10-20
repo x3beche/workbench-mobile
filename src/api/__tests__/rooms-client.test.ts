@@ -64,3 +64,14 @@ describe('the agent rooms', () => {
     expect(JSON.parse(String(calls[0].init.body))).toEqual({ room: 'cad', text: 'now', urgent: true });
   });
 });
+
+describe('a room a page at a time', () => {
+  it('asks for the lines before one, and names each line by the id the server gives it', async () => {
+    const { fetch, calls } = fakeFetch(() =>
+      jsonResponse(200, [{ _id: 'abc', at: '2026-10-15T10:00:00Z', role: 'agent', text: 'older' }]),
+    );
+    const got = await new WorkbenchClient(BASE, { fetch }).roomHistory('pcb', 10, 'x/1');
+    expect(calls[0].url).toBe(`${BASE}/api/chat?room=pcb&limit=10&before=x%2F1`);
+    expect(got[0].id).toBe('abc');
+  });
+});

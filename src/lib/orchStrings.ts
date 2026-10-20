@@ -75,6 +75,8 @@ export interface OrchStrings {
   cantRead: string;
   mayNot: string;
   modelNow: (m: string) => string;
+  /** Over a thread, when something new came while one reads further up. */
+  newBelow: string;
 }
 
 const en: OrchStrings = {
@@ -160,6 +162,7 @@ const en: OrchStrings = {
   cantRead: 'The Orchestrator could not be read.',
   mayNot: 'Your account has no Orchestrator on this server.',
   modelNow: (m) => `Now: ${m}`,
+  newBelow: 'New messages',
 };
 
 const tr: OrchStrings = {
@@ -245,6 +248,7 @@ const tr: OrchStrings = {
   cantRead: 'Orkestratör okunamadı.',
   mayNot: 'Hesabınızın bu sunucuda bir orkestratörü yok.',
   modelNow: (m) => `Şu an: ${m}`,
+  newBelow: 'Yeni mesajlar',
 };
 
 export function orchStrings(lang: UiLang): OrchStrings {

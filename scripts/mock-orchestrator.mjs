@@ -220,3 +220,49 @@ export function handleOrchestrator(req, res, p, body) {
   }
   return false;
 }
+
+// ---- the rooms (backend/chat.py): a long PCB thread to page through, ten lines at a time ----
+const ROOM_LINES = { cad: [], pcb: [], firmware: [] };
+for (let i = 0; i < 34; i++) {
+  const agent = i % 2 === 1;
+  ROOM_LINES.pcb.push({
+    _id: `pcb${String(i).padStart(3, '0')}`,
+    at: new Date(T0 - (34 - i) * 120_000).toISOString(),
+    role: agent ? 'agent' : 'user',
+    text: agent ? `Line ${i}: done - the change is on the board, DRC clean.` : `Line ${i}: move the next connector a little further in.`,
+    room: 'pcb',
+    by: agent ? { type: 'agent', name: 'agent' } : { id: 'u1', name: 'Ada Demir', type: 'user' },
+    seen_at: new Date(T0).toISOString(),
+  });
+}
+
+/** GET /api/chat/rooms, GET /api/chat?room=&limit=&before=, POST /api/chat; false for any other path. */
+export function handleRooms(req, res, p, url, body) {
+  if (p === '/api/chat/rooms') {
+    return json(res, 200, Object.entries(ROOM_LINES).map(([room, ls]) => ({
+      room, count: ls.length, waiting: 0, urgent: 0,
+      last: ls.length ? { role: ls.at(-1).role, text: ls.at(-1).text, at: ls.at(-1).at, by: null } : null,
+      agent_at: ls.filter((l) => l.role === 'agent').map((l) => l.at),
+    }))), true;
+  }
+  if (p !== '/api/chat') return false;
+  const room = url.searchParams.get('room') || 'cad';
+  const ls = ROOM_LINES[room] || [];
+  if (req.method === 'POST') {
+    const got = JSON.parse(body.toString() || '{}');
+    const line = { _id: `n${Date.now()}`, at: new Date().toISOString(), role: 'user', text: got.text, room: got.room,
+                   by: { id: 'u1', name: 'Ada Demir', type: 'user' }, seen_at: null };
+    (ROOM_LINES[got.room] || ROOM_LINES.cad).push(line);
+    return json(res, 200, line), true;
+  }
+  const limit = Number(url.searchParams.get('limit') || 200);
+  const before = url.searchParams.get('before');
+  let rows = ls;
+  if (before) {
+    const at = rows.findIndex((l) => l._id === before);
+    rows = at >= 0 ? rows.slice(0, at) : [];
+  }
+  const out = limit ? rows.slice(-limit) : rows;
+  // Slow enough for the loader at the top to be seen.
+  return setTimeout(() => json(res, 200, out), before ? 700 : 0), true;
+}

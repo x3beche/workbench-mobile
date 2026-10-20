@@ -39,6 +39,7 @@ import { Appear } from '../components/Appear';
 import { ChevronDown, ChevronLeft, ChevronRight, Menu, Network, Settings } from '../components/icons';
 import { Markdown } from '../components/Markdown';
 import { McpSheet } from '../components/McpSheet';
+import { NewBelow } from '../components/NewBelow';
 import { modelName } from '../components/MessageItem';
 import { StateDot } from '../components/StateDot';
 import { Glyph, IconButton, wrapAnywhere } from '../components/ui';
@@ -63,6 +64,7 @@ import {
   type TreeRow,
 } from '../lib/orchestrator';
 import type { OrchStrings } from '../lib/orchStrings';
+import { PAGE } from '../lib/paging';
 import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
 
 /** How often the state is read again, and the tree when the stream says nothing of it. */
@@ -102,12 +104,19 @@ export const OrchestratorScreen = forwardRef<
   const [sheet, setSheet] = useState<'mcp' | 'agent' | null>(null);
   const [width, setWidth] = useState(0);
   const list = useRef<FlatList<OrchMessage>>(null);
-  const stick = useRef(true);
+  /** At the newest line (the list is upside down: offset 0 is the bottom), so kept there. */
+  const atBottom = useRef(true);
+  const [below, setBelow] = useState(false);
+  /** How many of the session's messages are drawn, by session: the newest ten, ten more as the reader nears the top. */
+  const [countOf, setCountOf] = useState<{ sid: string | null; n: number }>({ sid: null, n: PAGE });
   const mounted = useRef(true);
 
   const root = tree?.root ?? st?.session ?? null;
   const shown = view ?? root;
   const tx = txOf && txOf.sid === shown ? txOf.x : null;
+  const count = countOf.sid === shown ? countOf.n : PAGE;
+  const drawn = useMemo(() => (tx ? tx.messages.slice(-count).reverse() : []), [tx, count]);
+  const hidden = tx ? Math.max(0, tx.messages.length - count) : 0;
   const shownRef = useRef(shown);
   useEffect(() => {
     shownRef.current = shown;
@@ -213,7 +222,7 @@ export const OrchestratorScreen = forwardRef<
 
   // The session shown: its transcript read, then kept up by the stream.
   useEffect(() => {
-    stick.current = true;
+    atBottom.current = true;
     if (shown) loadTx(shown);
   }, [shown, loadTx]);
 
@@ -260,6 +269,8 @@ export const OrchestratorScreen = forwardRef<
     if (e.type === 'message' && (e.kind === 'auth' || e.kind === 'credit')) loadStatus();
     if (e.type === 'part' && e.part && typeof e.part === 'object' && e.part.type === 'tool' && e.part.session) treeSoon();
     const sid = shownRef.current;
+    // A new message while the reader is further up: offered, not forced.
+    if (e.type === 'message' && !atBottom.current && e.id && !txOf?.x.messages.some((m) => m.id === e.id)) setBelow(true);
     setTxOf((now) => (now && now.sid === sid ? { sid, x: applyEvent(now.x, e, sid) } : now));
   };
   useEffect(() => {
@@ -328,11 +339,18 @@ export const OrchestratorScreen = forwardRef<
   const sub = view ? nodeOf(view) : null;
 
   const scrolled = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    stick.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 60;
+    const at = e.nativeEvent.contentOffset.y < 60;
+    atBottom.current = at;
+    if (at && below) setBelow(false);
   };
-  const toEnd = () => {
-    if (stick.current) list.current?.scrollToEnd({ animated: false });
+  const toBottom = () => {
+    setBelow(false);
+    atBottom.current = true;
+    list.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+  /** Ten more of the session's messages, as the reader nears the top. */
+  const showOlder = () => {
+    if (hidden > 0) setCountOf({ sid: shown, n: count + PAGE });
   };
 
   const banner = st ? (
@@ -465,27 +483,39 @@ export const OrchestratorScreen = forwardRef<
               {sub?.agent ? <Text style={s.tag}>{sub.agent}</Text> : null}
             </View>
           ) : null}
-          {tx ? (
+          {tx && (tx.messages.length || tx.reason) ? (
             <FlatList
               ref={list}
+              inverted
               indicatorStyle="white"
               testID="orch-list"
-              data={tx.messages}
+              data={drawn}
               keyExtractor={(m, i) => m.id || String(i)}
               renderItem={({ item }) => <MsgView m={item} sub={!!view} t={t} lang={lang} onOpen={show} />}
               onScroll={scrolled}
               scrollEventThrottle={64}
-              onContentSizeChange={toEnd}
+              onEndReached={showOlder}
+              onEndReachedThreshold={0.3}
+              maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
               contentContainerStyle={s.pad}
-              ListHeaderComponent={
-                <>
-                  {tx.reason ? <Text style={s.none}>{reasonText(tx.reason, t)}</Text> : null}
-                  {tx.truncated ? <Text style={s.none}>{t.onlyLatest}</Text> : null}
-                </>
+              // Upside down: the footer is the top (more to come, or why it stops there), the header the bottom.
+              ListFooterComponent={
+                hidden ? (
+                  <ActivityIndicator style={s.older} color={colors.inkDim} testID="orch-older" />
+                ) : (
+                  <>
+                    {tx.reason ? <Text style={s.none}>{reasonText(tx.reason, t)}</Text> : null}
+                    {tx.truncated ? <Text style={s.none}>{t.onlyLatest}</Text> : null}
+                  </>
+                )
               }
-              ListEmptyComponent={tx.reason ? null : <Text style={s.none}>{t.nothingYet}</Text>}
-              ListFooterComponent={<Text style={s.ro}>{t.readOnly}</Text>}
+              ListHeaderComponent={<Text style={s.ro}>{t.readOnly}</Text>}
             />
+          ) : tx ? (
+            <View style={s.pad}>
+              <Text style={s.none}>{t.nothingYet}</Text>
+              <Text style={s.ro}>{t.readOnly}</Text>
+            </View>
           ) : running && shown ? (
             <View style={s.center}>
               <ActivityIndicator color={colors.inkDim} />
@@ -496,6 +526,7 @@ export const OrchestratorScreen = forwardRef<
               <Text style={s.ro}>{t.readOnly}</Text>
             </View>
           )}
+          {below ? <NewBelow label={t.newBelow} onPress={toBottom} bottom={16} /> : null}
         </View>
         {side ? (
           <View style={s.side}>
@@ -810,6 +841,7 @@ const s = StyleSheet.create({
   subTitle: { flex: 1, minWidth: 0, fontFamily: fonts.sansSemi, fontSize: type.small, color: colors.ink },
   link: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim, textDecorationLine: 'underline' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  older: { paddingVertical: space.md },
   pad: { paddingHorizontal: gutter, paddingTop: space.sm, paddingBottom: space.lg, flexGrow: 1 },
   none: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.inkDim, paddingVertical: space.sm },
   ro: {

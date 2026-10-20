@@ -129,7 +129,12 @@ Then you sign in with the same e-mail address and password as on the web.
   conversation: it takes the screen, Back returns to the conversation, and a
   line written in it goes to the agent that draws, routes and flashes. The
   thread is read again every two seconds, and what was read is remembered per
-  room, which is what the drawer counts from.
+  room, which is what the drawer counts from. A room (and the Orchestrator)
+  opens at its newest line and is read ten lines at a time: the page before
+  comes in as the top is neared, with a small loader and the place kept
+  (`GET /api/chat?room=&limit=10&before=<id>`; a server without `before`
+  simply has no more). At the bottom it stays at the bottom as lines and
+  answers come; read further up, it stays put and "New messages" leads down.
 - **The Orchestrator** (from 1.5.4): one's own agent on the server, which
   answers in every room and hands 3D, PCB and firmware work to its agents,
   pinned at the top of the drawer's Rooms. It is read-only - there is no box:
@@ -335,7 +340,7 @@ Chrome in Docker at 390 x 844, and 900 px wide for the side column, against
 the made-up server, which also runs tools and writes an answer slowly; with
 `TARGET=https://your.server` the server and sign-in screens are taken against
 that server, whose own wrong-password error is shown;
-`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48). The keyboard shot
+`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48, and `SHOTS=rooms` a room read a page at a time, 50-53). The keyboard shot
 makes the window 336 px shorter, as a phone keyboard does, and checks the
 composer is still on screen. `SHOTS_DIR=/some/dir` writes them elsewhere. App icons are
 drawn by `scripts/make-icons.js` from the web app's section mark.
