@@ -199,7 +199,7 @@ function Picture({ client, file, onFail }: { client: WorkbenchClient | null; fil
       {shown ? (
         <Image
           testID="preview-image"
-          source={{ uri: shown.uri }}
+          source={client.imageSource(shown.uri)}
           style={s.flex}
           resizeMode="contain"
           onLoad={() => setLoaded(true)}
@@ -259,7 +259,9 @@ function Pdf({ client, file, onFail }: { client: WorkbenchClient | null; file: S
         testID="pdf-pages"
         data={Array.from({ length: pages }, (_, i) => i + 1)}
         keyExtractor={(n) => String(n)}
-        renderItem={({ item }) => <PdfPage uri={client.pdfPageUrl(file.id, item)} width={pageWidth} n={item} />}
+        renderItem={({ item }) => (
+          <PdfPage source={client.imageSource(client.pdfPageUrl(file.id, item))} width={pageWidth} n={item} />
+        )}
         contentContainerStyle={s.pages}
         initialNumToRender={2}
         windowSize={5}
@@ -277,13 +279,21 @@ function Pdf({ client, file, onFail }: { client: WorkbenchClient | null; file: S
   );
 }
 
-function PdfPage({ uri, width, n }: { uri: string; width: number; n: number }) {
+function PdfPage({
+  source,
+  width,
+  n,
+}: {
+  source: { uri: string; headers?: Record<string, string> };
+  width: number;
+  n: number;
+}) {
   // A4 until the page itself says how tall it is.
   const [ratio, setRatio] = useState(1.414);
   return (
     <Image
       testID={`pdf-page-${n}`}
-      source={{ uri }}
+      source={source}
       style={[s.page, { width, height: width * ratio }]}
       resizeMode="contain"
       onLoad={(e) => {

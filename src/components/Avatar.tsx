@@ -26,7 +26,8 @@ export function Avatar({
   fontSize: number;
   children?: ReactNode;
 }) {
-  const key = user?.has_avatar ? `${user.id}:${user.avatar_v ?? ''}` : '';
+  // Kept per server and person: two accounts never share a picture.
+  const key = user?.has_avatar ? `${client?.base ?? ''}|${user.id}:${user.avatar_v ?? ''}` : '';
   // The picture fetched for a key; one already fetched (by the drawer, say) is shown at once.
   const [got, setGot] = useState<{ key: string; uri: string | null } | null>(null);
   const uri = !key ? null : got?.key === key ? got.uri : (pictures.get(key) ?? null);

@@ -11,8 +11,8 @@ import { useSession } from '../state/session';
 import * as prefs from '../storage/prefs';
 import { colors, fonts, gutter, space, type } from '../theme/tokens';
 
-export function ServerScreen() {
-  const { connect, notice, server } = useSession();
+export function ServerScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string }) {
+  const { connect, notice, server, adding, accounts, cancelAdd } = useSession();
   const [address, setAddress] = useState(server ? displayServer(server) : '');
   const [recent, setRecent] = useState<string[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -73,6 +73,9 @@ export function ServerScreen() {
             disabled={!address.trim()}
             onPress={() => go(address)}
           />
+          {adding && accounts.length ? (
+            <Button testID="server-cancel" label={cancelLabel} variant="quiet" onPress={cancelAdd} />
+          ) : null}
         </View>
         {recent.length ? (
           <View style={st.recent}>

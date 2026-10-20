@@ -11,8 +11,8 @@ import { useSession } from '../state/session';
 import * as prefs from '../storage/prefs';
 import { colors, fonts, gutter, space, type } from '../theme/tokens';
 
-export function LoginScreen() {
-  const { client, server, signedIn, changeServer, notice } = useSession();
+export function LoginScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string }) {
+  const { server, signedIn, changeServer, notice, adding, accounts, cancelAdd, clientWith } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -24,7 +24,7 @@ export function LoginScreen() {
   }, [server]);
 
   const go = async () => {
-    if (!client || !server) return;
+    if (!server) return;
     if (!email.trim() || !password) {
       setError('Enter your email address and password.');
       return;
@@ -32,18 +32,20 @@ export function LoginScreen() {
     setBusy(true);
     setError(null);
     try {
-      const user = await client.login(email, password);
+      // Signed in as a new account: no other account's session goes with it.
+      const { user, session } = await clientWith(server, null).login(email, password);
+      const mine = clientWith(server, session);
       await prefs.rememberEmail(server, email.trim());
       // An admin-set password must be replaced first, which the app does not do.
-      const state = await client.authState().catch(() => null);
+      const state = await mine.authState().catch(() => null);
       if (state?.must_change_password) {
-        await client.logout().catch(() => undefined);
+        await mine.logout().catch(() => undefined);
         setError('This account must choose a new password first. Do that in the web app, then sign in here.');
         setBusy(false);
         return;
       }
       setPassword('');
-      signedIn(user);
+      await signedIn(user, session);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Signing in failed.');
       setBusy(false);
@@ -91,6 +93,9 @@ export function LoginScreen() {
           />
           {error ? <ErrorText>{error}</ErrorText> : null}
           <Button testID="login-submit" label="Sign in" variant="primary" busy={busy} onPress={go} />
+          {adding && accounts.length ? (
+            <Button testID="login-cancel" label={cancelLabel} variant="quiet" onPress={cancelAdd} />
+          ) : null}
         </View>
       </KeyboardAwareScrollView>
     </SafeAreaView>

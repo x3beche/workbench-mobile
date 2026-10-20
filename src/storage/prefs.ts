@@ -2,7 +2,10 @@
  * What the app remembers on the device: the last few servers, the address
  * last signed in with on each, the voice language and when its words
  * appear, and the conversation last open on each. Never a password or a
- * session - the session is a cookie the platform keeps.
+ * session - each account's session is in the secure store (secrets.ts).
+ * What is per account (the conversation open last, when rooms were read)
+ * is keyed by the account's id (state/accounts.ts); before 1.5.6 it was
+ * keyed by the server.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -132,5 +135,13 @@ export async function roomsSeen(server: string): Promise<Record<string, string>>
 export async function setRoomSeen(server: string, room: string, at: string): Promise<void> {
   const all = await readJson<Record<string, Record<string, string>>>(ROOM_SEEN, {});
   all[server] = { ...(all[server] ?? {}), [room]: at };
+  await writeJson(ROOM_SEEN, all);
+}
+
+/** Everything remembered of the rooms for an account, gone (it was signed out). */
+export async function forgetRoomsSeen(scope: string): Promise<void> {
+  const all = await readJson<Record<string, Record<string, string>>>(ROOM_SEEN, {});
+  if (!(scope in all)) return;
+  delete all[scope];
   await writeJson(ROOM_SEEN, all);
 }

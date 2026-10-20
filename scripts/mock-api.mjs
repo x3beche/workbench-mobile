@@ -231,6 +231,14 @@ function readBody(req) {
 }
 
 let signedIn = process.env.MOCK_SIGNIN !== '1';
+const sessions = new Map();
+/** Who an address signs in as: Ada for hers (or none), anyone else by their address. */
+function personOf(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!e || e === me.email) return me;
+  const name = e.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return { id: `u-${e}`, name, email: e };
+}
 
 export async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -263,8 +271,10 @@ export async function handle(req, res) {
         : {}),
     });
   }
+  // An app's sessions (X-Workbench-Session, 1.5.6): one per account signed in as an app.
+  const tok = req.headers['x-workbench-session'];
   if (p === '/api/auth/state') {
-    const user = signedIn ? me : null;
+    const user = tok ? (sessions.get(tok) ?? null) : signedIn ? me : null;
     return json(res, 200, {
       mode: 'on',
       needs_setup: false,
@@ -275,14 +285,29 @@ export async function handle(req, res) {
     });
   }
   if (p === '/api/auth/login') {
-    if (process.env.MOCK_SIGNIN === '1' && JSON.parse(body.toString() || '{}').password !== 'mock') {
+    const got = JSON.parse(body.toString() || '{}');
+    if (process.env.MOCK_SIGNIN === '1' && got.password !== 'mock') {
       return json(res, 401, { detail: 'Wrong email address or password.' });
+    }
+    const user = personOf(got.email);
+    if (got.app) {
+      const session = `mock${sessions.size + 1}x${Date.now().toString(36)}`;
+      sessions.set(session, user);
+      return json(res, 200, { user, remembered: false, session });
     }
     signedIn = true;
     return json(res, 200, { user: me, remembered: false });
   }
+  if (p === '/api/auth/app-session' && req.method === 'POST') {
+    const user = tok ? sessions.get(tok) : signedIn ? me : null;
+    if (!user) return json(res, 401, { detail: 'sign in first' });
+    const session = `mock${sessions.size + 1}x${Date.now().toString(36)}`;
+    sessions.set(session, user);
+    return json(res, 200, { session });
+  }
   if (p === '/api/auth/logout') {
-    signedIn = false;
+    if (tok) sessions.delete(tok);
+    else signedIn = false;
     return json(res, 200, { signed_out: true });
   }
   if (p === '/api/cc/ideas') {

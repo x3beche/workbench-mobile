@@ -57,16 +57,45 @@ describe('WorkbenchClient.request', () => {
     expect(f.calls[1].url).toBe(`${BASE}/api/cc/chats/c%2F1`);
   });
 
-  it('posts the login as the web app does, never remembering the device', async () => {
-    const f = fakeFetch(() => jsonResponse(200, { user: { id: 'u1', name: 'Ada', email: 'ada@x.org' } }));
-    const user = await new WorkbenchClient(BASE, { fetch: f.fetch }).login('  ada@x.org ', 'pw secret');
-    expect(user).toEqual({ id: 'u1', name: 'Ada', email: 'ada@x.org' });
+  it('signs in as an app, never remembering the device, and keeps the session it is given', async () => {
+    const f = fakeFetch(() =>
+      jsonResponse(200, { user: { id: 'u1', name: 'Ada', email: 'ada@x.org' }, session: 'S-ada-123' }),
+    );
+    const got = await new WorkbenchClient(BASE, { fetch: f.fetch }).login('  ada@x.org ', 'pw secret');
+    expect(got).toEqual({ user: { id: 'u1', name: 'Ada', email: 'ada@x.org' }, session: 'S-ada-123' });
     expect(f.calls[0].url).toBe(`${BASE}/api/auth/login`);
     expect(JSON.parse(f.calls[0].init.body as string)).toEqual({
       email: 'ada@x.org',
       password: 'pw secret',
       remember: false,
+      app: true,
     });
+  });
+
+  it('has no session of its own from a server older than app sessions (its cookie is it)', async () => {
+    const f = fakeFetch(() => jsonResponse(200, { user: { id: 'u1', email: 'ada@x.org' } }));
+    expect((await new WorkbenchClient(BASE, { fetch: f.fetch }).login('ada@x.org', 'pw')).session).toBeNull();
+  });
+
+  it("sends the account's own session on every request, and only its own", async () => {
+    const f = fakeFetch(() => jsonResponse(200, {}));
+    await new WorkbenchClient(BASE, { fetch: f.fetch, session: 'S-ada' }).listChats();
+    await new WorkbenchClient(BASE, { fetch: f.fetch, session: 'S-bo' }).rooms();
+    await new WorkbenchClient(BASE, { fetch: f.fetch }).authState();
+    const sent = f.calls.map((c) => (c.init.headers as Record<string, string>)['x-workbench-session']);
+    expect(sent).toEqual(['S-ada', 'S-bo', undefined]);
+    expect(new WorkbenchClient(BASE, { session: 'S-ada' }).imageSource('u')).toEqual({
+      uri: 'u',
+      headers: { 'x-workbench-session': 'S-ada' },
+    });
+  });
+
+  it('trades the old cookie for an app session, and has none on a server without the route', async () => {
+    const f = fakeFetch(() => jsonResponse(200, { session: 'S-new' }));
+    expect(await new WorkbenchClient(BASE, { fetch: f.fetch }).appSession()).toBe('S-new');
+    expect(f.calls[0].url).toBe(`${BASE}/api/auth/app-session`);
+    const old = fakeFetch(() => jsonResponse(404, { detail: 'Not Found' }));
+    expect(await new WorkbenchClient(BASE, { fetch: old.fetch }).appSession()).toBeNull();
   });
 
   it('throws the server detail on a wrong password, without reporting a lost session', async () => {

@@ -21,6 +21,8 @@ import { LoginScreen } from './screens/LoginScreen';
 import { ServerScreen } from './screens/ServerScreen';
 import { Workspace } from './screens/Workspace';
 import { SessionProvider, useSession } from './state/session';
+import { accountStrings } from './components/accountStrings';
+import { uiLang } from './update/strings';
 import * as prefs from './storage/prefs';
 import { installScrollbars } from './theme/scrollbars';
 import { colors } from './theme/tokens';
@@ -36,7 +38,7 @@ installScrollbars();
 const SPLASH_MAX_MS = 4000;
 
 function Screens() {
-  const { phase, server, user } = useSession();
+  const { phase, server, user, account } = useSession();
   const [lang, setLang] = useState<VoiceLang>('auto');
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('live');
 
@@ -81,20 +83,20 @@ function Screens() {
   if (phase === 'server') {
     return (
       <Appear key="server">
-        <ServerScreen />
+        <ServerScreen cancelLabel={accountStrings(uiLang(lang)).cancel} />
       </Appear>
     );
   }
   if (phase === 'login') {
     return (
       <Appear key="login">
-        <LoginScreen />
+        <LoginScreen cancelLabel={accountStrings(uiLang(lang)).cancel} />
       </Appear>
     );
   }
-  // A new server or account starts afresh, never in someone else's conversation.
+  // Each account is drawn afresh (its streams, lists and caches), never in someone else's conversation.
   return (
-    <Appear key={`${server}|${user?.id ?? ''}`}>
+    <Appear key={`${account?.id ?? ''}|${server}|${user?.id ?? ''}`}>
       <Workspace lang={lang} onLang={changeLang} voiceMode={voiceMode} onVoiceMode={changeVoiceMode} />
     </Appear>
   );

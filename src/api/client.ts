@@ -37,6 +37,12 @@ import type {
 } from './types';
 
 export const CSRF_HEADER = 'x-redline-csrf';
+/**
+ * An account's own session (backend/app_session.py): sent on every request
+ * instead of the platform's one cookie jar, so several accounts - on one
+ * server or several - never share a session.
+ */
+export const SESSION_HEADER = 'x-workbench-session';
 /** The conversation trash's days when the server does not say (cc_chat.TRASH_DAYS). */
 export const CHAT_TRASH_DAYS = 30;
 const TIMEOUT_MS = 20_000;
@@ -77,6 +83,8 @@ export interface ClientDeps {
   createXhr?: () => XhrLike;
   /** Called when the server says the session is gone (401 on a signed-in route). */
   onUnauthorized?: () => void;
+  /** This account's session, sent as SESSION_HEADER; none for a local-mode server or an older server's cookie. */
+  session?: string | null;
 }
 
 /** A recording to transcribe: a file uri on a phone, a Blob in a browser. */
@@ -154,6 +162,24 @@ export class WorkbenchClient {
     return this.base + path;
   }
 
+  /** The account's session header, to add to a request (empty without one). */
+  auth(): Record<string, string> {
+    return this.deps.session ? { [SESSION_HEADER]: this.deps.session } : {};
+  }
+
+  /** An image the server serves to this account: its address and the session to send with it. */
+  imageSource(url: string): { uri: string; headers?: Record<string, string> } {
+    const h = this.auth();
+    return Object.keys(h).length ? { uri: url, headers: h } : { uri: url };
+  }
+
+  /** A WebSocket opened as this account (React Native takes headers; a browser does not and sends its cookie). */
+  socket(url: string): WebSocket {
+    const h = this.auth();
+    const WS = WebSocket as unknown as new (u: string, p?: string[] | null, o?: { headers: Record<string, string> }) => WebSocket;
+    return Object.keys(h).length && typeof document === 'undefined' ? new WS(url, null, { headers: h }) : new WebSocket(url);
+  }
+
   async request<T>(method: string, path: string, body?: unknown, timeoutMs = TIMEOUT_MS): Promise<T> {
     return (await this.requestFull<T>(method, path, body, timeoutMs)).data;
   }
@@ -167,7 +193,7 @@ export class WorkbenchClient {
   ): Promise<{ data: T; headers: Headers | null }> {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), timeoutMs);
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = { Accept: 'application/json', ...this.auth() };
     if (method !== 'GET') headers[CSRF_HEADER] = '1';
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     let res: Response;
@@ -220,13 +246,34 @@ export class WorkbenchClient {
     return this.request<AuthState>('GET', '/api/auth/state');
   }
 
-  async login(email: string, password: string): Promise<User> {
-    const got = await this.request<{ user: User }>('POST', '/api/auth/login', {
+  /**
+   * Sign in as an app: the server hands the session back (`session`) instead
+   * of setting its cookie, to be kept for this account alone. A server older
+   * than that sets its cookie as before and sends none.
+   */
+  async login(email: string, password: string): Promise<{ user: User; session: string | null }> {
+    const got = await this.request<{ user: User; session?: string }>('POST', '/api/auth/login', {
       email: email.trim(),
       password,
       remember: false,
+      app: true,
     });
-    return got.user;
+    return { user: got.user, session: typeof got.session === 'string' && got.session ? got.session : null };
+  }
+
+  /**
+   * The session this request is signed in with (the old cookie) traded for a
+   * session of the app's own (POST /api/auth/app-session); null on a server
+   * without the route.
+   */
+  async appSession(): Promise<string | null> {
+    try {
+      const got = await this.request<{ session?: string }>('POST', '/api/auth/app-session', {});
+      return typeof got?.session === 'string' && got.session ? got.session : null;
+    } catch (e) {
+      if (isMissingRoute(e)) return null;
+      throw e;
+    }
   }
 
   async logout(): Promise<void> {
@@ -357,7 +404,7 @@ export class WorkbenchClient {
   }
 
   private async stream(method: 'GET' | 'POST', path: string, body: unknown, h: SayHandlers): Promise<StreamResult> {
-    const headers: Record<string, string> = { Accept: 'text/event-stream' };
+    const headers: Record<string, string> = { Accept: 'text/event-stream', ...this.auth() };
     if (method === 'POST') {
       headers['Content-Type'] = 'application/json';
       headers[CSRF_HEADER] = '1';
@@ -649,6 +696,7 @@ export class WorkbenchClient {
         method: 'GET',
         credentials: 'include',
         ...init,
+        headers: { ...((init.headers as Record<string, string>) ?? {}), ...this.auth() },
         signal: ctl.signal,
       });
     } catch {
@@ -677,7 +725,7 @@ export class WorkbenchClient {
     try {
       res = await this.fetchImpl(this.url('/api/voice/transcribe'), {
         method: 'POST',
-        headers: { Accept: 'application/json', [CSRF_HEADER]: '1' },
+        headers: { Accept: 'application/json', [CSRF_HEADER]: '1', ...this.auth() },
         body: form,
         credentials: 'include',
         signal: ctl.signal,

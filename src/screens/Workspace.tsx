@@ -95,7 +95,9 @@ export function Workspace({
   voiceMode?: VoiceMode;
   onVoiceMode?: (m: VoiceMode) => void;
 }) {
-  const { client, server, user } = useSession();
+  const { client, server, user, account: acct } = useSession();
+  /** What is remembered per account (the conversation open last, rooms read) is kept under its id. */
+  const keep = acct?.id ?? server;
   const { width } = useWindowDimensions();
   const wide = width >= wideAt;
   const drawerWidth = wide ? 300 : Math.min(drawerMax, Math.round(width * 0.84));
@@ -204,13 +206,13 @@ export function Workspace({
 
   useEffect(() => {
     loadRooms();
-    if (!server) return;
+    if (!keep) return;
     let live = true;
-    prefs.roomsSeen(server).then((got) => live && setRoomsSeen(got));
+    prefs.roomsSeen(keep).then((got) => live && setRoomsSeen(got));
     return () => {
       live = false;
     };
-  }, [loadRooms, server]);
+  }, [loadRooms, keep]);
 
   // The agent writes in a room on its own time: its last line and what is
   // unread are read again now and then, not on every line drawn.
@@ -225,8 +227,8 @@ export function Workspace({
   /** A room was read: its badge is counted again from what is remembered here. */
   const roomSeen = useCallback(() => {
     loadRooms();
-    if (server) prefs.roomsSeen(server).then(setRoomsSeen);
-  }, [loadRooms, server]);
+    if (keep) prefs.roomsSeen(keep).then(setRoomsSeen);
+  }, [loadRooms, keep]);
 
   const load = useCallback((): Promise<void> => {
     if (!client) return Promise.resolve();
@@ -243,7 +245,7 @@ export function Workspace({
   useEffect(() => {
     let live = true;
     (async () => {
-      const last = server ? await prefs.lastChat(server) : null;
+      const last = keep ? await prefs.lastChat(keep) : null;
       if (!live) return;
       if (last) {
         setOpen({ key: 1, chat: { id: last } as Chat });
@@ -254,7 +256,7 @@ export function Workspace({
     return () => {
       live = false;
     };
-  }, [server]);
+  }, [keep]);
 
   useEffect(() => {
     load();
@@ -270,8 +272,8 @@ export function Workspace({
   }, [client, lang]);
 
   useEffect(() => {
-    if (server && ready) prefs.setLastChat(server, openId);
-  }, [server, openId, ready]);
+    if (keep && ready) prefs.setLastChat(keep, openId);
+  }, [keep, openId, ready]);
 
   const show = useCallback(
     (chat: Chat | null, remember = true) => {
@@ -560,7 +562,7 @@ export function Workspace({
             <RoomScreen
               room={room}
               client={client}
-              server={server}
+              server={keep}
               user={user}
               lang={lang}
               voiceMode={voiceMode}

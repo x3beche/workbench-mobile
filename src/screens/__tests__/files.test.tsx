@@ -87,6 +87,8 @@ const client = {
   fileUrl: jest.fn((id: string) => `https://wb/api/files/${id}?inline=1`),
   pdfPages: jest.fn(async () => 3),
   pdfPageUrl: jest.fn((id: string, n: number) => `https://wb/api/files/${id}/pdf/page/${n}.png`),
+  // The account's session goes with an image (none here: a cookie or local-mode account).
+  imageSource: jest.fn((uri: string) => ({ uri })),
   fileText: jest.fn(async () => ({ text: '# Notes\n\nhello', cut: false })),
   table: jest.fn(),
 } as unknown as WorkbenchClient & Record<string, jest.Mock>;

@@ -63,6 +63,19 @@ Then you sign in with the same e-mail address and password as on the web.
   The last five servers are listed for one-tap switching.
 - **Sign in** with e-mail and password. A server running without sign-in
   (local mode) goes straight to the chat.
+- **Several accounts** (from 1.5.6): Account lists every account kept on the
+  phone - on the same server or others - with its picture, name and server,
+  the open one marked. A tap opens another (its conversations, rooms,
+  Orchestrator and what is unread, nothing of the one before: the screens
+  are drawn afresh and the old streams closed); Add account goes to the
+  server screen (the open server filled in) and sign-in; each account signs
+  out on its own, the others stay signed in. Each account keeps its own
+  session - the server hands it to the app at sign-in (`app: true`) instead
+  of setting its cookie - in the phone's secure store (Android Keystore),
+  sent only on that account's requests as `X-Workbench-Session`. The one
+  account of 1.5.5 and before is carried over at the first start: its cookie
+  traded for a session of its own (`POST /api/auth/app-session`) and then
+  signed out. A server older than that keeps one account by cookie.
 - **Straight into a conversation.** The app opens on the conversation that
   was open last, or on a new one: the mark, a greeting and four example
   questions - the ones the server writes from your own projects
@@ -203,9 +216,10 @@ Then you sign in with the same e-mail address and password as on the web.
   and the Orchestrator, then the room, then goes
   back to the conversation open before, then leaves the app.
 
-The device keeps only the server list, the last e-mail address, the last
-open conversation and which rooms were last read on each server, the voice
-language and when its words appear. Never a password. A file shared or saved is written to the
+The device keeps only the server list, the accounts (server, name, e-mail),
+the last e-mail address, the last open conversation and which rooms were
+last read for each account, the voice language and when its words appear.
+Never a password; each account's session in the secure store. A file shared or saved is written to the
 app's cache first, then handed over; so is an update's APK, deleted again when the app next starts. The session is the server's own HttpOnly
 cookie, kept by the platform's cookie store.
 
@@ -350,7 +364,7 @@ drawn by `scripts/make-icons.js` from the web app's section mark.
 | What | Request |
 |---|---|
 | Is it Workbench? | `GET /api/health`, `GET /api/auth/state` |
-| Sign in / out | `POST /api/auth/login` `{email, password}` (sets `redline_session`), `POST /api/auth/logout` |
+| Sign in / out | `POST /api/auth/login` `{email, password, app: true}` (the session in the body as `session`; an older server sets `redline_session`), `POST /api/auth/app-session` (a cookie traded for a session), `POST /api/auth/logout`; every request carries its account's `X-Workbench-Session` |
 | Conversations | `GET /api/cc/chats` (`q=` searches what was said), `POST /api/cc/chats`, `GET /api/cc/chats/{id}`, `PATCH .../{id}` (model, `title`, `archived`), `DELETE .../{id}` (into the trash) |
 | Example questions | `GET /api/cc/ideas?lang=en\|tr` (`items`, `source`, `start`: the model a new conversation begins with) |
 | Send and stream | `POST /api/cc/chats/{id}/messages` answers with `text/event-stream`: `user`, `thinking`, `text` (with `at`), `steps` (the tools run so far), `error`, `done`, `title`; `202` JSON when the line was queued |

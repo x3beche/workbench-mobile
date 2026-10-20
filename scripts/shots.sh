@@ -3,12 +3,12 @@
 #   TARGET=https://your.workbench.server sh scripts/shots.sh
 # Needs Docker (zenika/alpine-chrome:with-puppeteer) and a web build in dist/.
 # SHOTS_DIR (default docs/screenshots) is where the pictures go.
-# SHOTS=orchestrator or SHOTS=rooms takes only those (scripts/shots-orchestrator.js, shots-rooms.js).
+# SHOTS=orchestrator, rooms or accounts takes only those (scripts/shots-<name>.js).
 set -e
 cd "$(dirname "$0")/.."
 SHOTS_DIR="${SHOTS_DIR:-$PWD/docs/screenshots}"
 mkdir -p "$SHOTS_DIR"
-if [ "$SHOTS" = "orchestrator" ] || [ "$SHOTS" = "rooms" ]; then
+if [ -n "$SHOTS" ] && [ -f "scripts/shots-$SHOTS.js" ]; then
   MOCK=1 PORT=8091 node scripts/dev-proxy.mjs & MOCK_PID=$!
   trap 'kill $MOCK_PID 2>/dev/null' EXIT
   sleep 1

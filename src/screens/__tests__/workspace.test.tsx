@@ -144,8 +144,22 @@ jest.mock('../../state/session', () => ({
     user: { id: 'u1', name: 'Ada Demir', email: 'ada@example.com' },
     signOut: jest.fn(),
     changeServer: jest.fn(),
+    // Two accounts kept (1.5.6): Ada here, open; Bo on another server.
+    account: mockAccounts[0],
+    accounts: mockAccounts,
+    switchTo: mockSwitch,
+    remove: mockRemove,
+    addAnother: mockAdd,
+    clientFor: () => mockClient,
   }),
 }));
+const mockAccounts = [
+  { id: 'a1', server: 'https://wb.example.com', user: { id: 'u1', name: 'Ada Demir', email: 'ada@example.com' } },
+  { id: 'a2', server: 'https://other.example', user: { id: 'u9', name: 'Bo', email: 'bo@other.example' } },
+];
+const mockSwitch = jest.fn(async () => undefined);
+const mockRemove = jest.fn(async () => undefined);
+const mockAdd = jest.fn();
 
 /** The latest hardware Back handler the app registered. */
 function back(): boolean {
@@ -251,7 +265,7 @@ describe('workspace', () => {
   });
 
   it('opens straight into the conversation that was open last', async () => {
-    await AsyncStorage.setItem('workbench.lastChat', JSON.stringify({ 'https://wb.example.com': 'c2' }));
+    await AsyncStorage.setItem('workbench.lastChat', JSON.stringify({ a1: 'c2' }));
     await start();
     expect(await screen.findByText('Answer in Enclosure walls')).toBeTruthy();
     expect(mockClient.getChat).toHaveBeenCalledWith('c2');
@@ -276,7 +290,7 @@ describe('workspace', () => {
   });
 
   it('New chat leaves a conversation for an empty one', async () => {
-    await AsyncStorage.setItem('workbench.lastChat', JSON.stringify({ 'https://wb.example.com': 'c1' }));
+    await AsyncStorage.setItem('workbench.lastChat', JSON.stringify({ a1: 'c1' }));
     await start();
     await screen.findByText('Answer in Rail sag');
     await fireEvent.press(screen.getByTestId('header-new-chat'));
@@ -335,6 +349,23 @@ describe('workspace', () => {
     expect(screen.getByTestId('account-sheet')).toBeTruthy();
     expect(screen.getByText('Voice language')).toBeTruthy();
     expect(screen.getByText('Sign out')).toBeTruthy();
+  });
+
+  it('lists every account in Account, the open one marked; a tap switches, one signs out alone, another is added', async () => {
+    await start();
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    await fireEvent.press(screen.getByTestId('open-account'));
+    expect(screen.getByTestId('account-a1').props.accessibilityState).toEqual({ selected: true });
+    expect(screen.getByText('bo@other.example · other.example')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('account-a2'));
+    expect(mockSwitch).toHaveBeenCalledWith('a2');
+    await fireEvent.press(screen.getByTestId('open-account'));
+    await fireEvent.press(screen.getByTestId('account-remove-a2'));
+    expect(screen.getByText('Sign out of Bo?')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('dialog-confirm'));
+    expect(mockRemove).toHaveBeenCalledWith('a2');
+    await fireEvent.press(screen.getByTestId('account-add'));
+    expect(mockAdd).toHaveBeenCalled();
   });
 
   it('chooses in Account whether dictated words appear live or after recording', async () => {
@@ -406,7 +437,7 @@ describe('workspace', () => {
   });
 
   it('the top bar’s “…” renames, pins, archives, exports and deletes the open conversation', async () => {
-    await AsyncStorage.setItem('workbench.lastChat', JSON.stringify({ 'https://wb.example.com': 'c1' }));
+    await AsyncStorage.setItem('workbench.lastChat', JSON.stringify({ a1: 'c1' }));
     await start();
     await screen.findByText('Answer in Rail sag');
     await fireEvent.press(screen.getByTestId('header-more'));

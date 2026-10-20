@@ -141,6 +141,7 @@ describe('sign-in', () => {
       email: 'ada@wb.example',
       password: 'correct horse',
       remember: false,
+      app: true,
     });
     expect(await prefs.lastEmail(GOOD)).toBe('ada@wb.example');
   });

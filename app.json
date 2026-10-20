@@ -31,8 +31,12 @@
       },
       "predictiveBackGestureEnabled": false,
       "versionCode": 13,
-      "permissions": ["android.permission.REQUEST_INSTALL_PACKAGES"],
-      "blockedPermissions": ["com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"],
+      "permissions": [
+        "android.permission.REQUEST_INSTALL_PACKAGES"
+      ],
+      "blockedPermissions": [
+        "com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE"
+      ],
       "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
@@ -96,7 +100,8 @@
           "cameraPermission": "Workbench uses the camera only when you take a photo to upload to Files."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-secure-store"
     ]
   }
 }

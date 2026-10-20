@@ -2,6 +2,17 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
+// The keystore: a map in memory, shared by a test's whole run (cleared by the tests that look at it).
+jest.mock('expo-secure-store', () => {
+  const store = new Map();
+  return {
+    __store: store,
+    getItemAsync: jest.fn(async (k) => (store.has(k) ? store.get(k) : null)),
+    setItemAsync: jest.fn(async (k, v) => void store.set(k, v)),
+    deleteItemAsync: jest.fn(async (k) => void store.delete(k)),
+  };
+});
+
 jest.mock('react-native-keyboard-controller', () => require('react-native-keyboard-controller/jest'));
 
 require('react-native-gesture-handler/jestSetup');

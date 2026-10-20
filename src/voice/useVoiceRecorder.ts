@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { ApiError, type AudioFile, type VoiceLang, type WorkbenchClient } from '../api/client';
-import { LiveSession, liveUrl, sayNoLiveOnce } from './live';
+import { LiveSession, liveUrl, sayNoLiveOnce, type SocketLike } from './live';
 import { forgetRecording, openPcmMic, type PcmMic } from './pcmMic';
 import {
   audioFileFor,
@@ -105,6 +105,8 @@ export function useVoiceRecorder(
         words: (settled, tail) => setLive({ settled, tail }),
         broke: () => setNotice(LIVE_BROKE),
       },
+      // Opened as this account: its session goes with the socket.
+      typeof client.socket === 'function' ? (url) => client.socket(url) as unknown as SocketLike : undefined,
     );
     let pcm: PcmMic;
     try {
