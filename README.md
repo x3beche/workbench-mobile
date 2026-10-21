@@ -281,7 +281,7 @@ origins. The dev proxy serves the web build and forwards `/api` to the
 server, so both come from one origin:
 
 ```sh
-npx expo export --platform web
+npx expo export --platform web --clear   # --clear: else a cached app config can keep an old version
 TARGET=https://workbench.example.com node scripts/dev-proxy.mjs
 # open http://localhost:8090 and enter localhost:8090 as the server
 ```
