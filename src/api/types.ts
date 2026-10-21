@@ -353,6 +353,10 @@ export interface OrchEvent {
   id?: string;
   part?: OrchPart | string | null;
   delta?: string;
+  /** Where a delta goes in its part's text (newer servers): what is held already is not added twice. */
+  o?: number;
+  /** On `hello`: "s2" when the events come through the account's S2 stream instead (asked with ?via=s2). */
+  via?: string;
   role?: 'user' | 'assistant';
   agent?: string | null;
   time?: number | null;
@@ -482,4 +486,42 @@ export interface AdminSandboxes {
   }[];
   running: number;
   max_running: number;
+}
+
+// ---- live streams through S2 (backend/s2live.py, docker/s2gate) ----------------
+
+/** A read token for the account's own streams (POST /api/s2/token). Never logged, never in an address. */
+export interface S2Token {
+  token: string;
+  /** Seconds since 1970. */
+  expires_at: number;
+  basin: string;
+  /** The token's own stream (`acct/<account>/activity`). */
+  stream: string;
+  /** `acct/<account>/`: every stream of the account's begins with it. */
+  prefix: string;
+  /** Where the gate is on the server ("/s2"). */
+  path: string;
+}
+
+/** One event of the account's bus (backend/bus.py): its kind, what it is about, when (ms). */
+export interface BusEvent<P = Record<string, unknown>> {
+  k: string;
+  p?: P;
+  t?: number;
+}
+
+export type ActivitySource = string;
+
+/** What goes on now (GET /api/me/activity/now, and the `activity` stream): the web top bar's Activity. */
+export interface ActivityNow {
+  at: number;
+  live: { tps: number; by: Record<ActivitySource, number>; window_s: number };
+  jobs: { running: number; queued: number; agents: number; total: number; kinds: Record<string, number> };
+  machine: {
+    cpu_pct: number;
+    mem_mb: number;
+    sampled: boolean;
+    parts: { kind: 'orchestrator' | 'sandbox' | 'jobs'; name: string; cpu_pct: number | null; mem_mb: number }[];
+  };
 }

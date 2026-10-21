@@ -3,7 +3,10 @@
  * answer being written, and the composer. A new conversation is made on the
  * server when its first line is sent. A line sent is answered on the stream
  * that sent it; a conversation opened while someone's answer is being
- * written follows it on GET /live.
+ * written follows it on GET /live. Where the server has live streams (S2),
+ * the conversation's own stream `chat-<id>` brings the same pieces sooner
+ * and is taken first (lib/answer.ts applyPiece), and the account's bus
+ * (`cc`) says when the conversation changed elsewhere: it is read again.
  */
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import {
@@ -33,14 +36,15 @@ import { ModelSheet } from '../components/ModelSheet';
 import { ActionList, Sheet } from '../components/Sheet';
 import { ErrorText, Glyph, IconButton, Button } from '../components/ui';
 import { VoiceNoteSheet } from '../components/VoiceNoteSheet';
-import { applyEvent, type ConversationView } from '../lib/answer';
+import { applyEvent, applyPiece, type ConversationView } from '../lib/answer';
 import { copy } from '../lib/feel';
 import { greeting } from '../lib/groups';
+import { useBus, useLive } from '../live/LiveContext';
 import { useSession } from '../state/session';
 import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
 import type { VoiceMode } from '../voice/voice';
 
-type Action = { kind: 'load'; chat: Chat } | { kind: 'event'; ev: ChatEvent };
+type Action = { kind: 'load'; chat: Chat } | { kind: 'event'; ev: ChatEvent } | { kind: 'piece'; ev: ChatEvent };
 
 function reducer(view: ConversationView, a: Action): ConversationView {
   if (a.kind === 'load') {
@@ -51,7 +55,14 @@ function reducer(view: ConversationView, a: Action): ConversationView {
       stale: false,
     };
   }
+  if (a.kind === 'piece') return applyPiece(view, a.ev);
   return applyEvent(view, a.ev);
+}
+
+/** A conversation's S2 stream name; null for an id the gate's names cannot hold (left to /live alone). */
+export function laneOf(id: string | null): string | null {
+  const name = id ? `chat-${id.toLowerCase()}` : '';
+  return /^chat-[a-z0-9][a-z0-9_-]{0,58}$/.test(name) ? name : null;
 }
 
 /** Closer to the end than this counts as being at the end: the list follows new lines. */
@@ -211,6 +222,41 @@ export function ChatScreen({
   useEffect(() => {
     loadRef.current = load;
   }, [load]);
+
+  // The conversation's own S2 stream, while it is open: the answer's pieces as they are written.
+  const hub = useLive();
+  useEffect(() => {
+    const name = laneOf(id);
+    if (!hub || !client || !name) return;
+    const lane = hub.follow<ChatEvent>((ev) => dispatch({ kind: 'piece', ev }), {
+      stream: name,
+      every: true,
+      fromTail: true,
+      prepare: () => client.s2Streams([name]),
+    });
+    lane.start();
+    return () => hub.drop(lane);
+  }, [hub, client, id]);
+
+  // Changed elsewhere (another device, someone of the space): read again - unless this
+  // app's own stream is writing it, which says all of it.
+  const busSoon = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (busSoon.current) clearTimeout(busSoon.current);
+    },
+    [],
+  );
+  useBus(['cc'], (e) => {
+    const cid = idRef.current;
+    if (!cid || e.k === '$down' || streams.current.size) return;
+    if (e.k === 'cc' && (e.p as { id?: string | null } | undefined)?.id !== cid) return;
+    if (busSoon.current) return;
+    busSoon.current = setTimeout(() => {
+      busSoon.current = null;
+      if (mounted.current && !streams.current.size) loadRef.current();
+    }, 120);
+  });
 
   // Read it once when it opens (a new one has nothing to read).
   useEffect(() => {

@@ -74,6 +74,11 @@ export interface SettingsStrings {
   waiting: (n: number) => string;
   running: string;
   memory: string;
+  /** The live figures (the web top bar's Activity). */
+  activity: string;
+  /** Running and waiting jobs, and the agents at work. */
+  jobsNow: (running: number, queued: number, agents: number) => string;
+  machine: (cpu: number, mem: string) => string;
 }
 
 const en: SettingsStrings = {
@@ -142,6 +147,9 @@ const en: SettingsStrings = {
   waiting: (n) => `${n} waiting`,
   running: 'running',
   memory: 'memory',
+  activity: 'Activity',
+  jobsNow: (r, q, a) => `${r} running · ${q} waiting${a ? ` · ${a} ${a === 1 ? 'agent' : 'agents'}` : ''}`,
+  machine: (c, m) => `CPU ${c}% · memory ${m}`,
 };
 
 const tr: SettingsStrings = {
@@ -210,6 +218,9 @@ const tr: SettingsStrings = {
   waiting: (n) => `${n} bekliyor`,
   running: 'çalışıyor',
   memory: 'bellek',
+  activity: 'Etkinlik',
+  jobsNow: (r, q, a) => `${r} çalışıyor · ${q} bekliyor${a ? ` · ${a} ajan` : ''}`,
+  machine: (c, m) => `CPU %${c} · bellek ${m}`,
 };
 
 export function settingsStrings(lang: UiLang): SettingsStrings {

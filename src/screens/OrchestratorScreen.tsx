@@ -16,6 +16,15 @@
  * tool of Workbench's MCP server - and Settings: Agent & LLM, where it is
  * given a model and started or stopped. When it is not running, its key was
  * refused, its credits ran out or it keeps crashing, a banner says so.
+ *
+ * Where the server has live streams (S2), the events come through the
+ * account's stream `orch` (live/hub.ts) and the SSE route is held only
+ * quietly (`?via=s2`) to keep them coming; a cut read goes on from the
+ * record after the last one it had. S2 gone for more than a moment: the SSE
+ * route carries them again and what came meanwhile is read. A text delta
+ * says where it goes (`o`), so nothing is added twice, and what comes while
+ * a transcript loads waits for it. Its state is read again when the bus
+ * says it changed (`orch`), the 5 s look resting behind it.
  */
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
@@ -65,6 +74,7 @@ import {
 } from '../lib/orchestrator';
 import type { OrchStrings } from '../lib/orchStrings';
 import { PAGE } from '../lib/paging';
+import { useBus, useLive } from '../live/LiveContext';
 import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
 
 /** How often the state is read again, and the tree when the stream says nothing of it. */
@@ -72,6 +82,8 @@ const STATUS_EVERY = 5000;
 const TREE_EVERY = 15000;
 /** The stream is opened afresh this often, so what it has carried does not pile up in memory. */
 const RECYCLE_MS = 5 * 60_000;
+/** S2 gone this long while the SSE route is held quietly: the SSE route carries the events again. */
+const S2_GONE_MS = 3000;
 /** At least this wide, the tree is a column beside the session (the web app's 760 px). */
 const SIDE_AT = 760;
 
@@ -187,14 +199,25 @@ export const OrchestratorScreen = forwardRef<
     [],
   );
 
+  /** Events of the session being read, kept until its transcript is here. */
+  const pending = useRef<{ sid: string; held: OrchEvent[] } | null>(null);
   const loadTx = useCallback(
     (sid: string): Promise<void> => {
       if (!client) return Promise.resolve();
+      const held: OrchEvent[] = [];
+      pending.current = { sid, held };
+      const done = () => {
+        if (pending.current?.held === held) pending.current = null;
+      };
       return client.orchestratorSession(sid).then(
         (x) => {
-          if (mounted.current) setTxOf({ sid, x });
+          let y = x;
+          if (pending.current?.held === held) for (const e of held) y = applyEvent(y, e, sid);
+          done();
+          if (mounted.current) setTxOf({ sid, x: y });
         },
         () => {
+          done();
           if (mounted.current) setTxOf({ sid, x: { messages: [], truncated: false, reason: 'unreachable' } });
         },
       );
@@ -202,19 +225,37 @@ export const OrchestratorScreen = forwardRef<
     [client],
   );
 
-  // The state now and then, the tree more slowly; the clock for the running times.
+  // The state now and then (resting behind the bus, which says when it changed),
+  // the tree more slowly (resting while S2 brings the events that say when it
+  // changed); the clock for the running times.
+  const hub = useLive();
+  const pace = useMemo(() => hub?.pace() ?? null, [hub]);
+  const s2LiveRef = useRef(false);
+  const [s2Live, setS2Live] = useState(false);
+  const treeAt = useRef(0);
   useEffect(() => {
     loadStatus().then(() => loadTree());
     const a = setInterval(() => {
       setNow(Date.now());
-      loadStatus();
+      if (!pace || pace.due()) loadStatus();
     }, STATUS_EVERY);
-    const b = setInterval(() => loadTree(), TREE_EVERY);
+    const b = setInterval(() => {
+      if (s2LiveRef.current && Date.now() - treeAt.current < 60_000) return;
+      treeAt.current = Date.now();
+      loadTree();
+    }, TREE_EVERY);
     return () => {
       clearInterval(a);
       clearInterval(b);
     };
-  }, [loadStatus, loadTree]);
+  }, [loadStatus, loadTree, pace]);
+
+  useBus(['orch'], (e) => {
+    if (e.k === '$down') return;
+    pace?.mark();
+    loadStatus();
+    treeSoon();
+  });
 
   useEffect(() => {
     if (running || st?.session) loadTree();
@@ -231,12 +272,18 @@ export const OrchestratorScreen = forwardRef<
     setTree((tr) => (tr ? { ...tr, nodes: tr.nodes.map((n) => (n.id === sid ? { ...n, state } : n)) } : tr));
   }, []);
 
-  /** One event of the stream. */
+  /** One event of the stream (the SSE route's, or S2's). */
   const apply = useRef<(e: OrchEvent, again: boolean) => void>(() => undefined);
+  /** The SSE route is held quietly: the events come from S2. */
+  const quiet = useRef(false);
+  /** Open the SSE route again now, quiet or not as S2 is. */
+  const kick = useRef<(() => void) | null>(null);
   const onEvent = (e: OrchEvent, again: boolean) => {
     switch (e.type) {
       case 'hello':
       case 'connected':
+        // Asked quietly, but the server could not use S2: the events come on the SSE route.
+        if (e.type === 'hello' && quiet.current && e.via !== 's2') quiet.current = false;
         // Opened again: what came in between is read afresh.
         if (again || lost) {
           setLost(false);
@@ -269,6 +316,10 @@ export const OrchestratorScreen = forwardRef<
     if (e.type === 'message' && (e.kind === 'auth' || e.kind === 'credit')) loadStatus();
     if (e.type === 'part' && e.part && typeof e.part === 'object' && e.part.type === 'tool' && e.part.session) treeSoon();
     const sid = shownRef.current;
+    if (sid && pending.current?.sid === sid) {
+      pending.current.held.push(e); // its transcript is on its way
+      return;
+    }
     // A new message while the reader is further up: offered, not forced.
     if (e.type === 'message' && !atBottom.current && e.id && !txOf?.x.messages.some((m) => m.id === e.id)) setBelow(true);
     setTxOf((now) => (now && now.sid === sid ? { sid, x: applyEvent(now.x, e, sid) } : now));
@@ -302,12 +353,18 @@ export const OrchestratorScreen = forwardRef<
           recycled = true;
           c.abort();
         }, RECYCLE_MS);
+        kick.current = () => {
+          recycled = true;
+          c.abort();
+        };
         let failed = false;
         const again = opened > 0;
         opened++;
+        quiet.current = s2LiveRef.current;
         try {
           await client.orchestratorEvents({
             signal: c.signal,
+            quiet: quiet.current,
             onEvent: (ev) => {
               tries = 0;
               if (!stopped) apply.current(ev, again);
@@ -317,6 +374,8 @@ export const OrchestratorScreen = forwardRef<
           failed = !recycled;
         }
         clearTimeout(recycle);
+        kick.current = null;
+        quiet.current = false;
         if (stopped) return;
         if (failed) {
           setLost(true);
@@ -328,10 +387,46 @@ export const OrchestratorScreen = forwardRef<
     })();
     return () => {
       stopped = true;
+      kick.current = null;
       ctl?.abort();
       (wake as (() => void) | null)?.();
     };
   }, [client, running]);
+
+  // Its S2 stream `orch` while it runs: the events, from the record after the last one read.
+  useEffect(() => {
+    if (!hub || !client || !running) return;
+    const f = hub.follow<OrchEvent>((e) => apply.current(e, false), {
+      stream: 'orch',
+      every: true,
+      fromTail: true,
+      prepare: () => client.s2Streams(['orch']),
+      onOpen: () => {
+        // From the SSE route to S2: the route held quietly from now, and what came in the switch read again.
+        if (quiet.current) return;
+        kick.current?.();
+      },
+      onLive: (l) => {
+        s2LiveRef.current = l;
+        setS2Live(l);
+      },
+    });
+    f.start();
+    return () => {
+      hub.drop(f);
+      s2LiveRef.current = false;
+      setS2Live(false);
+    };
+  }, [hub, client, running]);
+
+  // S2 gone for more than a moment (a new token or a cut read go on where they were): the SSE route again.
+  useEffect(() => {
+    if (s2Live || !running) return;
+    const t = setTimeout(() => {
+      if (!s2LiveRef.current && quiet.current) kick.current?.();
+    }, S2_GONE_MS);
+    return () => clearTimeout(t);
+  }, [s2Live, running]);
 
   const rows = useMemo(() => treeRows(tree), [tree]);
   const nodeOf = (id: string) => tree?.nodes.find((n) => n.id === id) ?? null;

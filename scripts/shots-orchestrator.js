@@ -7,6 +7,23 @@
  */
 const puppeteer = require('puppeteer');
 
+/** The live streams the page read (S2): stream names, never a token in an address, always the header. */
+function watchS2(page) {
+  const seen = { reads: {}, bad: 0, quiet: 0 };
+  page.on('request', (r) => {
+    const u = r.url();
+    if (u.includes('/api/me/orchestrator/events?via=s2')) seen.quiet++;
+    const m = u.match(/\/s2\/v1\/streams\/([^/?]+)\/records(\/tail)?/);
+    if (!m) return;
+    if (u.includes('token=') || !(r.headers().authorization || '').startsWith('Bearer ')) seen.bad++;
+    if (m[2]) return;
+    const name = decodeURIComponent(m[1]).split('/').pop();
+    seen.reads[name] = (seen.reads[name] || 0) + 1;
+  });
+  return seen;
+}
+
+
 const MOCK = process.env.MOCK_URL || 'http://localhost:8091';
 const OUT = process.env.OUT || '/out';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -26,6 +43,7 @@ async function shot(page, name) {
   const page = await ctx.newPage();
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   page.on('pageerror', (e) => console.log('PAGEERR', e.message));
+  const s2 = watchS2(page);
   page.on('console', (m) => m.type() === 'error' && console.log('CONSOLE', m.text()));
   await page.goto(MOCK, { waitUntil: 'networkidle0' });
   await page.waitForSelector(tid('server-input'));
@@ -94,6 +112,8 @@ async function shot(page, name) {
   await page.waitForFunction(() => document.body.innerText.includes('when it is clean'), { timeout: 20000 });
   await shot(page, '48-orchestrator-wide');
 
+  // The events came through the account's `orch` stream, the SSE route held quietly.
+  console.log('S2 reads', JSON.stringify(s2.reads), '| SSE asked quietly:', s2.quiet, '| token in an address or no header:', s2.bad);
   await browser.close();
 })().catch((e) => {
   console.error(e);

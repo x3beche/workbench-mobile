@@ -17,6 +17,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { VoiceLang } from './api/client';
 import { Appear } from './components/Appear';
+import { LiveProvider } from './live/LiveContext';
 import { LoginScreen } from './screens/LoginScreen';
 import { ServerScreen } from './screens/ServerScreen';
 import { Workspace } from './screens/Workspace';
@@ -38,7 +39,7 @@ installScrollbars();
 const SPLASH_MAX_MS = 4000;
 
 function Screens() {
-  const { phase, server, user, account } = useSession();
+  const { phase, server, user, account, client } = useSession();
   const [lang, setLang] = useState<VoiceLang>('auto');
   const [voiceMode, setVoiceMode] = useState<VoiceMode>('live');
   /** Settings > Language: the app's own words, apart from the voice's. */
@@ -106,17 +107,20 @@ function Screens() {
       </Appear>
     );
   }
-  // Each account is drawn afresh (its streams, lists and caches), never in someone else's conversation.
+  // Each account is drawn afresh (its streams, lists and caches), never in someone else's conversation;
+  // its live streams (LiveProvider) are its own and close with it.
   return (
     <Appear key={`${account?.id ?? ''}|${server}|${user?.id ?? ''}`}>
-      <Workspace
-        lang={lang}
-        onLang={changeLang}
-        voiceMode={voiceMode}
-        onVoiceMode={changeVoiceMode}
-        appLang={appLang}
-        onAppLang={changeAppLang}
-      />
+      <LiveProvider client={client}>
+        <Workspace
+          lang={lang}
+          onLang={changeLang}
+          voiceMode={voiceMode}
+          onVoiceMode={changeVoiceMode}
+          appLang={appLang}
+          onAppLang={changeAppLang}
+        />
+      </LiveProvider>
     </Appear>
   );
 }

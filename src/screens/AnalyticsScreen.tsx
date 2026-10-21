@@ -17,8 +17,15 @@
  * Agents, Work, Tools, Server) as the Chat list's "ROOMS" and "PINNED".
  * Two cards a row where they fit, one on a narrow phone; a card with more
  * rows than it shows opens to all of them.
+ *
+ * Live (1.5.9): Activity - tokens a second now, the jobs running and
+ * waiting, the machine - comes through the account's S2 stream `activity`
+ * (live/hub.ts) as the web top bar's does, its last 14 readings drawn under
+ * it; without S2, GET /api/me/activity/now every 5 s. The Orchestrator and
+ * the pool are read again when the account's bus says they changed
+ * (`orch`, `work`, `pool`).
  */
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -33,6 +40,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { WorkbenchClient } from '../api/client';
 import type {
+  ActivityNow,
   AdminPool,
   AdminSandboxes,
   AgentTree,
@@ -45,6 +53,7 @@ import type {
 } from '../api/types';
 import { Bars, Columns, Legend, SERIES } from '../components/Charts';
 import {
+  Activity,
   ChevronDown,
   ChevronRight,
   Coins,
@@ -66,6 +75,7 @@ import { compact, dayLabel, money, seconds } from '../lib/numbers';
 import { failureWord, stateWord, statusDot, whenOf } from '../lib/orchestrator';
 import type { OrchStrings } from '../lib/orchStrings';
 import type { SettingsStrings } from '../lib/settingsStrings';
+import { useBus, useLive } from '../live/LiveContext';
 import { colors, fonts, gutter, space, type } from '../theme/tokens';
 
 interface Data {
@@ -79,6 +89,11 @@ interface Data {
   adminPool?: AdminPool | null;
   sandboxes?: AdminSandboxes | null;
 }
+
+/** How often the live figures are asked for while the stream is down. */
+const NOW_EVERY = 5000;
+/** Readings drawn under the live figures (the charts' 14 columns). */
+const NOW_COLS = 14;
 
 /** null when the route is not there or may not be read: that section is left out. */
 const soft = <T,>(p: Promise<T>): Promise<T | null> => p.catch(() => null);
@@ -127,6 +142,82 @@ export function AnalyticsScreen({
       live = false;
     };
   }, [fetchAll]);
+
+  // The live figures: the account's `activity` stream while it is up, else a look every 5 s.
+  const hub = useLive();
+  const [now, setNow] = useState<ActivityNow | null>(null);
+  const [tps, setTps] = useState<number[]>([]);
+  const [streaming, setStreaming] = useState(false);
+  const streamingRef = useRef(false);
+  const take = useCallback((n: ActivityNow | null) => {
+    if (!n || typeof n.at !== 'number') return;
+    setNow(n);
+    setTps((was) => [...was, n.live?.tps ?? 0].slice(-NOW_COLS));
+  }, []);
+  useEffect(() => {
+    if (!hub) return;
+    const f = hub.follow<ActivityNow>(take, {
+      onLive: (l) => {
+        streamingRef.current = l;
+        setStreaming(l);
+      },
+    });
+    f.start();
+    return () => hub.drop(f);
+  }, [hub, take]);
+  useEffect(() => {
+    if (!client) return;
+    let gone = false;
+    const look = () => {
+      if (streamingRef.current) return;
+      client.activityNow().then(
+        (n) => !gone && take(n),
+        () => undefined, // an older server: no card
+      );
+    };
+    look();
+    const t = setInterval(look, NOW_EVERY);
+    return () => {
+      gone = true;
+      clearInterval(t);
+    };
+  }, [client, take]);
+
+  // The Orchestrator and the pool read again as the bus says they changed (a burst once).
+  const soon = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  useEffect(
+    () => () => {
+      for (const t of Object.values(soon.current)) clearTimeout(t);
+    },
+    [],
+  );
+  const again = useCallback(
+    (what: 'orch' | 'pool') => {
+      if (soon.current[what] || !client) return;
+      soon.current[what] = setTimeout(async () => {
+        delete soon.current[what];
+        if (what === 'orch') {
+          const [orch, incidents] = await Promise.all([
+            soft(client.orchestrator()),
+            soft(client.orchestratorIncidents().then((r) => r.incidents)),
+          ]);
+          const tree = orch && (orch.desired === 'running' || orch.session) ? await soft(client.orchestratorTree()) : null;
+          setData((d) => (d ? { ...d, orch: orch ?? d.orch, tree, incidents: incidents ?? d.incidents } : d));
+        } else {
+          const [pool, adminPool] = await Promise.all([
+            soft(client.myPool()),
+            admin ? soft(client.adminPool()) : Promise.resolve(null),
+          ]);
+          setData((d) => (d ? { ...d, pool: pool ?? d.pool, adminPool: adminPool ?? d.adminPool } : d));
+        }
+      }, 500);
+    },
+    [client, admin],
+  );
+  useBus(['orch', 'work', 'pool'], (e) => {
+    if (e.k === 'orch') again('orch');
+    else if (e.k === 'work' || e.k === 'pool') again('pool');
+  });
 
   const load = () => {
     setBusy(true);
@@ -178,10 +269,11 @@ export function AnalyticsScreen({
               <IncidentsCard incidents={d.incidents ?? []} t={t} ot={ot} lang={lang} />
             </Group>
           ) : null}
-          {d.pool ? (
+          {d.pool || now ? (
             <Group title={t.groups.work} cols={cols} testID="group-work">
-              <PoolCard pool={d.pool} t={t} />
-              <MyJobsCard pool={d.pool} t={t} />
+              {now ? <ActivityCard now={now} tps={tps} streaming={streaming} t={t} /> : null}
+              {d.pool ? <PoolCard pool={d.pool} t={t} /> : null}
+              {d.pool ? <MyJobsCard pool={d.pool} t={t} /> : null}
             </Group>
           ) : null}
           {d.tools ? (
@@ -525,6 +617,41 @@ function IncidentsCard({ incidents, t, ot, lang }: { incidents: Incident[]; t: S
         ) : undefined
       }
       testID="analytics-incidents"
+    />
+  );
+}
+
+/** What goes on now, as the web top bar's Activity: tokens a second, jobs, the machine; its last readings under it. */
+function ActivityCard({
+  now,
+  tps,
+  streaming,
+  t,
+}: {
+  now: ActivityNow;
+  tps: number[];
+  streaming: boolean;
+  t: SettingsStrings;
+}) {
+  const cols = useMemo(() => {
+    const pad = Array.from({ length: Math.max(0, NOW_COLS - tps.length) }, () => 0);
+    return [...pad, ...tps].map((v, i) => ({ label: String(i), parts: [{ value: v, color: SERIES[0] }] }));
+  }, [tps]);
+  const rate = now.live?.tps ?? 0;
+  const j = now.jobs ?? { running: 0, queued: 0, agents: 0 };
+  const m = now.machine;
+  const mem = m ? (m.mem_mb >= 1024 ? `${(m.mem_mb / 1024).toFixed(1)} GB` : `${Math.round(m.mem_mb)} MB`) : '';
+  return (
+    <Card
+      icon={Activity}
+      title={t.activity}
+      period={t.period.now}
+      big={rate >= 10 ? rate.toFixed(0) : rate.toFixed(1)}
+      unit="tok/s"
+      right={t.jobsNow(j.running ?? 0, j.queued ?? 0, j.agents ?? 0)}
+      chart={<Columns data={cols} height={40} bare format={(v) => `${v.toFixed(1)} tok/s`} testID="activity-chart" />}
+      caption={m?.sampled ? t.machine(Math.round(m.cpu_pct), mem) : undefined}
+      testID={streaming ? 'analytics-activity-live' : 'analytics-activity'}
     />
   );
 }

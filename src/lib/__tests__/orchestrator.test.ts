@@ -3,6 +3,7 @@ import type { AgentTree, McpCatalog, OrchStatus, OrchTranscript } from '../../ap
 import {
   applyEvent,
   busyAgents,
+  deltaPast,
   findTools,
   haltTitle,
   said,
@@ -137,6 +138,17 @@ describe('the live stream on a transcript', () => {
     expect(x.messages[0].parts).toHaveLength(0);
     x = applyEvent(x, { type: 'removed', session: 's', message: 'm1', part: null }, 's');
     expect(x.messages).toHaveLength(0);
+  });
+
+  it('places a delta by its offset: the same delta from SSE and from S2 is added once', () => {
+    let x = applyEvent(base, { type: 'part', session: 's', message: 'm1', id: 'p1', part: { type: 'text', text: 'Hel' } }, 's');
+    x = applyEvent(x, { type: 'delta', session: 's', message: 'm1', part: 'p1', delta: 'lo', o: 3 }, 's');
+    const again = applyEvent(x, { type: 'delta', session: 's', message: 'm1', part: 'p1', delta: 'lo', o: 3 }, 's');
+    expect(again).toBe(x);
+    x = applyEvent(x, { type: 'delta', session: 's', message: 'm1', part: 'p1', delta: 'lo w', o: 3 }, 's');
+    expect(x.messages[0].parts[0].text).toBe('Hello w');
+    expect(deltaPast('Hello', ' w', undefined)).toBe(' w');
+    expect(deltaPast('Hel', 'lo', 9)).toBe('lo'); // a piece missed: all of it, the next part mends it
   });
 
   it("leaves another session's events alone", () => {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Serve the web build (dist/, from `npx expo export --platform web`) and pass
- * /api/* on to a Workbench server, so the web build can be tried against any
+ * /api/* (and /s2/*, the live streams' gate) on to a Workbench server, so the web build can be tried against any
  * server without that server allowing it by CORS. In the app, enter this
  * proxy's address (http://localhost:8090) as the server.
  *
@@ -29,6 +29,7 @@ if (!TARGET && !MOCK) {
   process.exit(1);
 }
 const mock = MOCK ? (await import('./mock-api.mjs')).handle : null;
+const mockS2 = MOCK ? (await import('./mock-s2.mjs')).handleS2 : null;
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -90,6 +91,10 @@ http
   .createServer((req, res) => {
     if (req.url.startsWith('/api/')) {
       if (mock) mock(req, res);
+      else proxy(req, res);
+    } else if (req.url.startsWith('/s2/')) {
+      // The live streams (the server's s2 gate), as the review site's nginx passes them on.
+      if (mockS2) mockS2(req, res);
       else proxy(req, res);
     } else serveStatic(req, res);
   })

@@ -1,5 +1,5 @@
 import type { ChatMessage } from '../../api/types';
-import { applyEvent, fit, type ConversationView } from '../answer';
+import { applyEvent, applyPiece, fit, type ConversationView } from '../answer';
 
 const msg = (id: string, role: 'user' | 'assistant', content: string): ChatMessage => ({
   id,
@@ -116,5 +116,39 @@ describe('applyEvent', () => {
     const steps = [{ id: 's1', tool: 't', status: 'running' }];
     expect(applyEvent(base(), { type: 'hello', live: [{ gen: 'g1', steps }] }).writing?.steps).toEqual(steps);
     expect(applyEvent(base(), { type: 'start', gen: 'g1', steps }).writing?.steps).toEqual(steps);
+  });
+});
+
+describe('applyPiece (the S2 lane)', () => {
+  const writing = (): ConversationView => ({
+    ...base(),
+    writing: { gen: 'g1', text: 'Hello', thinking: '', error: null, steps: [] },
+  });
+
+  it('takes a piece of the answer being written where it fits, whichever stream brought it first', () => {
+    let v = applyPiece(writing(), { type: 'text', gen: 'g1', text: ' wor', at: 5 });
+    expect(v.writing?.text).toBe('Hello wor');
+    // The answer's own stream brings the same piece later: nothing changes.
+    v = applyEvent(v, { type: 'text', gen: 'g1', text: ' wor', at: 5 });
+    expect(v.writing?.text).toBe('Hello wor');
+    v = applyEvent(v, { type: 'text', gen: 'g1', text: 'ld', at: 9 });
+    // ...and S2's copy of that one after it: the same.
+    expect(applyPiece(v, { type: 'text', gen: 'g1', text: 'ld', at: 9 })).toBe(v);
+    expect(v.writing?.text).toBe('Hello world');
+  });
+
+  it('leaves alone a piece it cannot place, of another answer, or with nothing being written', () => {
+    const w = writing();
+    expect(applyPiece(w, { type: 'text', gen: 'g1', text: 'x', at: 40 })).toBe(w);
+    expect(applyPiece(w, { type: 'text', gen: 'g2', text: 'x', at: 5 })).toBe(w);
+    const idle = base();
+    expect(applyPiece(idle, { type: 'text', gen: 'g1', text: 'x', at: 0 })).toBe(idle);
+    expect(applyPiece(w, { type: 'text', gen: 'g1', text: 'x', at: 40 }).stale).toBe(false);
+  });
+
+  it('takes the steps and the thinking too', () => {
+    const v = applyPiece(writing(), { type: 'steps', gen: 'g1', steps: [{ id: 's1', tool: 't', status: 'running' }] as never });
+    expect(v.writing?.steps).toHaveLength(1);
+    expect(applyPiece(v, { type: 'thinking', gen: 'g1', text: 'hm', at: 0 }).writing?.thinking).toBe('hm');
   });
 });

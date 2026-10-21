@@ -5,7 +5,8 @@
  * the provider and model it runs on (the providers come with their models
  * from GET /api/me/orchestrator; a pick is saved at once, PUT
  * /api/me/llm/agent), and Start, Restart and Stop. Keys and the other
- * settings stay on the web.
+ * settings stay on the web. Its state is read again when the account's bus
+ * says it changed (kind `orch`, through S2); without the bus every 5 s.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -13,6 +14,7 @@ import { FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from
 import { ApiError, type WorkbenchClient } from '../api/client';
 import type { OrchStatus } from '../api/types';
 import { failureWord, haltTitle, stateWord, statusDot, whenOf } from '../lib/orchestrator';
+import { useBus, useLive } from '../live/LiveContext';
 import type { OrchStrings } from '../lib/orchStrings';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
 import { Check, Search } from './icons';
@@ -64,11 +66,21 @@ export function AgentSheet({
     );
   }, [client, take, t]);
 
+  // Read again when the account's bus says it changed (`orch`); every 5 s without the bus, as before.
+  const hub = useLive();
+  const pace = useMemo(() => hub?.pace() ?? null, [hub]);
   useEffect(() => {
     load();
-    const timer = setInterval(() => load(), 5000);
+    const timer = setInterval(() => {
+      if (!pace || pace.due()) load();
+    }, 5000);
     return () => clearInterval(timer);
-  }, [load]);
+  }, [load, pace]);
+  useBus(['orch'], (e) => {
+    if (e.k === '$down') return;
+    pace?.mark();
+    load();
+  });
 
   const models = useMemo(() => {
     const all = st?.providers.find((p) => p.id === prov)?.models ?? [];

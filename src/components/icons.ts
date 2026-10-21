@@ -4,6 +4,7 @@
  * Imported one by one so the bundle carries only these. Draw them with
  * `<Glyph icon={...} />` (ui.tsx), which sets the size, stroke and ink.
  */
+export { default as Activity } from 'lucide-react-native/icons/activity';
 export { default as Archive } from 'lucide-react-native/icons/archive';
 export { default as ArchiveRestore } from 'lucide-react-native/icons/archive-restore';
 export { default as ArrowDown } from 'lucide-react-native/icons/arrow-down';

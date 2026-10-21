@@ -11,11 +11,15 @@
  * (`steps` events), then writes its text a word at a time.
  * Conversations can be archived, deleted into the trash and restored; Files
  * (scripts/mock-files.mjs) has My files, In the app and Deleted files.
+ * Live streams (scripts/mock-s2.mjs, MOCK_S2=0 for none): the account's bus
+ * tells of room lines and conversation changes, an answer's pieces also go
+ * to its `chat-<id>` stream, the Orchestrator's events to `orch`.
  */
 import { Buffer } from 'node:buffer';
 
 import { addExport, handleFiles } from './mock-files.mjs';
 import { handleAnalytics, handleOrchestrator, handleRooms } from './mock-orchestrator.mjs';
+import { activityNow, handleS2Api, publish } from './mock-s2.mjs';
 
 const ago = (min) => new Date(Date.now() - min * 60_000).toISOString();
 const me = { id: 'u1', name: 'Ada Demir', email: 'ada@example.com' };
@@ -248,18 +252,20 @@ export async function handle(req, res) {
     return json(res, 403, { detail: 'that change did not come from the app' });
   }
   if (p === '/api/health') return json(res, 200, { ok: true, db: 'mock' });
+  if (handleS2Api(req, res, p, body)) return;
+  if (p === '/api/me/activity/now') return json(res, 200, activityNow());
   if (p === '/api/public/m/app.json') {
     const newer = process.env.MOCK_UPDATE === '1';
     return json(res, 200, {
-      version: newer ? '1.6.0' : '1.5.8',
-      versionCode: newer ? 17 : 16,
+      version: newer ? '1.6.0' : '1.5.9',
+      versionCode: newer ? 18 : 17,
       size: 39_800_000,
       sha256: '0'.repeat(64),
       published_at: ago(60),
       min_sdk: 24,
       min_android: '7.0',
       abis: ['arm64-v8a'],
-      file: newer ? 'workbench-1.6.0.apk' : 'workbench-1.5.8.apk',
+      file: newer ? 'workbench-1.6.0.apk' : 'workbench-1.5.9.apk',
       url: '/api/public/m/app.apk',
       ...(newer
         ? {
@@ -374,6 +380,7 @@ export async function handle(req, res) {
       messages: [],
     };
     chats.unshift(c);
+    publish('bus', { k: 'cc', p: { id: c.id, what: 'new' }, t: Date.now() });
     return json(res, 200, c);
   }
   if (p === '/api/llm/settings') {
@@ -454,6 +461,9 @@ export async function handle(req, res) {
       });
       res.write(`data: ${JSON.stringify({ type: 'user', message: line, keep: msgs.length, gen: 'g1' })}\n\n`);
       msgs.push(line);
+      publish('bus', { k: 'cc', p: { id: chat.id, what: 'line' }, t: Date.now() });
+      // The answer's pieces go to its S2 stream too (backend ccgen.S2Pieces), a little ahead of this one.
+      const lane = `chat-${chat.id.toLowerCase()}`;
       const words = STREAM.split(/(?<= )/);
       let i = 0;
       let at = 0;
@@ -468,7 +478,10 @@ export async function handle(req, res) {
           vars: { name: 'FB2' },
         },
       ];
-      const send = (ev) => !res.writableEnded && res.write(`data: ${JSON.stringify(ev)}\n\n`);
+      const send = (ev) => {
+        if (ev.type === 'steps') publish(lane, { ...ev, gen: 'g1' });
+        return !res.writableEnded && res.write(`data: ${JSON.stringify(ev)}\n\n`);
+      };
       let timer = null;
       const waits = [
         setTimeout(() => send({ type: 'steps', steps }), 700),
@@ -497,6 +510,7 @@ export async function handle(req, res) {
           msgs.push(answer);
           chat.updated_at = ago(0);
           res.write(`data: ${JSON.stringify({ type: 'done', message: answer })}\n\n`);
+          publish('bus', { k: 'cc', p: { id: chat.id, what: 'answer' }, t: Date.now() });
           if (chat.title === 'New conversation') {
             chat.title = said.text
               .split(/\s+/)
@@ -507,6 +521,7 @@ export async function handle(req, res) {
           }
           return res.end();
         }
+        publish(lane, { type: 'text', gen: 'g1', text: words[i], at });
         res.write(`data: ${JSON.stringify({ type: 'text', text: words[i], at })}\n\n`);
         at += words[i].length;
         i++;

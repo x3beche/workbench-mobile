@@ -40,6 +40,7 @@ import { tick } from '../lib/feel';
 import { orchStrings } from '../lib/orchStrings';
 import { settingsStrings } from '../lib/settingsStrings';
 import { knownRooms } from '../lib/rooms';
+import { useBus, useLive } from '../live/LiveContext';
 import { shareFile, sharePdf } from '../lib/share';
 import { useSession } from '../state/session';
 import * as prefs from '../storage/prefs';
@@ -228,14 +229,20 @@ export function Workspace({
   }, [loadRooms, keep]);
 
   // The agent writes in a room on its own time: its last line and what is
-  // unread are read again now and then, not on every line drawn.
+  // unread (the drawer's badges) are read again when the account's bus says
+  // a line was said (`line`), the Orchestrator's row when it changed
+  // (`orch`), the conversations when one changed (`cc`) - and without the
+  // bus now and then, as before (once a minute as a safety net with it).
+  const hub = useLive();
+  const pace = useMemo(() => hub?.pace() ?? null, [hub]);
   useEffect(() => {
     const t = setInterval(() => {
+      if (pace && !pace.due()) return;
       loadRooms();
       loadOrch();
     }, 30_000);
     return () => clearInterval(t);
-  }, [loadRooms, loadOrch]);
+  }, [loadRooms, loadOrch, pace]);
 
   /** A room was read: its badge is counted again from what is remembered here. */
   const roomSeen = useCallback(() => {
@@ -253,6 +260,37 @@ export function Workspace({
       (e) => setListError(e instanceof ApiError ? e.message : 'The conversations could not be read.'),
     );
   }, [client]);
+
+  const scopeRef = useRef(scope);
+  useEffect(() => {
+    scopeRef.current = scope;
+  }, [scope]);
+  const gather = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  useEffect(
+    () => () => {
+      for (const t of Object.values(gather.current)) clearTimeout(t);
+    },
+    [],
+  );
+  /** A burst of events read once, `ms` after the first. */
+  const later = useCallback((what: string, ms: number, fn: () => void) => {
+    if (gather.current[what]) return;
+    gather.current[what] = setTimeout(() => {
+      delete gather.current[what];
+      fn();
+    }, ms);
+  }, []);
+  useBus(['line', 'orch', 'cc'], (e) => {
+    if (e.k === '$down') return;
+    if (e.k === 'line' || e.k === '$open') later('rooms', 120, loadRooms);
+    if (e.k === 'orch' || e.k === '$open') later('orch', 120, loadOrch);
+    if (e.k === 'cc' || e.k === '$open') {
+      later('chats', 120, () => {
+        load();
+        if (scopeRef.current !== 'live') loadScoped(scopeRef.current);
+      });
+    }
+  });
 
   // The last conversation open on this server, or a new one.
   useEffect(() => {

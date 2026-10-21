@@ -8,8 +8,9 @@
  * changes something carries `x-redline-csrf: 1`, which the server asks of
  * every mutating cookie request (backend/auth.py, csrf_ok).
  */
-import { streamSse, type StreamResult, type XhrLike } from './sse';
+import { streamRawSse, streamSse, type RawEvent, type StreamResult, type XhrLike } from './sse';
 import type {
+  ActivityNow,
   AdminPool,
   AdminSandboxes,
   AgentTree,
@@ -33,6 +34,7 @@ import type {
   Room,
   RoomId,
   RoomLine,
+  S2Token,
   StoredFile,
   Transcript,
   ToolsUsage,
@@ -226,7 +228,10 @@ export class WorkbenchClient {
   private async read<T>(res: Response, path: string): Promise<T> {
     const text = await res.text();
     if (!res.ok) {
-      if (res.status === 401 && !path.startsWith('/api/auth/')) this.deps.onUnauthorized?.();
+      // The live streams' token is not the session: its trouble never signs anyone out (the session's own 401 does).
+      if (res.status === 401 && !path.startsWith('/api/auth/') && !path.startsWith('/api/s2/')) {
+        this.deps.onUnauthorized?.();
+      }
       throw new ApiError(res.status, errorMessage(res.status, text));
     }
     if (!text) return undefined as T;
@@ -498,8 +503,10 @@ export class WorkbenchClient {
     onEvent: (ev: OrchEvent) => void;
     onActivity?: () => void;
     signal?: AbortSignal;
+    /** Held only quietly: the events come through the account's S2 stream `orch` (its hello says `via: "s2"`). */
+    quiet?: boolean;
   }): Promise<void> {
-    await this.stream('GET', '/api/me/orchestrator/events', null, {
+    await this.stream('GET', `/api/me/orchestrator/events${h.quiet ? '?via=s2' : ''}`, null, {
       onEvent: (ev) => h.onEvent(ev as unknown as OrchEvent),
       onActivity: h.onActivity,
       signal: h.signal,
@@ -539,6 +546,85 @@ export class WorkbenchClient {
 
   adminSandboxes(): Promise<AdminSandboxes> {
     return this.request<AdminSandboxes>('GET', '/api/admin/sandboxes');
+  }
+
+  /** What goes on now: tokens a second, jobs, the machine (the web top bar's Activity). */
+  activityNow(): Promise<ActivityNow> {
+    return this.request<ActivityNow>('GET', '/api/me/activity/now');
+  }
+
+  // ---- live streams through S2 (backend/s2live.py) ---------------------------
+
+  /** A read token for the account's own streams, ~15 minutes. Its 401/403 never signs out. */
+  s2Token(): Promise<S2Token> {
+    return this.request<S2Token>('POST', '/api/s2/token', {});
+  }
+
+  /** One's own streams made ready to read (`orch`, `dm`, `chat-<id>`; at most four). */
+  async s2Streams(names: string[]): Promise<boolean> {
+    try {
+      await this.request('POST', '/api/s2/streams', { names });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Where a stream of the account's is read, through the server's gate. */
+  s2Url(tok: S2Token, stream: string): string {
+    return `${this.base}${tok.path}/v1/streams/${encodeURIComponent(stream)}/records`;
+  }
+
+  /** The seq_num the next record of a stream gets (its tail); null when it could not be read. */
+  async s2Tail(tok: S2Token, stream: string, signal?: AbortSignal): Promise<number | null> {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
+    const stop = () => ctl.abort();
+    signal?.addEventListener('abort', stop);
+    try {
+      const res = await this.fetchImpl(`${this.s2Url(tok, stream)}/tail`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${tok.token}`, Accept: 'application/json' },
+        credentials: 'omit',
+        signal: ctl.signal,
+      });
+      if (!res.ok) return null;
+      const n = (await res.json())?.tail?.seq_num;
+      return typeof n === 'number' ? n : null;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', stop);
+    }
+  }
+
+  /**
+   * A live read of a stream (SSE): `batch` events with records, `error` when
+   * the gate ends it, pings. The token goes in the Authorization header,
+   * never in the address; no cookies go with it.
+   */
+  s2Read(
+    tok: S2Token,
+    stream: string,
+    from: string,
+    h: { onEvent: (ev: RawEvent) => void; onOpen?: () => void; signal?: AbortSignal },
+  ): Promise<StreamResult> {
+    return streamRawSse({
+      url: `${this.s2Url(tok, stream)}?${from}`,
+      method: 'GET',
+      headers: { Authorization: `Bearer ${tok.token}`, Accept: 'text/event-stream' },
+      onEvent: h.onEvent,
+      onOpen: h.onOpen,
+      signal: h.signal,
+      createXhr: this.deps.createXhr,
+      credentials: false,
+    });
+  }
+
+  /** Who the live streams' tokens are kept under in memory: this account on this server. */
+  get liveKey(): string {
+    return `${this.base}|${this.deps.session ?? ''}`;
   }
 
   // ---- files --------------------------------------------------------------

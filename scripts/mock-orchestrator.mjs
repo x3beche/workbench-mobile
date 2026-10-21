@@ -5,6 +5,8 @@
  * Stop and the model. MOCK_ORCH=halted starts it stopped for a refused key,
  * MOCK_ORCH=stopped not running. Used by scripts/mock-api.mjs.
  */
+import { publish } from './mock-s2.mjs';
+
 const T0 = Date.now() - 9 * 60_000;
 const at = (s) => T0 + s * 1000;
 
@@ -192,9 +194,23 @@ export function handleOrchestrator(req, res, p, body) {
   if (rest === '/events') {
     if (state.desired !== 'running') return json(res, 404, { detail: 'no Orchestrator yet' }), true;
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' });
-    const send = (e) => !res.writableEnded && res.write(`data: ${JSON.stringify(e)}\n\n`);
-    send({ type: 'hello' });
-    send({ type: 'connected' });
+    // Asked quietly (?via=s2) while live streams are on: the events go to the account's `orch` stream.
+    const quiet = new URL(req.url, 'http://x').searchParams.get('via') === 's2' && process.env.MOCK_S2 !== '0';
+    const raw = (e) => !res.writableEnded && res.write(`data: ${JSON.stringify(e)}\n\n`);
+    const lens = {};
+    const send = (e) => {
+      if (res.writableEnded) return;
+      if (!quiet) return raw(e);
+      // As backend orchestrator/live.py mark(): a delta says where it goes in its part.
+      if (e.type === 'part' && e.part?.text != null) lens[e.id] = e.part.text.length;
+      if (e.type === 'delta') {
+        e = { ...e, o: lens[e.part] ?? 0 };
+        lens[e.part] = (lens[e.part] ?? 0) + e.delta.length;
+      }
+      publish('orch', e);
+    };
+    raw(quiet ? { type: 'hello', via: 's2' } : { type: 'hello' });
+    raw({ type: 'connected' });
     const words = LIVE.split(/(?<= )/);
     let i = 0;
     const mid = `m5_${Date.now()}`;
@@ -252,7 +268,16 @@ export function handleRooms(req, res, p, url, body) {
     const got = JSON.parse(body.toString() || '{}');
     const line = { _id: `n${Date.now()}`, at: new Date().toISOString(), role: 'user', text: got.text, room: got.room,
                    by: { id: 'u1', name: 'Ada Demir', type: 'user' }, seen_at: null };
-    (ROOM_LINES[got.room] || ROOM_LINES.cad).push(line);
+    const lines = ROOM_LINES[got.room] || ROOM_LINES.cad;
+    lines.push(line);
+    publish('bus', { k: 'line', p: { room: got.room, what: 'line' }, t: Date.now() });
+    // The agent reads it and answers a moment later; the bus says so (the app reads the room at once).
+    setTimeout(() => {
+      line.seen_at = new Date().toISOString();
+      lines.push({ _id: `a${Date.now()}`, at: new Date().toISOString(), role: 'agent', text: `On it: ${got.text}`,
+                   room: got.room, by: { type: 'agent', name: 'agent' }, seen_at: null });
+      publish('bus', { k: 'line', p: { room: got.room, what: 'line' }, t: Date.now() });
+    }, 1500);
     return json(res, 200, line), true;
   }
   const limit = Number(url.searchParams.get('limit') || 200);

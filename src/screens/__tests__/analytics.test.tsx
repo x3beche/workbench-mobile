@@ -42,6 +42,7 @@ function client(over: Partial<Record<string, unknown>> = {}) {
     myPool: jest.fn(missing),
     adminPool: jest.fn(missing),
     adminSandboxes: jest.fn(missing),
+    activityNow: jest.fn(missing),
     ...over,
   } as unknown as WorkbenchClient;
 }
@@ -81,6 +82,32 @@ function client(over: Partial<Record<string, unknown>> = {}) {
     expect(screen.getByText('Sunucu')).toBeTruthy();
     expect(screen.getByText('1/4')).toBeTruthy();
     expect(screen.getByText('Modeller')).toBeTruthy();
+  });
+});
+
+(canRender ? describe : describe.skip)('Analytics, live', () => {
+  it('shows what goes on now (the web top bar Activity), asked for while there is no stream', async () => {
+    const c = client({
+      activityNow: jest.fn(async () => ({
+        at: 1,
+        live: { tps: 42.4, by: {}, window_s: 10 },
+        jobs: { running: 2, queued: 1, agents: 1, total: 3, kinds: {} },
+        machine: { cpu_pct: 12.2, mem_mb: 2048, sampled: true, parts: [] },
+      })),
+    });
+    await render(<AnalyticsScreen client={c} t={settingsStrings('en')} ot={orchStrings('en')} lang="en" />);
+    await act(async () => undefined);
+    expect(c.activityNow).toHaveBeenCalled();
+    expect(screen.getByTestId('analytics-activity')).toBeTruthy();
+    expect(screen.getByText('42')).toBeTruthy();
+    expect(screen.getByText('2 running · 1 waiting · 1 agent')).toBeTruthy();
+    expect(screen.getByText('CPU 12% · memory 2.0 GB')).toBeTruthy();
+  });
+
+  it('has no Activity card on a server without the route', async () => {
+    await render(<AnalyticsScreen client={client()} t={settingsStrings('en')} ot={orchStrings('en')} lang="en" />);
+    await act(async () => undefined);
+    expect(screen.queryByTestId('analytics-activity')).toBeNull();
   });
 });
 

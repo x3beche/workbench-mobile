@@ -170,6 +170,17 @@ export function isLive(m: OrchMessage, p: OrchPart): boolean {
 }
 
 /**
+ * What of a text delta a part does not hold yet (the web app's deltaPast):
+ * all of it without a place (`o`), only its tail when the part has its
+ * start already, all of it when the part has less (a piece missed - the
+ * part's next update mends it).
+ */
+export function deltaPast(have: string, delta: string, o?: number): string {
+  if (typeof o !== 'number' || o >= have.length) return delta;
+  return delta.slice(have.length - o);
+}
+
+/**
  * One event of the live stream on the transcript shown: a message begun or
  * finished, a part written or replaced, a few more characters, something
  * taken away. Anything about another session leaves it as it was (the same
@@ -219,10 +230,12 @@ export function applyEvent(x: OrchTranscript, e: OrchEvent, shown: string | null
     const pid = typeof e.part === 'string' ? e.part : null;
     if (!pid || typeof e.delta !== 'string') return x;
     const k = m.parts.findIndex((p) => p.id === pid);
-    m.parts =
-      k < 0
-        ? [...m.parts, { id: pid, type: 'text', text: e.delta }]
-        : m.parts.map((p, j) => (j === k ? { ...p, text: (p.text ?? '') + e.delta } : p));
+    if (k < 0) m.parts = [...m.parts, { id: pid, type: 'text', text: e.delta }];
+    else {
+      const add = deltaPast(m.parts[k].text ?? '', e.delta, e.o);
+      if (!add) return x;
+      m.parts = m.parts.map((p, j) => (j === k ? { ...p, text: (p.text ?? '') + add } : p));
+    }
   }
   msgs[i] = m;
   return { ...x, messages: msgs };

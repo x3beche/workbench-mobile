@@ -2,8 +2,10 @@
  * One room's thread: 3D Drawing, PCB Design or Firmware, the agent that works
  * in it, and where to say the next thing. A room is not a conversation - it
  * is the workspace's own thread, answered by the agent that draws, routes and
- * flashes - so it is drawn with the chat's own lines and read again every
- * couple of seconds while it is open, since the server has no stream for one.
+ * flashes - so it is drawn with the chat's own lines. It is read again the
+ * moment the account's bus says a line was said in it (kind `line`, through
+ * S2: live/hub.ts); without the bus, every couple of seconds while it is
+ * open, as before (and once a minute as a safety net while the bus is up).
  *
  * What was read here is remembered per room, which is what lets the drawer
  * say how much of a room the agent has written since.
@@ -14,7 +16,7 @@
  * bottom it stays at the bottom as lines come; read further up, it stays
  * put and "New messages" offers the way down.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -38,13 +40,16 @@ import { ErrorText, Glyph, IconButton } from '../components/ui';
 import { orchStrings } from '../lib/orchStrings';
 import { layLatest, PAGE, putOlder } from '../lib/paging';
 import { asChatMessage, ROOM_ICON, ROOM_LABEL } from '../lib/rooms';
+import { useBus, useLive } from '../live/LiveContext';
 import * as prefs from '../storage/prefs';
 import { colors, fonts, gutter, motion, space, touch, type } from '../theme/tokens';
 import { uiLang } from '../update/strings';
 import type { VoiceMode } from '../voice/voice';
 
-/** How often a room's thread is read again while it is open. */
+/** How often a room's thread is read again while it is open and the bus is down. */
 const EVERY = 2000;
+/** A burst of lines told on the bus is read once, this long after the first. */
+const BUS_GATHER_MS = 60;
 /** Within this many pixels of the newest line, the reader is at the bottom and kept there. */
 const AT_BOTTOM = 60;
 
@@ -157,11 +162,35 @@ export function RoomScreen({
     list.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
-  // The rooms have no stream: read it again while it is open.
+  // Read again as the bus tells of a line here (or of any room: `room` null), and
+  // when it opens again; without it, on the old timer.
+  const hub = useLive();
+  const pace = useMemo(() => hub?.pace() ?? null, [hub]);
+  const soon = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (soon.current) clearTimeout(soon.current);
+    },
+    [],
+  );
+  useBus(['line'], (e) => {
+    if (e.k === '$down') return;
+    const of = (e.p as { room?: string | null } | undefined)?.room;
+    if (e.k === 'line' && of && of !== room) return;
+    pace?.mark();
+    if (soon.current) return;
+    soon.current = setTimeout(() => {
+      soon.current = null;
+      load();
+    }, BUS_GATHER_MS);
+  });
+
   useEffect(() => {
-    const t = setInterval(() => load(), EVERY);
+    const t = setInterval(() => {
+      if (!pace || pace.due()) load();
+    }, EVERY);
     return () => clearInterval(t);
-  }, [load]);
+  }, [load, pace]);
 
   // What is on screen is read: the agent's newest line, remembered for the badge.
   useEffect(() => {
@@ -284,7 +313,7 @@ export function RoomScreen({
   );
 }
 
-/** The same thread as it was: polling every two seconds should not redraw it. */
+/** The same thread as it was: reading it again should not redraw it. */
 function sameLines(now: RoomLine[] | null, got: RoomLine[]): boolean {
   if (!now || now.length !== got.length) return false;
   return now.every((l, i) => l.id === got[i].id && l.text === got[i].text && l.seen_at === got[i].seen_at);

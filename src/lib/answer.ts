@@ -105,3 +105,24 @@ export function applyEvent(view: ConversationView, ev: ChatEvent): ConversationV
       return view;
   }
 }
+
+/**
+ * A piece of the answer from the conversation's S2 stream (`chat-<id>`,
+ * backend ccgen.S2Pieces): into the answer being written, only when it is
+ * that answer (`gen`) and only where it fits (`at`). The same pieces come on
+ * the answer's own stream (POST /messages or GET /live) too, a little
+ * later: whichever comes first is taken, and one that cannot be placed is
+ * left to that stream - never a reason to read the conversation again.
+ */
+export function applyPiece(view: ConversationView, ev: ChatEvent): ConversationView {
+  const w = view.writing;
+  if (!w || !ev.gen || w.gen !== ev.gen) return view;
+  if (ev.type === 'text' || ev.type === 'thinking') {
+    const key = ev.type;
+    const next = fit(w[key], ev.text || '', ev.at);
+    if (next === null || next === w[key]) return view;
+    return { ...view, writing: { ...w, [key]: next } };
+  }
+  if (ev.type === 'steps') return { ...view, writing: { ...w, steps: ev.steps ?? [] } };
+  return view;
+}
