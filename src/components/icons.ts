@@ -44,6 +44,7 @@ export { default as LogOut } from 'lucide-react-native/icons/log-out';
 export { default as Menu } from 'lucide-react-native/icons/menu';
 export { default as Mic } from 'lucide-react-native/icons/mic';
 export { default as Network } from 'lucide-react-native/icons/network';
+export { default as Paperclip } from 'lucide-react-native/icons/paperclip';
 export { default as Pencil } from 'lucide-react-native/icons/pencil';
 export { default as Pin } from 'lucide-react-native/icons/pin';
 export { default as PinOff } from 'lucide-react-native/icons/pin-off';

@@ -8,7 +8,7 @@
  * while they are spoken - settled ones in ink, the unsure tail dimmed - and
  * stay there, when it is stopped, to read over like any other.
  */
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import type { VoiceLang, WorkbenchClient } from '../api/client';
@@ -46,8 +46,19 @@ export const Composer = forwardRef<
     onSend: (text: string) => Promise<boolean>;
     onStop: () => void;
     onVoiceNote?: () => void;
+    /** The box's empty words (else "Message"). */
+    placeholder?: string;
+    /** Above the box: what goes with the line (a Claude session's pictures). */
+    above?: ReactNode;
+    /** In the box's row, before the microphone (the paperclip). */
+    tool?: ReactNode;
+    /** Something goes with the line already: Send works with no words. */
+    ready?: boolean;
   }
->(function Composer({ client, lang, mode = 'record', writing, onSend, onStop, onVoiceNote }, ref) {
+>(function Composer(
+  { client, lang, mode = 'record', writing, onSend, onStop, onVoiceNote, placeholder = 'Message', above, tool, ready = false },
+  ref,
+) {
   const [text, setText] = useState('');
   // Native multiline inputs grow by themselves between min and max height;
   // the web's textarea does not, so there its content height is followed.
@@ -78,7 +89,7 @@ export const Composer = forwardRef<
   // written, and a line that could not be sent comes back to the box.
   const send = () => {
     const t = text.trim();
-    if (!t) return;
+    if (!t && !ready) return;
     tick();
     setText('');
     setWebHeight(MIN_H);
@@ -107,7 +118,7 @@ export const Composer = forwardRef<
     );
   }
 
-  const has = !!text.trim();
+  const has = !!text.trim() || ready;
   const round = has
     ? { id: 'send', label: 'Send', icon: ArrowUp, on: true, press: send }
     : writing
@@ -125,6 +136,7 @@ export const Composer = forwardRef<
       ) : (
         notice
       )}
+      {above}
       <View style={[s.field, focused && s.focused]}>
         <TextInput
           ref={input}
@@ -139,10 +151,10 @@ export const Composer = forwardRef<
             if (voice.error) voice.setError(null);
             if (voice.notice) voice.setNotice(null);
           }}
-          placeholder="Message"
+          placeholder={placeholder}
           placeholderTextColor={colors.inkDim}
           selectionColor={colors.inkDim}
-          accessibilityLabel="Message"
+          accessibilityLabel={placeholder}
           onContentSizeChange={
             Platform.OS === 'web'
               ? // A textarea never shrinks by itself, so taking text out starts it again from one line.
@@ -156,6 +168,7 @@ export const Composer = forwardRef<
           enterKeyHint="enter"
         />
         <View style={s.tools}>
+          {tool}
           <IconButton
             icon={Mic}
             label="Dictate a message"

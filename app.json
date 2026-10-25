@@ -3,7 +3,7 @@
     "name": "Workbench",
     "slug": "workbench-mobile",
     "scheme": "workbench",
-    "version": "1.5.9",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -16,10 +16,10 @@
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
-        "NSCameraUsageDescription": "Workbench uses the camera only when you take a photo to upload to Files.",
-        "NSPhotoLibraryUsageDescription": "Workbench reads the photos you pick, to upload them to Files."
+        "NSCameraUsageDescription": "Workbench uses the camera only when you take a photo to upload to Files or send with a message.",
+        "NSPhotoLibraryUsageDescription": "Workbench reads the photos you pick, to upload them to Files or send them with a message."
       },
-      "buildNumber": "17"
+      "buildNumber": "18"
     },
     "android": {
       "package": "dev.workbench.mobile",
@@ -30,7 +30,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 17,
+      "versionCode": 18,
       "permissions": [
         "android.permission.REQUEST_INSTALL_PACKAGES"
       ],
@@ -96,8 +96,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Workbench reads the photos you pick, to upload them to Files.",
-          "cameraPermission": "Workbench uses the camera only when you take a photo to upload to Files."
+          "photosPermission": "Workbench reads the photos you pick, to upload them to Files or send them with a message.",
+          "cameraPermission": "Workbench uses the camera only when you take a photo to upload to Files or send with a message."
         }
       ],
       "expo-sharing",

@@ -22,6 +22,12 @@ import type { WorkbenchClient } from '../api/client';
 import type { BusEvent } from '../api/types';
 import { S2Follow, type S2FollowOpts } from './s2';
 
+/** The app is in the front (a poller reads nothing in the background); a state not known counts as the front. */
+export function inFront(appState: { currentState?: unknown } | null = AppState): boolean {
+  const st = appState?.currentState;
+  return typeof st !== 'string' || st === 'active' || st === 'unknown';
+}
+
 /** How long a poller rests while the bus is up: its safety net. */
 export const BUS_SAFETY_MS = 60_000;
 

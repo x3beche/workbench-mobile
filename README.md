@@ -51,6 +51,12 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/47-agent-llm.png" width="200" alt="Agent &amp; LLM: start, stop and the model">
 </p>
 <p>
+  <img src="docs/screenshots/90-drawer-claude-sessions.png" width="200" alt="Claude sessions in the drawer, with their live dot">
+  <img src="docs/screenshots/91-claude-session.png" width="200" alt="A Claude Code session: prompts with their pictures, what a tool read, a line from Workbench">
+  <img src="docs/screenshots/95-claude-queued.png" width="200" alt="A line with a picture, queued while Claude works">
+  <img src="docs/screenshots/98-claude-note.png" width="200" alt="Without wb-claude: why it cannot be written to">
+</p>
+<p>
   <img src="docs/screenshots/21-wide-chat.png" width="520" alt="On a wide screen the drawer is a column that stays open">
   <img src="docs/screenshots/34-wide-scrollbar.png" width="520" alt="The web build's thin scrollbars, as the web app draws them">
 </p>
@@ -165,6 +171,30 @@ Then you sign in with the same e-mail address and password as on the web.
   keeps crashing. Keys, agent tokens and sandboxes stay on the web (the
   sandboxes and their setup are the owner's and the admins' there). English
   and Turkish, as Account. A server without an Orchestrator has no row.
+- **Claude sessions** (from 1.6.0): one's own Claude Code runs from the
+  server's Claude pool, as the web app's Chat lists them (`wb-claude`,
+  redline-studio's docs/WB-CLAUDE.md). In the drawer under the rooms, the
+  ones wb-claude holds and the last day's: name, what Claude does now or the
+  session's status (active, idle, ended), the computer, when, and a live dot
+  on the terminal mark - green at the prompt, pulsing while Claude works,
+  amber while it waits for an answer on the computer
+  (`GET /api/wbc/sessions`). A session opens as a room does, at its newest
+  turn, ten at a time with the page before coming in at the top
+  (`GET /api/wbc/sessions/{sid}/turns?limit=10&before=`): the prompts as
+  bubbles - "from Workbench" on the ones sent from here - Claude's answers in
+  Markdown, the pictures pasted with a prompt as thumbnails and the
+  screenshots a tool read smaller under the answer ("read by a tool"); a tap
+  shows one whole. The pictures are read with the account's own session
+  (`/images/{req}/{n}`, `/messages/{id}/images/{n}`) and one no longer kept
+  says so. Where the session is one's own, wb-claude holds it and remote
+  input is on, the box writes to it (`POST .../messages`: words, and up to
+  four png, jpeg, gif or webp pictures of 5 MB from the photos or the
+  camera); the line shows "queued - Claude is working", "delivered" or "not
+  delivered" until the conversation has it. Otherwise the box is a note
+  saying why, and "update wb-claude" says when the computer's wb-claude is
+  old (it takes no pictures). The account's bus (`wbc`) says when to read
+  again; while a session is active it is also read every few seconds as a
+  safety net, never in the background. English and Turkish.
 - **Settings** (from 1.5.7; the account at the foot of the drawer opens it):
   the accounts (switch, add, sign one out), Agent & LLM, the app's
   **language** (Auto, English, Türkçe - apart from the voice language),
@@ -237,7 +267,7 @@ Then you sign in with the same e-mail address and password as on the web.
   older cannot do this: 1.5.0 is installed by hand once, and from then on
   each build published on the server is offered in the app.
 - **Back** (Android) closes a sheet, then the drawer, then a sub-agent's session
-  and the Orchestrator, then the room, then goes
+  and the Orchestrator, then the room or the Claude session, then goes
   back to the conversation open before, then leaves the app.
 
 The device keeps only the server list, the accounts (server, name, e-mail),
@@ -378,7 +408,7 @@ Chrome in Docker at 390 x 844, and 900 px wide for the side column, against
 the made-up server, which also runs tools and writes an answer slowly; with
 `TARGET=https://your.server` the server and sign-in screens are taken against
 that server, whose own wrong-password error is shown;
-`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48, `SHOTS=rooms` a room read a page at a time, 50-53, `SHOTS=accounts` 60-63 and `SHOTS=settings` Settings and Analytics, 70-79). The keyboard shot
+`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48, `SHOTS=rooms` a room read a page at a time, 50-53, `SHOTS=accounts` 60-63, `SHOTS=settings` Settings and Analytics, 70-80, and `SHOTS=claude` the Claude sessions, 90-99). The keyboard shot
 makes the window 336 px shorter, as a phone keyboard does, and checks the
 composer is still on screen. `SHOTS_DIR=/some/dir` writes them elsewhere. App icons are
 drawn by `scripts/make-icons.js` from the web app's section mark.
@@ -400,6 +430,7 @@ drawn by `scripts/make-icons.js` from the web app's section mark.
 | The app's own update | `GET /api/public/m/app.json` (`version`, `versionCode`, `size`, `sha256`, `url`; `notes` when the server gives them), `GET /api/public/m/app.apk`; no session needed |
 | The Orchestrator | `GET /api/me/orchestrator` (state, model, `halted`, `crash_loop`, providers with their models, `mcp_version`), `POST .../start`, `POST .../stop`, `PUT /api/me/llm/agent` `{provider_id, model}`, `GET .../tree`, `GET .../sessions/{sid}`, `GET .../events` (`text/event-stream`: `hello`, `message`, `part`, `delta`, `removed`, `status`, `session`, `error`, `lost`, `bye`) |
 | Analytics | `GET /api/llm/summary?days=14`, `GET /api/llm/usage?provider=all&days=30`, `GET /api/cc/tools-usage?span=week`, `GET /api/me/orchestrator/incidents`, `GET /api/pool`; owner and admins: `GET /api/admin/pool`, `GET /api/admin/sandboxes` |
+| Claude sessions | `GET /api/wbc/sessions`, `GET /api/wbc/sessions/{sid}` (`may_send`, `why`, `bridge`, `messages`), `GET .../turns?limit=&before=`, `POST .../messages` (JSON `{text}`, or multipart `text` + up to 4 `images`), `GET .../images/{req}/{n}`, `GET .../messages/{id}/images/{n}`; bus kind `wbc` `{sid, what}` |
 | MCP tools | `GET /api/mcp/tools` (`version`, `count`, `agents`, `groups` of tools with their parameters) |
 | Export | `POST /api/cc/chats/{id}/export` `{format: md\|pdf, lang}` (the file kept in Files), then `GET /api/files/{fileId}` |
 | Archive, pin, trash | `GET /api/cc/chats?archived=1` / `?trash=1`, `PATCH .../{id}` (`archived`, `pinned`), `POST .../{id}/restore`, `DELETE .../{id}?forever=1`, `POST /api/cc/chats/empty-trash` |
@@ -420,12 +451,15 @@ src/
   state/session.tsx     server -> sign-in -> app
   storage/prefs.ts      recent servers, last e-mail, voice language
   screens/              Server, Login, Workspace (drawer + conversation or Files), Chat,
-                        Files, FilePreview, Room, Orchestrator
+                        Files, FilePreview, Room, Orchestrator, ClaudeSession
   components/           Drawer, DrawerPanel, SwipeRow, Tabs, FileThumb, Markdown, MessageItem,
-                        Composer, RecordingBar, sheets and dialogs, icons (Lucide), controls
+                        Composer, RecordingBar, sheets and dialogs, icons (Lucide), controls,
+                        WbcPicture (a Claude session's pictures, read with the session, and the viewer)
   lib/                  the Orchestrator (orchestrator.ts: its tree, the live stream on a transcript,
                         its calls in words; orchStrings.ts: English and Turkish), Markdown parser, answer-stream reducer, day groups, tool steps, times,
-                        Files (what each side shows, rights), chat export, share (native / web)
+                        Files (what each side shows, rights), chat export, share (native / web),
+                        the Claude sessions (wbc.ts: words, turns by the page, sent lines, pictures;
+                        wbcStrings.ts: English and Turkish)
   update/               the in-app update: app.json read and compared (release.ts), the download,
                         its checksum and the installer (apk.ts; apk.web.ts shows versions only),
                         the hook Account and the drawer read (useUpdate.ts), English and Turkish

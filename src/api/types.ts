@@ -525,3 +525,100 @@ export interface ActivityNow {
     parts: { kind: 'orchestrator' | 'sandbox' | 'jobs'; name: string; cpu_pct: number | null; mem_mb: number }[];
   };
 }
+
+// ---- Claude sessions (backend/wbclaude.py: /api/wbc/*) -------------------------
+
+/** The wb-claude on the person's computer that holds a session: connected, and what Claude does there. */
+export interface WbcBridge {
+  id: string;
+  connected: boolean;
+  state: 'starting' | 'idle' | 'working' | 'waiting' | 'ended';
+  detail: string;
+  /** Remote messages are taken on that computer (`wb-claude --no-remote` refuses them). */
+  remote: boolean;
+  host: string;
+  platform: string;
+  version: string;
+  cwd: string;
+  queue: number;
+  seen: number | null;
+  started: number | null;
+  /** It takes pictures (wb-claude 0.2.0 on); a newer wb-claude is out. */
+  images?: boolean;
+  outdated?: boolean;
+}
+
+/** One of one's own Claude Code sessions from the Claude pool (GET /api/wbc/sessions). Times in seconds. */
+export interface WbcSession {
+  session_id: string;
+  name: string;
+  title: string;
+  status: 'active' | 'idle' | 'ended';
+  computer: string;
+  first_ts: number | null;
+  last_ts: number | null;
+  prompts: number | null;
+  requests: number | null;
+  known: boolean;
+  mine: boolean;
+  owner: { id: string | null; name: string };
+  bridge: WbcBridge | null;
+  /** Whether this account may write to it now; `why` not when it may not. */
+  may_send: boolean;
+  why: string;
+}
+
+/** A line written to a session from Workbench, and what became of it. */
+export interface WbcMessage {
+  id: string;
+  text: string;
+  by: { id?: string; name?: string };
+  status: 'queued' | 'waiting' | 'delivered' | 'refused' | 'failed' | 'expired';
+  detail: string;
+  error: string;
+  at: number | null;
+  updated: number | null;
+  delivered_at: number | null;
+  images?: { n: number; type: string; bytes: number }[];
+  images_gone?: boolean;
+}
+
+/** What pictures a message may carry: how many, how large, which types. */
+export interface WbcImageRules {
+  max: number;
+  bytes: number;
+  types: string[];
+}
+
+/** GET /api/wbc/sessions/{sid}: the session with its remote messages. */
+export interface WbcDetail extends WbcSession {
+  messages: WbcMessage[];
+  mark: string;
+  images?: WbcImageRules;
+}
+
+/** A picture of one of the gateway's requests: pasted or mentioned with a prompt, or read by a tool. */
+export interface WbcPic {
+  req: string;
+  n: number;
+  type: string;
+}
+
+/** A prompt or a final answer, as the pool recorded it. `at` in seconds. */
+export interface WbcTurn {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  at: number;
+  remote?: boolean;
+  model?: string;
+  cut?: boolean;
+  images?: WbcPic[];
+}
+
+/** GET /api/wbc/sessions/{sid}/turns: a page, newest last; `before` asks for the page above. */
+export interface WbcTurnsPage {
+  turns: WbcTurn[];
+  more: boolean;
+  before: number | null;
+}

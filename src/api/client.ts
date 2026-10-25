@@ -43,6 +43,10 @@ import type {
   User,
   VirtualFolder,
   VirtualTree,
+  WbcDetail,
+  WbcMessage,
+  WbcSession,
+  WbcTurnsPage,
 } from './types';
 
 export const CSRF_HEADER = 'x-redline-csrf';
@@ -625,6 +629,73 @@ export class WorkbenchClient {
   /** Who the live streams' tokens are kept under in memory: this account on this server. */
   get liveKey(): string {
     return `${this.base}|${this.deps.session ?? ''}`;
+  }
+
+  // ---- Claude sessions (backend/wbclaude.py) ---------------------------------
+
+  /** One's own Claude Code sessions from the Claude pool, connected ones first. */
+  async wbcSessions(): Promise<WbcSession[]> {
+    const got = await this.request<{ sessions?: WbcSession[] }>('GET', '/api/wbc/sessions');
+    return got?.sessions ?? [];
+  }
+
+  /** One session: who may write to it and why not, its wb-claude, the lines sent from Workbench. */
+  wbcSession(sid: string): Promise<WbcDetail> {
+    return this.request<WbcDetail>('GET', `/api/wbc/sessions/${encodeURIComponent(sid)}`);
+  }
+
+  /** Its turns, newest last: the newest `limit`, or those before `before` (the answer's own `before`). */
+  wbcTurns(sid: string, limit: number, before?: number | null): Promise<WbcTurnsPage> {
+    const back = before ? `&before=${encodeURIComponent(String(before))}` : '';
+    return this.request<WbcTurnsPage>('GET', `/api/wbc/sessions/${encodeURIComponent(sid)}/turns?limit=${limit}${back}`);
+  }
+
+  /**
+   * A line for the session, typed into its terminal when Claude is at its
+   * prompt: JSON `{text}`, or with pictures a form of `text` and `images`
+   * (the server checks each by its bytes: png, jpeg, gif or webp, 5 MB).
+   */
+  async wbcSend(sid: string, text: string, pictures: UploadPart[] = []): Promise<WbcMessage> {
+    const path = `/api/wbc/sessions/${encodeURIComponent(sid)}/messages`;
+    if (!pictures.length) return this.request<WbcMessage>('POST', path, { text });
+    const form = new FormData();
+    form.append('text', text);
+    for (const p of pictures) {
+      if ('blob' in p) form.append('images', p.blob, p.name);
+      // React Native's FormData takes a {uri, name, type} part for a file on disk.
+      else form.append('images', { uri: p.uri, name: p.name, type: p.type } as unknown as Blob);
+    }
+    const res = await this.send(
+      path,
+      { method: 'POST', body: form, headers: { Accept: 'application/json', [CSRF_HEADER]: '1' } },
+      UPLOAD_TIMEOUT_MS,
+    );
+    return this.read<WbcMessage>(res, path);
+  }
+
+  /** Where a turn's picture is (`req`, `n` from its `images`). */
+  wbcTurnImagePath(sid: string, req: string, n: number): string {
+    return `/api/wbc/sessions/${encodeURIComponent(sid)}/images/${encodeURIComponent(req)}/${n}`;
+  }
+
+  /** Where a picture sent with a message is. */
+  wbcMessageImagePath(sid: string, mid: string, n: number): string {
+    return `/api/wbc/sessions/${encodeURIComponent(sid)}/messages/${encodeURIComponent(mid)}/images/${n}`;
+  }
+
+  /**
+   * One of those pictures as a data: URI, read with this account's session
+   * (a browser's <img> could not send it); 'gone' when it is no longer kept
+   * (404), null when it could not be read now.
+   */
+  async wbcImage(path: string): Promise<string | 'gone' | null> {
+    const res = await this.send(path, { headers: { Accept: 'image/*' } }, UPLOAD_TIMEOUT_MS);
+    if (res.status === 404) return 'gone';
+    if (!res.ok) {
+      if (res.status === 401) this.deps.onUnauthorized?.();
+      return null;
+    }
+    return blobToDataUri(await res.blob());
   }
 
   // ---- files --------------------------------------------------------------

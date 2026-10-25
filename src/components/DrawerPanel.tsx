@@ -23,13 +23,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CHAT_TRASH_DAYS, type WorkbenchClient } from '../api/client';
 import { displayServer } from '../api/server';
-import type { Chat, ChatScope, Room, RoomId, User } from '../api/types';
+import type { Chat, ChatScope, Room, RoomId, User, WbcSession } from '../api/types';
 import { filterChats, groupChats, groupOf, rowTime } from '../lib/groups';
 import { ROOM_ICON, ROOM_LABEL, roomSnippet, unread as unreadOf } from '../lib/rooms';
 import { shortTime } from '../lib/time';
+import { isoOf, liveDot, shownSessions, stateWord } from '../lib/wbc';
+import type { WbcStrings } from '../lib/wbcStrings';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
 import { Avatar } from './Avatar';
-import { ChartColumn, ChevronRight, FolderOpen, Network, Search, SquarePen, X } from './icons';
+import { ChartColumn, ChevronRight, FolderOpen, Network, Search, SquarePen, SquareTerminal, X } from './icons';
+import { StateDot } from './StateDot';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
 import { Tabs } from './Tabs';
 import { Button, ErrorText, Glyph } from './ui';
@@ -73,6 +76,9 @@ export function DrawerPanel({
   analyticsOn = false,
   analyticsLabel = 'Analytics',
   accountOn = false,
+  wbc = null,
+  openWbc = null,
+  onWbc,
 }: {
   client: WorkbenchClient | null;
   server: string | null;
@@ -114,6 +120,11 @@ export function DrawerPanel({
   analyticsLabel?: string;
   /** Settings (the account at the foot opens it) is what is open. */
   accountOn?: boolean;
+  /** One's own Claude Code sessions (GET /api/wbc/sessions) and their words; null on a server without them. */
+  wbc?: { t: WbcStrings; rows: WbcSession[] } | null;
+  /** The Claude session open on screen, if any. */
+  openWbc?: string | null;
+  onWbc?: (sid: string) => void;
 }) {
   const [q, setQ] = useState('');
   const [found, setFound] = useState<{ q: string; scope: ChatScope; chats: Chat[] } | null>(null);
@@ -162,6 +173,8 @@ export function DrawerPanel({
   };
 
   const who = user?.name || user?.email || 'Local mode';
+  // The connected ones and the last day's, as on the web; a search narrows them.
+  const claude = useMemo(() => (wbc && onWbc ? shownSessions(wbc.rows, q, openWbc) : []), [wbc, onWbc, q, openWbc]);
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom', 'left']}>
@@ -262,6 +275,16 @@ export function DrawerPanel({
                     unread={unreadOf(r, roomsSeen?.[r.room])}
                     onPress={() => onRoom?.(r.room)}
                   />
+                ))}
+              </View>
+            ) : null}
+            {wbc && onWbc && claude.length ? (
+              <View testID="drawer-wbc">
+                <Text style={s.group}>
+                  {wbc.t.group} · {claude.length}
+                </Text>
+                {claude.map((x) => (
+                  <WbcRow key={x.session_id} s={x} t={wbc.t} on={x.session_id === openWbc} onPress={() => onWbc(x.session_id)} />
                 ))}
               </View>
             ) : null}
@@ -441,6 +464,51 @@ function OrchRow({ label, snip, on, onPress }: { label: string; snip: string; on
   );
 }
 
+/**
+ * One of one's Claude Code sessions: the terminal mark with its live dot
+ * while wb-claude holds it (green at the prompt, pulsing while Claude works,
+ * amber while it waits), its name and when it was last used, and what it
+ * does now - or its status - with the computer.
+ */
+function WbcRow({ s: x, t, on, onPress }: { s: WbcSession; t: WbcStrings; on: boolean; onPress: () => void }) {
+  const dot = liveDot(x.bridge);
+  const snip = [stateWord(x, t), x.computer].filter(Boolean).join(' · ');
+  return (
+    <Pressable
+      testID={`wbc-${x.session_id}`}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      accessibilityLabel={`${x.name}, ${snip}`}
+      style={s.room}
+    >
+      {({ pressed }) => (
+        <>
+          <View style={s.roomIco}>
+            <Glyph icon={SquareTerminal} size={20} color={pressed ? colors.inkDim : colors.ink} />
+            {dot ? (
+              <View style={s.wbcDot} testID={`wbc-dot-${x.session_id}`}>
+                <StateDot s={dot} size={8} />
+              </View>
+            ) : null}
+          </View>
+          <View style={s.roomText}>
+            <View style={s.roomTop}>
+              <Text style={[s.title, on && s.titleOn, pressed && s.dimText]} numberOfLines={1}>
+                {x.name}
+              </Text>
+              {x.last_ts ? <Text style={s.when}>{shortTime(isoOf(x.last_ts))}</Text> : null}
+            </View>
+            <Text style={s.snip} numberOfLines={1}>
+              {snip}
+            </Text>
+          </View>
+        </>
+      )}
+    </Pressable>
+  );
+}
+
 function Row({
   chat,
   on,
@@ -549,6 +617,15 @@ const s = StyleSheet.create({
     paddingVertical: space.sm + 2,
   },
   roomIco: { width: 20, paddingTop: 2, alignItems: 'center' },
+  // The live dot on the terminal mark's corner, ringed by the drawer's ground.
+  wbcDot: {
+    position: 'absolute',
+    right: -4,
+    bottom: -3,
+    padding: 2,
+    borderRadius: 6,
+    backgroundColor: colors.surface,
+  },
   roomText: { flex: 1, minWidth: 0, gap: 3 },
   roomTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   snip: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },

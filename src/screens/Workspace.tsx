@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { ApiError, CHAT_TRASH_DAYS, isMissingRoute, type VoiceLang } from '../api/client';
-import type { Chat, ChatScope, Ideas, OrchStatus, Room, RoomId } from '../api/types';
+import type { Chat, ChatScope, Ideas, OrchStatus, Room, RoomId, WbcSession } from '../api/types';
 import { AgentSheet } from '../components/AgentSheet';
 import { Appear } from '../components/Appear';
 import { Drawer } from '../components/Drawer';
@@ -40,6 +40,8 @@ import { tick } from '../lib/feel';
 import { orchStrings } from '../lib/orchStrings';
 import { settingsStrings } from '../lib/settingsStrings';
 import { knownRooms } from '../lib/rooms';
+import { wbcStrings } from '../lib/wbcStrings';
+import { inFront } from '../live/hub';
 import { useBus, useLive } from '../live/LiveContext';
 import { shareFile, sharePdf } from '../lib/share';
 import { useSession } from '../state/session';
@@ -52,6 +54,7 @@ import { ChatScreen, type Suggestion } from './ChatScreen';
 import { FilesScreen, type FilesHandle } from './FilesScreen';
 import { OrchestratorScreen, type OrchestratorHandle } from './OrchestratorScreen';
 import { AnalyticsScreen } from './AnalyticsScreen';
+import { ClaudeSessionScreen } from './ClaudeSessionScreen';
 import { RoomScreen } from './RoomScreen';
 import { SettingsScreen } from './SettingsScreen';
 
@@ -132,6 +135,9 @@ export function Workspace({
   const [orchSt, setOrchSt] = useState<OrchStatus | null>(null);
   const [agentSheet, setAgentSheet] = useState(false);
   const orchView = useRef<OrchestratorHandle>(null);
+  /** One's own Claude Code sessions (null until read, and on a server without them), and the one open on screen. */
+  const [wbcRows, setWbcRows] = useState<WbcSession[] | null>(null);
+  const [wbcOpen, setWbcOpen] = useState<string | null>(null);
   const [rooms, setRooms] = useState<Room[] | null>(null);
   const [roomsSeen, setRoomsSeen] = useState<Record<string, string>>({});
   const files = useRef<FilesHandle>(null);
@@ -146,6 +152,7 @@ export function Workspace({
   const ui = uiLang(lang);
   const ot = useMemo(() => orchStrings(ui), [ui]);
   const stt = useMemo(() => settingsStrings(ui), [ui]);
+  const wt = useMemo(() => wbcStrings(ui), [ui]);
   const updateNote =
     update.check.state === 'available'
       ? updateStrings(uiLang(lang)).drawer(update.check.release.version)
@@ -218,6 +225,19 @@ export function Workspace({
     loadOrch();
   }, [loadOrch]);
 
+  /** One's Claude sessions, for their group in the drawer: a server without them (older) has none. */
+  const loadWbc = useCallback((): Promise<void> => {
+    if (!client) return Promise.resolve();
+    return client.wbcSessions().then(
+      (got) => setWbcRows(got),
+      () => undefined,
+    );
+  }, [client]);
+
+  useEffect(() => {
+    loadWbc();
+  }, [loadWbc]);
+
   useEffect(() => {
     loadRooms();
     if (!keep) return;
@@ -243,6 +263,18 @@ export function Workspace({
     }, 30_000);
     return () => clearInterval(t);
   }, [loadRooms, loadOrch, pace]);
+  // A wb-claude that goes quiet tells nobody: the Claude sessions are read again now and then (in the front only).
+  const wbcPace = useMemo(() => hub?.pace(30_000) ?? null, [hub]);
+  const wbcKnown = wbcRows !== null;
+  useEffect(() => {
+    if (!wbcKnown) return;
+    const t = setInterval(() => {
+      if (!inFront()) return;
+      if (wbcPace && !wbcPace.due()) return;
+      loadWbc();
+    }, 10_000);
+    return () => clearInterval(t);
+  }, [loadWbc, wbcPace, wbcKnown]);
 
   /** A room was read: its badge is counted again from what is remembered here. */
   const roomSeen = useCallback(() => {
@@ -280,8 +312,12 @@ export function Workspace({
       fn();
     }, ms);
   }, []);
-  useBus(['line', 'orch', 'cc'], (e) => {
+  useBus(['line', 'orch', 'cc', 'wbc'], (e) => {
     if (e.k === '$down') return;
+    if (e.k === 'wbc' || e.k === '$open') {
+      wbcPace?.mark();
+      later('wbc', 150, loadWbc);
+    }
     if (e.k === 'line' || e.k === '$open') later('rooms', 120, loadRooms);
     if (e.k === 'orch' || e.k === '$open') later('orch', 120, loadOrch);
     if (e.k === 'cc' || e.k === '$open') {
@@ -343,6 +379,7 @@ export function Workspace({
     setPage('chat');
     setRoom(null);
     setOrch(false);
+    setWbcOpen(null);
     if (chat.id === openId) {
       setDrawer(false);
       return;
@@ -356,6 +393,17 @@ export function Workspace({
     setPage('chat');
     setRoom(which);
     setOrch(false);
+    setWbcOpen(null);
+    setDrawer(false);
+  };
+
+  /** A Claude session takes the screen as a room does; Back returns to the chat. */
+  const openWbc = (sid: string) => {
+    tick();
+    setPage('chat');
+    setRoom(null);
+    setOrch(false);
+    setWbcOpen(sid);
     setDrawer(false);
   };
 
@@ -365,6 +413,7 @@ export function Workspace({
     setPage('chat');
     setRoom(null);
     setOrch(true);
+    setWbcOpen(null);
     setDrawer(false);
   };
 
@@ -373,6 +422,7 @@ export function Workspace({
     setPage('chat');
     setRoom(null);
     setOrch(false);
+    setWbcOpen(null);
     if (!openId) {
       setDrawer(false);
       return;
@@ -387,6 +437,7 @@ export function Workspace({
     setPage(which);
     setRoom(null);
     setOrch(false);
+    setWbcOpen(null);
     setDrawer(false);
   };
 
@@ -405,6 +456,10 @@ export function Workspace({
         setRoom(null);
         return true;
       }
+      if (wbcOpen) {
+        setWbcOpen(null);
+        return true;
+      }
       if (page === 'files') {
         if (!files.current?.back()) setPage('chat');
         return true;
@@ -421,7 +476,7 @@ export function Workspace({
       return false;
     });
     return () => sub.remove();
-  }, [drawer, wide, show, page, room, orch]);
+  }, [drawer, wide, show, page, room, orch, wbcOpen]);
 
   const created = useCallback((chat: Chat) => {
     setOpenId(chat.id);
@@ -600,6 +655,9 @@ export function Workspace({
       orchestrator={orchSt ? { label: ot.orchestrator, snip: ot.drawerSnip } : null}
       orchOn={orch}
       onOrchestrator={openOrch}
+      wbc={wbcRows ? { t: wt, rows: wbcRows } : null}
+      openWbc={wbcOpen}
+      onWbc={openWbc}
     />
   );
 
@@ -617,6 +675,21 @@ export function Workspace({
               initial={orchSt}
               onStatus={setOrchSt}
               onMenu={() => setDrawer(true)}
+            />
+          </Appear>
+        ) : wbcOpen ? (
+          <Appear key={`wbc-${wbcOpen}`} duration={motion.fade}>
+            <ClaudeSessionScreen
+              sid={wbcOpen}
+              client={client}
+              user={user}
+              initial={wbcRows?.find((x) => x.session_id === wbcOpen) ?? null}
+              t={wt}
+              lang={lang}
+              voiceMode={voiceMode}
+              wide={wide}
+              onMenu={() => setDrawer(true)}
+              onClose={() => setWbcOpen(null)}
             />
           </Appear>
         ) : room ? (

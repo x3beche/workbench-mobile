@@ -82,6 +82,10 @@ const mockClient = {
   orchestrator: jest.fn(async () => {
     throw new Error('Not Found');
   }),
+  // The Claude sessions (1.6.0): none here, as from an older server - claude-session.test.tsx covers them.
+  wbcSessions: jest.fn(async () => {
+    throw new Error('Not Found');
+  }),
   getChat: jest.fn(async (id: string) => full(CHATS.find((c) => c.id === id) ?? listed(id, 'Gone', 1))),
   live: jest.fn(async () => undefined),
   createChat: jest.fn(async (provider?: string, model?: string) => {
