@@ -7,6 +7,7 @@
  * its i18n.ts, wherever it has the same line.
  */
 import type { UiLang } from '../update/strings';
+import type { RunWords } from './runStats';
 import { wbcStrings, type WbcStrings } from './wbcStrings';
 
 export interface WboStrings extends WbcStrings {
@@ -47,6 +48,8 @@ export interface WboStrings extends WbcStrings {
   noLonger: string;
   readingOlderMsgs: string;
   earlier: string;
+  /** The stats under an answer: its line and the card it opens (lib/runStats.ts). */
+  run: RunWords;
 }
 
 const wen = wbcStrings('en');
@@ -100,6 +103,32 @@ const en: WboStrings = {
   noLonger: 'no longer asked',
   readingOlderMsgs: 'Reading earlier messages',
   earlier: 'Show earlier',
+  run: {
+    details: 'Details',
+    sent: 'Sent',
+    firstToken: 'First token',
+    finished: 'Finished',
+    firstTokenIn: 'Time to first token',
+    speed: 'Average speed',
+    thinking: 'Thinking',
+    writing: 'Writing',
+    total: 'Total time',
+    tokensIn: 'Tokens in',
+    fromCache: 'From cache',
+    writtenToCache: 'Written to cache',
+    tokensOut: 'Tokens out',
+    thinkingTokens: 'Thinking tokens',
+    totalTokens: 'Total tokens',
+    contextUsed: 'Context used',
+    cost: 'Cost',
+    model: 'Model',
+    status: 'Status',
+    stopped: 'stopped',
+    interrupted: 'interrupted',
+    failed: 'failed',
+    done: 'finished',
+    restarted: 'The server restarted while it was being written.',
+  },
 };
 
 const tr: WboStrings = {
@@ -151,6 +180,33 @@ const tr: WboStrings = {
   noLonger: 'artık sorulmuyor',
   readingOlderMsgs: 'Önceki mesajlar okunuyor',
   earlier: 'Öncekileri göster',
+  // The web app's i18n.ts, in Turkish, for the stats under an answer.
+  run: {
+    details: 'Ayrıntılar',
+    sent: 'Gönderilen',
+    firstToken: 'İlk token',
+    finished: 'Bitti',
+    firstTokenIn: 'İlk tokene kadar geçen süre',
+    speed: 'Ortalama hız',
+    thinking: 'Düşünme',
+    writing: 'Yazma',
+    total: 'Toplam süre',
+    tokensIn: 'Giren token',
+    fromCache: 'Önbellekten',
+    writtenToCache: 'Önbelleğe yazılan',
+    tokensOut: 'Çıkan token',
+    thinkingTokens: 'Düşünme tokenleri',
+    totalTokens: 'Toplam token',
+    contextUsed: 'Kullanılan bağlam',
+    cost: 'Maliyet',
+    model: 'Model',
+    status: 'Durum',
+    stopped: 'durdu',
+    interrupted: 'yarıda kaldı',
+    failed: 'başarısız',
+    done: 'tamamlandı',
+    restarted: 'Yazılırken sunucu yeniden başladı.',
+  },
   // The server's refusals, as the web app's i18n.ts writes them in Turkish.
   server: {
     ...wtr.server,

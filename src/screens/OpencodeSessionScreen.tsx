@@ -30,6 +30,7 @@ import {
   Image,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -54,6 +55,8 @@ import { ErrorText, Glyph, IconButton, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
 import { AT_BOTTOM, followBottom } from '../lib/stickBottom';
 import { clock } from '../lib/time';
+import { money } from '../lib/numbers';
+import { statRows, statsLine } from '../lib/runStats';
 import { admit, IMAGE_RULES, isoOf, pictureType, serverWords, type Picked } from '../lib/wbc';
 import {
   applyWbo,
@@ -67,6 +70,7 @@ import {
   sendTone,
   sendWord,
   TURNS_PAGE,
+  turnStats as turnOf,
   updateWord,
   wboDot,
   wboWhy,
@@ -92,6 +96,9 @@ type Item =
   | { kind: 'ask'; a: WboAsk }
   | { kind: 'send'; m: WboSend }
   | { kind: 'cut' };
+
+/** OpenCode's answer as one row: the stats under it are its steps together. */
+type AnswerTurn = Extract<Turn, { kind: 'assistant' }>;
 
 export function OpencodeSessionScreen({
   sid,
@@ -139,6 +146,29 @@ export function OpencodeSessionScreen({
   const [picError, setPicError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [zoom, setZoom] = useState<string | null>(null);
+  /** The answer whose stats card is open (a tap on its line). */
+  const [stat, setStat] = useState<AnswerTurn | null>(null);
+  /** The windows the app's own models have: OpenCode can be pointed at the
+   *  gateway, and then "Context used" is a figure it can tell. A run through
+   *  someone else's provider has no such row at all. */
+  const [windows, setWindows] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!client) return;
+    let gone = false;
+    client.models('commandcode').then(
+      (rows) => {
+        if (gone) return;
+        const next: Record<string, number> = {};
+        for (const m of rows) if (m.context) next[m.id] = m.context;
+        setWindows(next);
+      },
+      () => undefined,
+    );
+    return () => {
+      gone = true;
+    };
+  }, [client]);
+  const windowOf = useCallback((model?: string | null) => (model ? (windows[model] ?? null) : null), [windows]);
   const [s2Live, setS2Live] = useState(false);
   const atBottom = useRef(true);
   const list = useRef<FlatList<Item>>(null);
@@ -416,6 +446,12 @@ export function OpencodeSessionScreen({
   // A question drawn from the tool's own call says why it is not answered here; any other, why one cannot write.
   const noteOf = (a: WboAsk) => (a.local ? localWhy(s, t) : why);
   const update = updateWord(s, t);
+  /** The header's word: the dot says it alone while OpenCode works - it is
+   *  the dot that pulses - and the word would say it twice (as the web). */
+  const head = s && s.status !== 'busy' ? wboWord(s, t) : '';
+  /** How it came: the line under a finished answer, and the card a tap opens. */
+  const statsOf = (tn: Turn) => (tn.kind === 'assistant' ? turnOf(tn, windowOf) : null);
+  const card = stat && statsOf(stat) ? statRows(statsOf(stat)!, t.run, money) : null;
 
   const renderItem = ({ item }: { item: Item }) => {
     if (item.kind === 'cut')
@@ -459,13 +495,7 @@ export function OpencodeSessionScreen({
       <View style={st.msgRow} testID="wbo-answer">
         <Text style={st.headText} numberOfLines={1}>
           <Text style={st.headName}>{modelName(tn.model ?? undefined) || t.opencode}</Text>
-          {tn.live ? (
-            <Text style={st.live}>{`  ${tn.writing ? t.writing : t.thinking}`}</Text>
-          ) : tn.ms ? (
-            ` · ${secs(tn.ms)}`
-          ) : (
-            ''
-          )}
+          {tn.live ? <Text style={st.live}>{`  ${tn.writing ? t.writing : t.thinking}`}</Text> : null}
           {tn.time ? `  ${clock(new Date(tn.time).toISOString())}` : ''}
         </Text>
         {tn.live && !tn.items.length ? <TypingDots /> : null}
@@ -492,6 +522,23 @@ export function OpencodeSessionScreen({
             </Text>
           ),
         )}
+        {/* How it came, as the web's Chat says it under its own answers: the
+            speed, what it wrote and how long - a tap opens the card. */}
+        {!tn.live && statsOf(tn) ? (
+          <Pressable
+            onPress={() => setStat(tn)}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.run.details}: ${statsLine(statsOf(tn)!, t.run)}`}
+            accessibilityHint={t.run.details}
+            hitSlop={10}
+            style={st.statsTap}
+            testID={`wbo-stats-${tn.id}`}
+          >
+            {({ pressed }) => (
+              <Text style={[st.statsText, pressed && st.statsPressed]}>{statsLine(statsOf(tn)!, t.run)}</Text>
+            )}
+          </Pressable>
+        ) : null}
       </View>
     );
   };
@@ -511,8 +558,8 @@ export function OpencodeSessionScreen({
           <View style={st.subRow}>
             {dot ? <StateDot s={dot} /> : null}
             <Text style={st.sub} numberOfLines={1} testID="wbo-state">
-              {s ? <Text style={st.state}>{wboWord(s, t)}</Text> : null}
-              {s ? ` · ${sub}` : sub}
+              {s && head ? <Text style={st.state}>{head}</Text> : null}
+              {s && head ? ` · ${sub}` : sub}
             </Text>
           </View>
         </View>
@@ -668,12 +715,23 @@ export function OpencodeSessionScreen({
       {zoom ? (
         <PictureViewer uri={zoom} label={t.showWhole} closeLabel={t.close} onClose={() => setZoom(null)} />
       ) : null}
+      {stat && card ? (
+        // The card under an answer, as the web's opens from it: what it spent, how long it took, the model.
+        <Sheet onClose={() => setStat(null)} title={t.run.details} testID="wbo-stats-sheet">
+          <ScrollView style={st.statList} contentContainerStyle={st.statListIn} indicatorStyle="white">
+            {card.map((r) => (
+              <View key={r.k} style={st.statRow}>
+                <Text style={st.statK}>{r.k}</Text>
+                <Text style={st.statV} selectable>
+                  {r.v}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        </Sheet>
+      ) : null}
     </SafeAreaView>
   );
-}
-
-function secs(ms: number): string {
-  return ms < 60_000 ? `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)} s` : `${Math.round(ms / 60_000)} min`;
 }
 
 function Pics({
@@ -845,7 +903,7 @@ const st = StyleSheet.create({
   updateText: { flexShrink: 1, fontFamily: fonts.sansSemi, fontSize: type.tiny, color: colors.warn },
   mono: { fontFamily: fonts.mono },
   column: { width: '100%', maxWidth: 780, alignSelf: 'center' },
-  pad: { paddingTop: space.xs, paddingBottom: space.md, flexGrow: 1 },
+  pad: { paddingTop: space.xl, paddingBottom: space.md, flexGrow: 1 },
   older: { alignItems: 'center', paddingVertical: space.md },
   cut: { textAlign: 'center', paddingVertical: space.md },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: space.xxl },
@@ -879,6 +937,15 @@ const st = StyleSheet.create({
   ok: { color: colors.ok },
   danger: { color: colors.danger },
   error: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 20, color: colors.danger },
+  // The line under an answer: how it came, a tap opening the card.
+  statsTap: { alignSelf: 'flex-start', marginTop: 2, paddingVertical: 2 },
+  statsText: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  statsPressed: { color: colors.ink },
+  statList: { maxHeight: 520 },
+  statListIn: { paddingHorizontal: gutter, paddingTop: space.xs, paddingBottom: space.sm },
+  statRow: { flexDirection: 'row', alignItems: 'baseline', gap: 12, paddingVertical: 6 },
+  statK: { flexShrink: 0, minWidth: 118, fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
+  statV: { flex: 1, fontFamily: fonts.sansMedium, fontSize: type.small, color: colors.ink, textAlign: 'right' },
   picsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' },
   right: { textAlign: 'right' },
   msg: { paddingHorizontal: gutter, paddingVertical: space.xs },

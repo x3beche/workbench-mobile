@@ -10,6 +10,7 @@
  */
 import type { Step, WboAsk, WboDetail, WboField, WboMsg, WboPart, WboSend, WboSession } from '../api/types';
 import { deltaPast, type Dot } from './orchestrator';
+import type { RunStats } from './runStats';
 import type { WboStrings } from './wboStrings';
 
 /** Messages kept while one is followed live (the server sends at most 120). */
@@ -32,6 +33,18 @@ export function wboDot(s: Pick<WboSession, 'status' | 'bridge'> | null | undefin
   if (s.status === 'waiting' || s.status === 'retry') return 'retry';
   if (s.status === 'busy') return 'running';
   return 'idle';
+}
+
+/** What a row says under its name: what it needs from the person, and nothing
+ *  at all while it is working or only ready - the dot says both, and it is the
+ *  dot that pulses while a run is under way (the web's wboLine). Left out with
+ *  a session whose wb-opencode is gone for the same reason: 41 names with "not
+ *  connected" under every one of them is a list nobody reads. */
+export function wboLine(s: Pick<WboSession, 'status' | 'bridge'> | null, t: WboStrings): string | null {
+  if (!s?.bridge?.connected) return null;
+  if (s.status === 'waiting') return t.waitingAnswer;
+  if (s.status === 'retry') return t.retrying;
+  return null;
 }
 
 /** A folded group's one dot: working before waiting before ready. */
@@ -81,7 +94,11 @@ export type Turn =
       writing: boolean;
       time: number | null;
       model: string | null;
-      ms?: number;
+      /** The model's provider, as OpenCode names it ("workbench", "opencode"...). */
+      provider: string | null;
+      /** Its own messages: one turn may be several of OpenCode's steps, and
+       *  the stats under it are all of them together. */
+      steps: WboMsg[];
     };
 
 /** An OpenCode tool call as the Chat's own step row: "bash · npm test", what it gave back when opened. */
@@ -126,13 +143,16 @@ export function buildTurns(msgs: WboMsg[], asks: WboAsk[] = []): Turn[] {
         writing: false,
         time: m.time,
         model: m.model ?? null,
+        provider: m.provider ?? null,
+        steps: [],
       };
       out.push(tn);
     }
     tn.model = m.model ?? tn.model;
+    tn.provider = m.provider ?? tn.provider;
+    tn.steps.push(m);
     tn.live = !m.done;
     tn.writing = false;
-    if (m.done && tn.time) tn.ms = m.done - tn.time;
     m.parts.forEach((p, i) => {
       const lastPart = !m.done && i === m.parts.length - 1;
       const key = m.id + p.id;
@@ -278,6 +298,87 @@ export function lastModel(msgs: WboMsg[]): string | null {
   return null;
 }
 
+// ---- how the run came: the line under it, and the card it opens ------------------
+
+/** When a message's first token came: the earliest piece of it that began, for
+ *  one kept before its events had the time (an answer from before this was
+ *  kept gets it from its pieces, or not at all). */
+function firstPiece(m: WboMsg): number | null {
+  const began = m.parts
+    .filter((p) => p.type === 'text' || p.type === 'reasoning')
+    .map((p) => p.start)
+    .filter((x): x is number => !!x);
+  return began.length ? Math.min(...began) : null;
+}
+
+/** How long a message's thinking took: each piece of it from its own start to
+ *  the next piece's, or to the message's end. */
+function thinkMs(m: WboMsg): number {
+  let n = 0;
+  m.parts.forEach((p, i) => {
+    if (p.type !== 'reasoning' || !p.start) return;
+    const from = p.start;
+    const next = m.parts.slice(i + 1).find((q) => q.start && q.start > from)?.start ?? m.done ?? null;
+    if (next) n += Math.max(0, next - from);
+  });
+  return n;
+}
+
+/** The provider as a person reads it: OpenCode's own ids, the app's gateway
+ *  among them ("workbench", backend/llm_gateway.py), and the id itself when it
+ *  is one nobody here named (the web's PROV_NAME). */
+const PROV_NAME = new Map([
+  ['commandcode', 'Command Code'],
+  ['openrouter', 'OpenRouter'],
+  ['claude', 'Claude API'],
+  ['opencode-go', 'OpenCode Go'],
+  ['workbench', 'Workbench'],
+]);
+
+export function provName(p?: string | null): string | null {
+  return p ? (PROV_NAME.get(p) ?? p) : null;
+}
+
+/**
+ * The turn's stats: its steps together - what went in and out of all of them,
+ * its first token and its end - and the window as it stood at the end, which
+ * is the last step's. A turn is several of OpenCode's model calls (a step
+ * each) and reads as one answer, so it is counted as one.
+ */
+export function turnStats(
+  tn: Extract<Turn, { kind: 'assistant' }>,
+  window: (model?: string | null) => number | null = () => null,
+): RunStats | null {
+  const steps = tn.steps ?? [];
+  const sent = steps.map((m) => m.time).filter((x): x is number => !!x);
+  const dones = steps.map((m) => m.done).filter((x): x is number => !!x);
+  if (!sent.length || !dones.length) return null;
+  const sum = (f: (m: WboMsg) => number | null | undefined) => steps.reduce((n, m) => n + (f(m) ?? 0), 0);
+  const firsts = steps.map((m) => m.first ?? firstPiece(m)).filter((x): x is number => !!x);
+  const last = steps[steps.length - 1];
+  const read = sum((m) => m.tok?.[2]) || null;
+  const into = sum((m) => m.tok?.[0]);
+  // Where the window stood when the run ended: the last step's prompt, not the steps added up.
+  const held = (last.tok?.[0] ?? 0) + (last.tok?.[2] ?? 0);
+  return {
+    sent: Math.min(...sent),
+    first: firsts.length ? Math.min(...firsts) : null,
+    done: Math.max(...dones),
+    out: sum((m) => m.tok?.[1]) || null,
+    input: into + (read ?? 0) || null,
+    cacheRead: read,
+    cacheWrite: sum((m) => m.tok?.[3]) || null,
+    thinkingChars:
+      sum((m) => m.parts.filter((p) => p.type === 'reasoning').reduce((n, p) => n + (p.text?.length ?? 0), 0)) || null,
+    thinkingMs: steps.reduce((n, m) => n + thinkMs(m), 0) || null,
+    context: window(last.model ?? tn.model),
+    contextTokens: held || null,
+    model: last.model ?? tn.model ?? null,
+    provider: provName(last.provider ?? tn.provider),
+    error: [...steps].reverse().find((m) => m.error)?.error ?? null,
+  };
+}
+
 // ---- live: the account's S2 stream `wbo` ----------------------------------------
 
 /** A record of the stream `wbo` (backend/wbopencode.py Book.told). */
@@ -289,7 +390,11 @@ export interface WboEvent {
   role?: 'user' | 'assistant';
   agent?: string | null;
   model?: string | null;
+  provider?: string | null;
   time?: number | null;
+  /** When its first token came, and what it spent by the end of the step. */
+  first?: number | null;
+  tok?: [number, number, number, number] | null;
   done?: number | null;
   error?: string;
   part?: WboPart | string;
@@ -342,8 +447,11 @@ export function applyWbo(
       role: e.role ?? 'assistant',
       agent: e.agent ?? null,
       model: e.model ?? null,
+      provider: e.provider ?? null,
       time: e.time ?? Date.now(),
+      first: e.first ?? null,
       done: null,
+      tok: e.tok ?? null,
       parts: [],
     });
     i = next.length - 1;
@@ -357,8 +465,11 @@ export function applyWbo(
     m.role = e.role ?? m.role;
     m.agent = e.agent ?? m.agent;
     m.model = e.model ?? m.model;
+    m.provider = e.provider ?? m.provider;
     m.time = e.time ?? m.time;
+    m.first = e.first ?? m.first;
     m.done = e.done ?? null;
+    if (e.tok) m.tok = e.tok; // what it spent: the stats line's, once it has ended
     if (e.error) m.error = e.error;
   } else if (e.type === 'part') {
     const pid = e.id;

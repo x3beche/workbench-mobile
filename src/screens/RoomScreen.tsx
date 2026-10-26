@@ -336,7 +336,8 @@ const st = StyleSheet.create({
   mid: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   title: { flexShrink: 1, fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.inkBright },
   column: { width: '100%', maxWidth: 780, alignSelf: 'center' },
-  pad: { paddingTop: space.xs, paddingBottom: space.md, flexGrow: 1 },
+  // Upside down, the top is the bottom: the air under the newest line, before the composer.
+  pad: { paddingTop: space.xl, paddingBottom: space.md, flexGrow: 1 },
   intro: { paddingHorizontal: gutter, paddingTop: space.xs, paddingBottom: space.sm },
   older: { paddingVertical: space.md },
   introText: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },

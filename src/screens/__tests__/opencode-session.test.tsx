@@ -171,6 +171,8 @@ function fakeClient(d: WboDetail) {
     })),
     wboMessageImagePath: (s: string, m: string, n: number) => `/api/wbo/sessions/${s}/messages/${m}/images/${n}`,
     s2Streams: jest.fn(async () => true),
+    // The app's own models, for the window a run's model has (no Context row here).
+    models: jest.fn(async () => []),
   };
 }
 
@@ -196,6 +198,50 @@ async function show(d: WboDetail, t = en) {
     expect(screen.getAllByText('deepseek-v4').length).toBeGreaterThan(0);
     expect(screen.getByText('On the computer')).toBeTruthy();
     expect(screen.getByTestId('wbo-composer')).toBeTruthy();
+  });
+
+  it('says how an answer came under it, and opens its card from a tap', async () => {
+    await show(
+      detail({
+        asks: [],
+        messages: [
+          {
+            id: 'msg_u1',
+            role: 'user',
+            time: NOW - 60_000,
+            done: NOW - 60_000,
+            parts: [{ id: 't0', type: 'text', text: 'Why does the rail sag?' }],
+          },
+          {
+            id: 'msg_a1',
+            role: 'assistant',
+            model: 'deepseek/deepseek-v4',
+            provider: 'workbench',
+            time: NOW - 58_000,
+            first: NOW - 54_000,
+            done: NOW - 46_000,
+            tok: [1200, 160, 800, 0],
+            parts: [{ id: 't0', type: 'text', text: 'The **LDO** drops out.' }],
+          },
+        ],
+      }),
+    );
+    // 160 tokens over the 8 s it wrote, 12 s from the line to its end.
+    expect(screen.getByText('20 tok/s · 160 tok · 12.0 s')).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('wbo-stats-msg_a1'));
+    });
+    expect(screen.getByText('Time to first token')).toBeTruthy();
+    expect(screen.getByText('20 tok/s')).toBeTruthy(); // the card's own speed row
+    expect(screen.getByText('2,000')).toBeTruthy(); // its prompt, the cache read inside it
+    expect(screen.getByText('800 · 40%')).toBeTruthy();
+    expect(screen.getByText('deepseek/deepseek-v4 · Workbench')).toBeTruthy();
+  });
+
+  it('leaves the word out while OpenCode works - the dot says it', async () => {
+    await show(detail({ status: 'busy' }));
+    expect(screen.getByTestId('wbo-state')).not.toHaveTextContent('working');
+    expect(screen.getByTestId('wbo-state')).toHaveTextContent(/OpenCode · ada-laptop/);
   });
 
   it('answers what OpenCode asks from the phone', async () => {
@@ -355,6 +401,21 @@ async function show(d: WboDetail, t = en) {
     expect(screen.getByTestId('wbo-dot-ses_row00000')).toBeTruthy();
     await fireEvent.press(screen.getByText('Show 2 more'));
     expect(screen.getByText('Run 6')).toBeTruthy();
+  });
+
+  it('says under a row only what it needs from the person', async () => {
+    await render(
+      draw(SIDE_EMPTY, {
+        wbo: {
+          t: en,
+          rows: [row({ status: 'busy' }), row({ session_id: 'ses_wait11111', name: 'Wait', status: 'waiting' })],
+        },
+      }),
+    );
+    // Working is the dot's own news, and the row keeps the computer under it.
+    expect(screen.queryByText('working · ada-laptop')).toBeNull();
+    expect(screen.getByText('ada-laptop')).toBeTruthy(); // the busy one keeps the computer alone
+    expect(screen.getByText('waiting for your answer · ada-laptop')).toBeTruthy();
   });
 
   it('folds by the header, keeping the pinned in sight, as the person chose', async () => {

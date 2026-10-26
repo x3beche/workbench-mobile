@@ -41,7 +41,7 @@ import { shortTime } from '../lib/time';
 import { isOpen, isPinned, SIDE_EMPTY } from '../lib/side';
 import { isoOf, liveDot, shownSessions, stateWord } from '../lib/wbc';
 import type { WbcStrings } from '../lib/wbcStrings';
-import { shownWbo, wboDot, wboWord } from '../lib/wbo';
+import { shownWbo, wboDot, wboLine } from '../lib/wbo';
 import type { WboStrings } from '../lib/wboStrings';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
 import { Avatar } from './Avatar';
@@ -234,7 +234,7 @@ export function DrawerPanel({
     return shownWbo(wbo.rows, q, openWbo, (id) => isPinned(side, 'opencode', id)).map((x) => ({
       id: x.session_id,
       name: x.name,
-      snip: [wboWord(x, wbo.t), x.computer].filter(Boolean).join(' · '),
+      snip: [wboLine(x, wbo.t), x.computer].filter(Boolean).join(' · '),
       when: x.updated ? shortTime(new Date(x.updated).toISOString()) : '',
       dot: wboDot(x),
       live: !!x.bridge?.connected,

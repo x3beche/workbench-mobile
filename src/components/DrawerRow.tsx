@@ -3,7 +3,8 @@
  * OpenCode session (the web's .tcv-cc-item): its title (a pin before it when
  * pinned) with the time at the right; for a session its kind's small icon
  * before the title, the live dot on it, and one line under it - what it does
- * and the computer. Open, the title is heavier and brighter; pressed, it dims.
+ * and the computer. Open, the title is white - the same weight as the rest, a
+ * step gray - and pressed, it dims.
  */
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -96,6 +97,11 @@ export function DrawerRow({
 const dotId = (id: string) => id.replace(/^([^-]+)-/, '$1-dot-');
 const pinId = (id: string) => id.replace(/^([^-]+)-/, '$1-pin-');
 
+/** A title at rest is a step grayer than the panel's ink - as much over the
+ *  surface as the web's mix of its ink with the dim one - while the open row's
+ *  is white and whole. */
+const TITLE_REST = 0.86;
+
 const s = StyleSheet.create({
   row: {
     backgroundColor: colors.surface,
@@ -118,8 +124,10 @@ const s = StyleSheet.create({
   },
   text: { flex: 1, minWidth: 0, gap: 2 },
   top: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  title: { flex: 1, fontFamily: fonts.sans, fontSize: 15, color: colors.ink },
-  titleOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
+  // The open one is told by its ink alone - white against titles a step grayer,
+  // no heavier face to make the eye hunt for bold (the web's .tcv-cc-item).
+  title: { flex: 1, fontFamily: fonts.sans, fontSize: 15, color: colors.ink, opacity: TITLE_REST },
+  titleOn: { color: colors.inkBright, opacity: 1 },
   dim: { color: colors.inkDim },
   when: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   sub: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },

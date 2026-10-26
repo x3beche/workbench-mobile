@@ -23,8 +23,10 @@ import {
   toolAnswers,
   toolAsk,
   toStep,
+  turnStats,
   updateWord,
   wboDot,
+  wboLine,
   wboWhy,
   wboWord,
 } from '../wbo';
@@ -120,6 +122,18 @@ describe('words and dots', () => {
     expect(groupDot([null, 'idle', 'retry'])).toBe('retry');
     expect(groupDot(['idle', 'running'])).toBe('running');
     expect(groupDot([null])).toBeNull();
+  });
+
+  it('says under a row only what it needs from the person', () => {
+    // Working and only-ready are told by the dot alone - it is the dot that pulses.
+    expect(wboLine(session({ status: 'busy' }), en)).toBeNull();
+    expect(wboLine(session(), en)).toBeNull();
+    expect(wboLine(session({ status: 'waiting' }), en)).toBe('waiting for your answer');
+    expect(wboLine(session({ status: 'retry' }), tr)).toBe('yeniden deniyor');
+    // A session whose wb-opencode is gone says nothing at all: 41 of them saying
+    // "not connected" is a list nobody reads.
+    expect(wboLine(session({ bridge: null }), en)).toBeNull();
+    expect(wboLine(null, en)).toBeNull();
   });
 
   it('says why one cannot write, in the web words', () => {
@@ -450,5 +464,75 @@ describe('what OpenCode asks', () => {
       "wb-opencode'u güncelleyin 0.1.0 → 0.2.0",
     );
     expect(updateWord(session(), en)).toBeNull();
+  });
+});
+
+describe('how the run came', () => {
+  /** The stats of the answer in these messages, the window said as the app's catalog would. */
+  const came = (msgs: WboMsg[]) => {
+    const tn = buildTurns(msgs, []).find((t) => t.kind === 'assistant');
+    if (!tn || tn.kind !== 'assistant') throw new Error('no answer in these messages');
+    return turnStats(tn, (model) => (model === 'deepseek/deepseek-v4' ? 200_000 : null));
+  };
+  const step = (id: string, over: Partial<WboMsg> = {}) => msg(id, 'assistant', over);
+
+  it('counts a turn as one answer: its steps together', () => {
+    const st = came([
+      msg('u1', 'user', { time: 500 }),
+      step('m1', {
+        model: 'deepseek/deepseek-v4',
+        provider: 'workbench',
+        time: 1000,
+        first: 1400,
+        done: 3000,
+        tok: [100, 50, 20, 0],
+        parts: [
+          { id: 'r0', type: 'reasoning', text: 'Look at U3.', start: 1000 },
+          { id: 't0', type: 'text', text: 'It drops out.' },
+        ],
+      }),
+      step('m2', {
+        model: 'deepseek/deepseek-v4',
+        provider: 'workbench',
+        time: 3200,
+        first: 3400,
+        done: 5000,
+        tok: [300, 120, 280, 10],
+        parts: [{ id: 't0', type: 'text', text: 'Bulk capacitance.' }],
+      }),
+    ])!;
+    expect(st.sent).toBe(1000);
+    expect(st.first).toBe(1400);
+    expect(st.done).toBe(5000);
+    expect(st.out).toBe(170); // 50 + 120: the thinking is inside the output
+    expect(st.input).toBe(700); // 100 + 20 read, 300 + 280 read
+    expect(st.cacheRead).toBe(300);
+    expect(st.cacheWrite).toBe(10);
+    expect(st.context).toBe(200_000); // the window the model has, from the catalog
+    expect(st.contextTokens).toBe(580); // where it stood at the end: the last step's prompt
+    expect(st.model).toBe('deepseek/deepseek-v4');
+    expect(st.provider).toBe('Workbench');
+    expect(st.thinkingChars).toBe('Look at U3.'.length);
+    expect(st.thinkingMs).toBe(2000); // its piece's start to the step's end
+  });
+
+  it('reads a first token kept only as its pieces, and has nothing for a run still going', () => {
+    const kept = came([
+      step('m1', {
+        time: 1000,
+        first: null,
+        done: 4000,
+        tok: [10, 20, 0, 0],
+        parts: [
+          { id: 'r0', type: 'reasoning', text: 'hm', start: 1500 },
+          { id: 't0', type: 'text', text: 'x' },
+        ],
+      }),
+    ])!;
+    expect(kept.first).toBe(1500);
+    // Still being written: no end to count to.
+    expect(came([step('m2', { time: 1000, done: null })])).toBeNull();
+    // A provider this app does not name is its own id; the named one reads as a person says it.
+    expect(came([step('m3', { time: 1, first: 2, done: 3, provider: 'opencode-go' })])!.provider).toBe('OpenCode Go');
   });
 });

@@ -730,8 +730,14 @@ export interface WboMsg {
   role: 'user' | 'assistant';
   agent?: string | null;
   model?: string | null;
+  /** The model's provider as OpenCode names it ("workbench", "opencode"...). */
+  provider?: string | null;
   time: number | null;
+  /** When its first token (thinking or text) came. */
+  first?: number | null;
   done: number | null;
+  /** What it spent: input, output (thinking included), cache read, cache write. */
+  tok?: [number, number, number, number] | null;
   parts: WboPart[];
   error?: string;
 }

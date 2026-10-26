@@ -750,7 +750,8 @@ const st = StyleSheet.create({
     color: colors.inkDim,
   },
   column: { width: '100%', maxWidth: 780, alignSelf: 'center' },
-  pad: { paddingTop: space.xs, paddingBottom: space.md, flexGrow: 1 },
+  // Upside down, the top is the bottom: the air under the newest line, before the composer.
+  pad: { paddingTop: space.xl, paddingBottom: space.md, flexGrow: 1 },
   older: { paddingVertical: space.md },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: space.xxl },
   empty: { paddingHorizontal: gutter, paddingVertical: space.xxl, gap: 8, alignItems: 'center' },

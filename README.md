@@ -219,16 +219,24 @@ Then you sign in with the same e-mail address and password as on the web.
   away. English and Turkish.
 - **OpenCode sessions** (from 1.6.1): one's own OpenCode runs under
   `wb-opencode` (redline-studio's docs/WB-OPENCODE.md), a group of the
-  drawer under Claude sessions: name, what OpenCode does (ready, working,
-  waiting for your answer, not connected), the computer, when, and the live
+  drawer under Claude sessions: name, what it needs from the person
+  ("waiting for your answer", "retrying"), the computer, when, and the live
   dot - green ready, pulsing while it works, amber while it waits for an
-  answer (`GET /api/wbo/sessions`). A session opens in the app's own
+  answer (`GET /api/wbo/sessions`); working and only-ready are the dot's own
+  news, so the row says nothing there (from 1.6.5). A session opens in the app's own
   conversation look, at its newest message, older turns ten at a time as the
   reader nears the top: the person's lines as bubbles ("from Workbench" with
   their pictures on the ones sent from here, "On the computer" on the
   others), OpenCode's answer under the model's name with its thinking in the
   Chat's folded block, its words in Markdown and its tool calls as the
-  Chat's step rows (`GET /api/wbo/sessions/{sid}`). Live through the
+  Chat's step rows (`GET /api/wbo/sessions/{sid}`). Under a finished answer
+  the line it came by - the speed, the tokens, how long ("20 tok/s · 160 tok
+  · 12.0 s") - and a tap opens the card that reads it in full: when it was
+  sent, its first token and its end, the time to that token, the thinking
+  and the writing, the tokens in and out, what came from the cache, the
+  context used against the model's window, the cost, the model and what
+  became of it - the rows it has nothing to say for left out, as the web
+  says it (`lib/runStats.ts`; from 1.6.5). Live through the
   account's S2 stream `wbo` (text deltas laid on by their place, `o`); the
   session is read again every two seconds while it works when the stream is
   not there, and the bus (`wbo`) says when a line or the run changed. The
@@ -586,7 +594,8 @@ The theme is the web app's Spartan Dark token for token
 (`src/theme/tokens.ts`, from redline-studio's `frontend/src/styles.css`), set
 in IBM Plex Sans and Plex Mono like the web app. Type: titles 17-20, body 16,
 meta 12-13. Flat surfaces with 1 px hairlines; a chosen option or the open
-conversation is shown by weight and ink, not a fill; no coloured stripes, no
+conversation is shown by ink, not a fill - the open row white, the ones beside
+it a step grayer, at the same weight; no coloured stripes, no
 emoji; recording is a small red dot and a timer. Scrollbars on the web
 build are the web app's (thin, a faint rounded thumb on no track, brighter
 under the pointer); phones keep their own overlay indicator, white on iOS. Icons are Lucide line icons
@@ -607,7 +616,8 @@ reduced-motion setting on, none of it moves (`components/Appear.tsx`,
 A thread - a conversation, a room, a Claude Code or OpenCode session, the
 Orchestrator's - opens at its newest line and stays there while the reader is
 there: a line arriving, or an answer being written, brings the list back down
-(`lib/stickBottom.ts`). Read further up, and nothing moves: the page is left
+(`lib/stickBottom.ts`), and 24 px of air sits under that line, before the
+box. Read further up, and nothing moves: the page is left
 exactly where it was, and "New messages" offers the way down.
 
 ### Keyboard
