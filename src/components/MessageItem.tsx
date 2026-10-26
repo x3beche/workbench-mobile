@@ -3,12 +3,18 @@
  * right; answers run the full width without one, under the model's name,
  * with the tools they ran as compact rows where they ran. A long press opens
  * the line's actions (Copy, Select text).
+ *
+ * How much of an answer's work is shown is the Chat's detail (Settings >
+ * Chat; lib/chatDetail.ts): compact puts the thinking and the tool calls
+ * behind one line under an answer, normal folds the thinking and gives each
+ * tool call its row, and detailed opens both.
  */
 import { memo, useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { ChatMessage, Step } from '../api/types';
+import type { ChatDetail, ChatMessage, Step } from '../api/types';
 import type { Writing } from '../lib/answer';
+import { activityWords, chatDetailStrings, type ChatDetailStrings } from '../lib/chatDetail';
 import { useSmoothText } from '../lib/drain';
 import { chunks, stepDetail, stepLabel, stepState } from '../lib/steps';
 import { clock } from '../lib/time';
@@ -28,9 +34,23 @@ export function modelName(id: string | undefined): string {
 /** More steps than this in one place fold into a "Ran N tools" row. */
 const FOLD_STEPS = 3;
 
-/** The answer's thinking, folded; `words` for another language (OpenCode sessions). */
-export function Thinking({ text, live, words }: { text: string; live?: boolean; words?: { live: string; done: string } }) {
-  const [open, setOpen] = useState(false);
+/** The answer's thinking, folded; `words` for another language (OpenCode
+ *  sessions), and `open` for a Chat set to detailed (Settings > Chat). */
+export function Thinking({
+  text,
+  live,
+  words,
+  open: startOpen,
+}: {
+  text: string;
+  live?: boolean;
+  words?: { live: string; done: string };
+  open?: boolean;
+}) {
+  // `open` is where the row starts: a Chat set to detailed opens it, and a tap
+  // from there closes it again - the callers key the row by the setting, so a
+  // change of the setting draws it the new way.
+  const [open, setOpen] = useState(!!startOpen);
   if (!text.trim()) return null;
   return (
     <Pressable
@@ -54,8 +74,10 @@ export function Thinking({ text, live, words }: { text: string; live?: boolean; 
   );
 }
 
-function StepRow({ step }: { step: Step }) {
-  const [open, setOpen] = useState(false);
+/** One tool call: its sentence, and what it gave back when opened (always
+ *  open in a Chat set to detailed). */
+function StepRow({ step, open: startOpen }: { step: Step; open?: boolean }) {
+  const [open, setOpen] = useState(!!startOpen);
   const state = stepState(step);
   const detail = stepDetail(step);
   const mark =
@@ -89,15 +111,26 @@ function StepRow({ step }: { step: Step }) {
   );
 }
 
-/** The tools that ran in one place, folded into one row when there are many; `ran` says it in another language. */
-export function Steps({ steps, ran }: { steps: Step[]; ran?: (n: number, failed: number) => string }) {
+/** The tools that ran in one place, folded into one row when there are many;
+ *  `ran` says it in another language, and `detail` opens each row's body
+ *  (and keeps them apart) for a Chat set to detailed. */
+export function Steps({
+  steps,
+  ran,
+  detail = 'normal',
+}: {
+  steps: Step[];
+  ran?: (n: number, failed: number) => string;
+  detail?: ChatDetail;
+}) {
+  const openAll = detail === 'detailed';
   const running = steps.some((x) => stepState(x) === 'running');
   const [open, setOpen] = useState(false);
-  if (steps.length <= FOLD_STEPS || running || open) {
+  if (steps.length <= FOLD_STEPS || running || open || openAll) {
     return (
       <View style={s.steps}>
         {steps.map((x) => (
-          <StepRow key={x.id} step={x} />
+          <StepRow key={`${x.id}:${openAll ? 'open' : 'folded'}`} step={x} open={openAll} />
         ))}
       </View>
     );
@@ -124,12 +157,58 @@ export function Steps({ steps, ran }: { steps: Step[]; ran?: (n: number, failed:
 }
 
 /** The answer's text with its tools where they ran. */
-function Body({ text, steps }: { text: string; steps?: Step[] }) {
+function Body({ text, steps, detail }: { text: string; steps?: Step[]; detail?: ChatDetail }) {
   return (
     <>
       {chunks(text, steps).map((c, i) =>
-        c.kind === 'text' ? <Markdown key={`t${i}`} text={c.text} /> : <Steps key={`s${i}`} steps={c.steps} />,
+        c.kind === 'text' ? (
+          <Markdown key={`t${i}`} text={c.text} />
+        ) : (
+          <Steps key={`s${i}:${detail}`} steps={c.steps} detail={detail} />
+        ),
       )}
+    </>
+  );
+}
+
+/**
+ * Everything an answer did - the thinking and the tool rows - behind one line
+ * under the answer, opened by a tap (Settings > Chat: compact). The line says
+ * what it was: "4 tool calls · thought 8.9 s".
+ */
+export function CompactWork({
+  tools,
+  thinking,
+  ms,
+  dw,
+  children,
+}: {
+  tools: number;
+  /** The characters of thinking, for the line when how long it took is not known. */
+  thinking: number;
+  ms?: number | null;
+  dw: ChatDetailStrings;
+  /** What it was, drawn when the line is opened. */
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Pressable
+        onPress={() => setOpen((v) => !v)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        style={s.step}
+        testID="compact-work"
+      >
+        <View style={s.stepRow}>
+          <Glyph icon={open ? ChevronDown : ChevronRight} size={14} color={colors.inkDim} />
+          <Text style={s.stepText} numberOfLines={1}>
+            {activityWords(tools, thinking, ms, dw.act)}
+          </Text>
+        </View>
+      </Pressable>
+      {open ? children : null}
     </>
   );
 }
@@ -148,13 +227,20 @@ export const MessageItem = memo(function MessageItem({
   mine,
   animate,
   onMenu,
+  detail = 'normal',
+  dw,
 }: {
   m: ChatMessage;
   mine: boolean;
   /** It came while the conversation was open: it fades in. */
   animate?: boolean;
   onMenu?: (m: ChatMessage) => void;
+  /** How much of the answer's work to show (Settings > Chat; lib/chatDetail.ts). */
+  detail?: ChatDetail;
+  /** The detail setting's words; English when the caller does not say. */
+  dw?: ChatDetailStrings;
 }) {
+  const words = dw ?? chatDetailStrings('en');
   const body =
     m.role === 'user' ? (
       <View style={[s.msg, s.user]}>
@@ -176,8 +262,38 @@ export const MessageItem = memo(function MessageItem({
         style={s.msg}
       >
         <Head model={m.model} at={m.at} />
-        {m.thinking ? <Thinking text={m.thinking} /> : null}
-        <Body text={m.content || ''} steps={m.steps} />
+        {detail === 'compact' ? (
+          <>
+            {m.thinking || m.steps?.length ? (
+              <CompactWork
+                tools={m.steps?.length ?? 0}
+                thinking={m.thinking?.length ?? 0}
+                ms={m.thinking_ms}
+                dw={words}
+              >
+                {m.thinking ? (
+                  <Thinking key="think:opened" text={m.thinking} open words={words.thinking} />
+                ) : null}
+                {m.steps?.length ? (
+                  <Steps key="steps:opened" steps={m.steps} detail="detailed" ran={words.ran} />
+                ) : null}
+              </CompactWork>
+            ) : null}
+            <Markdown text={m.content || ''} />
+          </>
+        ) : (
+          <>
+            {m.thinking ? (
+              <Thinking
+                key={`think:${detail}`}
+                text={m.thinking}
+                open={detail === 'detailed'}
+                words={words.thinking}
+              />
+            ) : null}
+            <Body text={m.content || ''} steps={m.steps} detail={detail} />
+          </>
+        )}
         {m.error ? <Text style={s.error}>{m.error}</Text> : null}
         {m.stopped ? <Text style={s.note}>Stopped</Text> : null}
         {m.interrupted ? <Text style={s.note}>Interrupted: the server restarted while this was written.</Text> : null}
@@ -238,17 +354,63 @@ export function TypingDots() {
 }
 
 /** The answer being written, as far as it got: laid out as the finished answer will be, so nothing jumps when it lands. */
-export function WritingItem({ w, model }: { w: Writing; model?: string }) {
+export function WritingItem({
+  w,
+  model,
+  detail = 'normal',
+  dw,
+}: {
+  w: Writing;
+  model?: string;
+  /** How much of the answer's work to show (Settings > Chat; lib/chatDetail.ts). */
+  detail?: ChatDetail;
+  dw?: ChatDetailStrings;
+}) {
   const reduce = useReduceMotion();
+  const words = dw ?? chatDetailStrings('en');
   const waiting = !w.text && !w.thinking && !w.steps.length && !w.error;
   // The words arrive in the server's pieces; they are let out smoothly.
   const text = useSmoothText(w.text, !reduce);
+  const work = (open: boolean) => (
+    <>
+      {w.thinking ? (
+        <Thinking
+          key={`think:${open ? 'open' : detail}`}
+          text={w.thinking}
+          live={!w.text}
+          open={open}
+          words={words.thinking}
+        />
+      ) : null}
+      {w.steps.length ? (
+        <Steps
+          key={`steps:${open ? 'detailed' : detail}`}
+          steps={w.steps}
+          detail={open ? 'detailed' : detail}
+          ran={words.ran}
+        />
+      ) : null}
+    </>
+  );
   return (
     <View style={s.msg} accessibilityLiveRegion="polite" testID="writing">
       <Head model={model} />
-      {waiting ? <TypingDots /> : null}
-      {w.thinking ? <Thinking text={w.thinking} live={!w.text} /> : null}
-      <Body text={text} steps={w.steps} />
+      {detail === 'compact' ? (
+        <>
+          {w.thinking || w.steps.length ? (
+            <CompactWork tools={w.steps.length} thinking={w.thinking.length} dw={words}>
+              {work(true)}
+            </CompactWork>
+          ) : null}
+          {w.text ? <Body text={text} /> : waiting ? <TypingDots /> : null}
+        </>
+      ) : (
+        <>
+          {waiting ? <TypingDots /> : null}
+          {work(detail === 'detailed')}
+          <Body text={text} detail={detail} />
+        </>
+      )}
       {w.error ? <Text style={s.error}>{w.error}</Text> : null}
     </View>
   );

@@ -78,7 +78,7 @@ export function shownWbo(
 
 /** One piece of OpenCode's answer: its thinking, its words, a run of tool calls, a question, an error. */
 export type TurnItem =
-  | { t: 'think'; key: string; text: string; live: boolean }
+  | { t: 'think'; key: string; text: string; live: boolean; ms?: number }
   | { t: 'text'; key: string; text: string; live: boolean }
   | { t: 'steps'; key: string; steps: Step[] }
   | { t: 'ask'; key: string; ask: WboAsk }
@@ -156,7 +156,14 @@ export function buildTurns(msgs: WboMsg[], asks: WboAsk[] = []): Turn[] {
     m.parts.forEach((p, i) => {
       const lastPart = !m.done && i === m.parts.length - 1;
       const key = m.id + p.id;
-      if (p.type === 'reasoning') tn.items.push({ t: 'think', key, text: p.text ?? '', live: lastPart });
+      if (p.type === 'reasoning')
+        tn.items.push({
+          t: 'think',
+          key,
+          text: p.text ?? '',
+          live: lastPart,
+          ms: p.start && p.end ? p.end - p.start : undefined,
+        });
       else if (p.type === 'text') {
         tn.items.push({ t: 'text', key, text: p.text ?? '', live: lastPart });
         if (lastPart) tn.writing = true;

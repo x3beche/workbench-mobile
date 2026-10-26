@@ -11,13 +11,14 @@
  * 1.6.2), open until folded; a server that does not keep their fold yet
  * (it answers 422) has it kept on the phone and sent once it does.
  */
-import type { FoldGroup, SideGroup, SidePrefs } from '../api/types';
+import type { ChatDetail, FoldGroup, SideGroup, SidePrefs } from '../api/types';
 
 export const FOLD_FIRST = 5;
 
 export const SIDE_EMPTY: SidePrefs = {
   pins: { claude: [], opencode: [] },
   folds: { claude: null, opencode: null, rooms: null },
+  chat: { detail: 'normal' },
 };
 
 /** Open or folded: the person's choice, else the default (`auto`: a session in it is live or open, or a search is on). */
@@ -67,6 +68,11 @@ export function withPin(prefs: SidePrefs, g: SideGroup, id: string, pinned: bool
 
 export function withFold(prefs: SidePrefs, g: FoldGroup, open: boolean | null): SidePrefs {
   return { ...prefs, folds: { ...prefs.folds, [g]: open } };
+}
+
+/** How much of an answer's work the Chat shows, as chosen in Settings > Chat. */
+export function withDetail(prefs: SidePrefs, detail: ChatDetail): SidePrefs {
+  return { ...prefs, chat: { detail } };
 }
 
 /** The rooms' fold as the phone keeps it: the choice, and whether the server still has to be told. */

@@ -7,6 +7,8 @@
  *   Agent & LLM  one's Orchestrator: its model, Start and Stop (AgentSheet)
  *   Claude pool  the server's Claude subscription as the web shows it to this
  *                person (CcpoolScreen), where the pool is set up and theirs to see
+ *   Chat detail  how much of an answer's work the Chat shows (compact, normal,
+ *                detailed: lib/chatDetail.ts), kept on the server per person
  *   Language     the app's words: Auto, English, Türkçe
  *   Theme        the web app's themes, or the phone's light or dark
  *   Voice        the voice language and when its words appear
@@ -22,7 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { VoiceLang } from '../api/client';
 import { displayServer } from '../api/server';
-import type { OrchStatus, PoolOverview } from '../api/types';
+import type { ChatDetail, OrchStatus, PoolOverview } from '../api/types';
 import { accountStrings, localized } from '../components/accountStrings';
 import { Avatar } from '../components/Avatar';
 import { Choice } from '../components/Choice';
@@ -33,6 +35,7 @@ import { Glyph, IconButton } from '../components/ui';
 import { UpdateSection } from '../components/UpdateSection';
 import { modelName } from '../components/MessageItem';
 import { meters, poolShown } from '../lib/ccpool';
+import { activityWords, chatDetailStrings } from '../lib/chatDetail';
 import { ccpoolStrings } from '../lib/ccpoolStrings';
 import { stateWord, statusDot } from '../lib/orchestrator';
 import type { OrchStrings } from '../lib/orchStrings';
@@ -59,6 +62,8 @@ export function SettingsScreen({
   onVoiceMode = () => undefined,
   appLang = 'auto',
   onAppLang = () => undefined,
+  detail = 'normal',
+  onDetail,
   update,
   orch,
   onAgent,
@@ -75,6 +80,9 @@ export function SettingsScreen({
   onVoiceMode?: (m: VoiceMode) => void;
   appLang?: 'auto' | 'en' | 'tr';
   onAppLang?: (l: 'auto' | 'en' | 'tr') => void;
+  /** How much of an answer's work the Chat shows (Settings > Chat; lib/chatDetail.ts). */
+  detail?: ChatDetail;
+  onDetail?: (d: ChatDetail) => void;
   update?: Update;
   /** One's Orchestrator, when the server has one: the Agent & LLM row says how it is. */
   orch?: OrchStatus | null;
@@ -108,6 +116,8 @@ export function SettingsScreen({
     };
   }, [client, onPool]);
   const pt = ccpoolStrings(ui);
+  /** The detail setting's words, in the app's language. */
+  const dw = chatDetailStrings(ui);
   const poolLine = pool
     ? meters(pool.plan, pt, ui)
         .slice(0, 2)
@@ -250,6 +260,27 @@ export function SettingsScreen({
                 <Glyph icon={ChevronRight} size={18} color={colors.inkDim} />
               </Pressable>,
               pt.about,
+            )
+          : null}
+        {onDetail
+          ? block(
+              dw.title,
+              <View style={s.gap}>
+                <Choice
+                  label={dw.title}
+                  options={dw.levels.map((l) => ({ id: l.id, label: l.label }))}
+                  value={detail}
+                  onChange={onDetail}
+                />
+                <Text style={s.text} testID="settings-chat-detail-about">
+                  {dw.levels.find((l) => l.id === detail)?.about ?? ''}
+                </Text>
+                {/* What the setting looks like, so the scale is not a guess: one
+                    answer's line, as compact draws it. */}
+                <Text style={s.dim}>{dw.sample(activityWords(12, 4200, null, dw.act))}</Text>
+              </View>,
+              dw.about,
+              'settings-chat-detail',
             )
           : null}
         {block(

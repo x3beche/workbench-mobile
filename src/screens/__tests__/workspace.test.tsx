@@ -93,6 +93,12 @@ const mockClient = {
   side: jest.fn(async () => {
     throw new Error('Not Found');
   }),
+  /** How much of an answer the Chat shows (Settings > Chat): kept for the person. */
+  sideChat: jest.fn(async (detail: 'compact' | 'normal' | 'detailed') => ({
+    pins: { claude: [], opencode: [] },
+    folds: { claude: null, opencode: null, rooms: null },
+    chat: { detail },
+  })),
   // Settings > Claude pool (1.6.2): not set up here - no row; ccpool.test.tsx covers it.
   ccpoolOverview: jest.fn(async () => {
     throw new Error('Not Found');
@@ -354,6 +360,24 @@ describe('workspace', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('keeps how much of an answer the Chat shows in Settings > Chat, on the server', async () => {
+    await start();
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    await fireEvent.press(screen.getByTestId('open-account'));
+    const card = within(screen.getByTestId('settings-chat-detail'));
+    expect(card.getByText('Chat detail')).toBeTruthy();
+    for (const stop of ['Compact', 'Normal', 'Detailed']) expect(card.getByText(stop)).toBeTruthy();
+    // What the chosen stop means, and what it looks like.
+    expect(screen.getByTestId('settings-chat-detail-about')).toHaveTextContent(
+      'Each tool call a line of its own; thinking folded.',
+    );
+    await fireEvent.press(card.getByText('Detailed'));
+    expect(mockClient.sideChat).toHaveBeenCalledWith('detailed');
+    expect(screen.getByTestId('settings-chat-detail-about')).toHaveTextContent(
+      'Everything open: the thinking, and what every tool call read and returned.',
+    );
   });
 
   it('opens Settings from the account at the bottom of the drawer, and Back comes back', async () => {

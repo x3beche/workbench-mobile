@@ -259,6 +259,17 @@ Then you sign in with the same e-mail address and password as on the web.
   "Answer it on the computer". When the real ask arrives it takes its place;
   once answered on the computer the card shows the choice, read from the
   tool's output.
+- **How much of an answer shows** (from 1.6.6): Settings > Chat's three
+  stops, as the web app keeps them (its `chat-detail.ts`; here
+  `lib/chatDetail.ts`). **Compact** puts everything an answer did - its
+  thinking and the tools it ran - behind one line under it ("4 tool calls ·
+  thought 8.9 s"), opened by a tap; **Normal**, the default, folds the
+  thinking and gives each tool call a row of its own; **Detailed** opens the
+  thinking and what every tool call read and returned. The same in the
+  Chat's answers and in an OpenCode session's, being written or finished.
+  Kept per person on the server (`chat.detail` in `GET /api/me/side`,
+  `PUT /api/me/side/chat`), so the phone and a browser draw the same; a
+  server that does not know it answers normal. English and Turkish.
 - **Folds and pins** (from 1.6.1): the Claude and OpenCode groups fold and
   open by their header (a chevron; folded, the count and a live dot), and a
   long press on a session offers Open and Pin / Unpin. Pinned sessions come
@@ -275,7 +286,8 @@ Then you sign in with the same e-mail address and password as on the web.
   (the live dot on it), what it does and the computer under it, the time at
   the right.
 - **Settings** (from 1.5.7; the account at the foot of the drawer opens it):
-  the accounts (switch, add, sign one out), Agent & LLM, the app's
+  the accounts (switch, add, sign one out), Agent & LLM, how much of an
+  answer the Chat shows (**Compact**, **Normal**, **Detailed**), the app's
   **language** (Auto, English, Türkçe - apart from the voice language),
   the **theme** - every theme of the web app colour for colour
   (`src/theme/themes.ts`, written from its styles.css by

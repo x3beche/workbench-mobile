@@ -26,7 +26,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type VoiceLang } from '../api/client';
-import type { Chat, ChatEvent, ChatMessage } from '../api/types';
+import type { Chat, ChatDetail, ChatEvent, ChatMessage } from '../api/types';
 import { ActivityStrip } from '../components/Activity';
 import { Appear } from '../components/Appear';
 import { Composer, type ComposerHandle } from '../components/Composer';
@@ -39,6 +39,7 @@ import { ActionList, Sheet } from '../components/Sheet';
 import { ErrorText, Glyph, IconButton, Button } from '../components/ui';
 import { VoiceNoteSheet } from '../components/VoiceNoteSheet';
 import { applyEvent, applyPiece, type ConversationView } from '../lib/answer';
+import { chatDetailStrings } from '../lib/chatDetail';
 import { copy } from '../lib/feel';
 import { greeting } from '../lib/groups';
 import { useBus, useLive } from '../live/LiveContext';
@@ -89,6 +90,7 @@ export function ChatScreen({
   suggestions = [],
   wide = false,
   lang,
+  detail = 'normal',
   voiceMode = 'record',
   onMenu,
   onNew,
@@ -105,6 +107,8 @@ export function ChatScreen({
   /** The drawer is a column beside it: no button for it. */
   wide?: boolean;
   lang: VoiceLang;
+  /** How much of an answer's work an answer shows (Settings > Chat; lib/chatDetail.ts). */
+  detail?: ChatDetail;
   /** When dictated words appear: while speaking or after recording. */
   voiceMode?: VoiceMode;
   onMenu?: () => void;
@@ -120,6 +124,8 @@ export function ChatScreen({
 }) {
   const { client, user, account } = useSession();
   const { width } = useWindowDimensions();
+  /** The detail setting's words, in the app's language. */
+  const dw = chatDetailStrings(uiLang(lang));
   const [id, setId] = useState<string | null>(initial?.id ?? null);
   const idRef = useRef(id);
   idRef.current = id;
@@ -446,6 +452,8 @@ export function ChatScreen({
               mine={!item.by?.id || (!!user && item.by.id === user.id)}
               animate={!!seen.current && !seen.current.has(item.id)}
               onMenu={setMenu}
+              detail={detail}
+              dw={dw}
             />
           )}
           onContentSizeChange={toEnd}
@@ -513,7 +521,7 @@ export function ChatScreen({
               {pending ? <PendingItem text={pending} /> : null}
               {view.writing ? (
                 <Appear fill={false} duration={motion.fade}>
-                  <WritingItem w={view.writing} model={model.model} />
+                  <WritingItem w={view.writing} model={model.model} detail={detail} dw={dw} />
                 </Appear>
               ) : null}
             </>

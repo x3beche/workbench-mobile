@@ -35,6 +35,8 @@ export interface ChatMessage {
   provider?: string;
   model?: string;
   thinking?: string;
+  /** How long it thought, when the server kept that with the answer. */
+  thinking_ms?: number | null;
   error?: string;
   stopped?: boolean;
   interrupted?: boolean;
@@ -820,10 +822,15 @@ export type SideGroup = 'claude' | 'opencode';
 /** What folds in the drawer: the session groups, and the rooms (open until folded). */
 export type FoldGroup = SideGroup | 'rooms';
 
+/** How much of an answer's work a conversation shows (lib/chatDetail.ts, Settings > Chat). */
+export type ChatDetail = 'compact' | 'normal' | 'detailed';
+
 /** Pinned sessions per group (newest pin first) and each group folded or not (null: never chosen). */
 export interface SidePrefs {
   pins: Record<SideGroup, string[]>;
   folds: Record<FoldGroup, boolean | null>;
+  /** How much of an answer's work the Chat shows: the same on every device, as the server keeps it. */
+  chat: { detail: ChatDetail };
 }
 
 // ---- Settings > Claude pool (backend/ccpool.py: GET /api/ccpool/overview) ----

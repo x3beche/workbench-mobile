@@ -40,19 +40,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type VoiceLang, type WorkbenchClient } from '../api/client';
-import type { User, WboAnswer, WboAsk, WboDetail, WboMsg, WboSend, WboSession } from '../api/types';
+import type { ChatDetail, User, WboAnswer, WboAsk, WboDetail, WboMsg, WboSend, WboSession } from '../api/types';
 import { Appear } from '../components/Appear';
 import { AskCard } from '../components/AskCard';
 import { Composer } from '../components/Composer';
 import { ArrowUpToLine, Camera, Images, Menu, Paperclip, SquareCode, X } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Markdown } from '../components/Markdown';
-import { modelName, Steps, Thinking, TypingDots } from '../components/MessageItem';
+import { CompactWork, modelName, Steps, Thinking, TypingDots } from '../components/MessageItem';
 import { NewBelow } from '../components/NewBelow';
 import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
 import { ErrorText, Glyph, IconButton, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
+import { chatDetailStrings } from '../lib/chatDetail';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { clock } from '../lib/time';
 import { money } from '../lib/numbers';
@@ -76,12 +77,14 @@ import {
   wboWhy,
   wboWord,
   type Turn,
+  type TurnItem,
   type WboEvent,
 } from '../lib/wbo';
 import type { WboStrings } from '../lib/wboStrings';
 import { inFront } from '../live/hub';
 import { useBus, useLive } from '../live/LiveContext';
 import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
+import { uiLang } from '../update/strings';
 import type { VoiceMode } from '../voice/voice';
 
 /** Without the stream: read this often while OpenCode works or a line waits. */
@@ -107,6 +110,7 @@ export function OpencodeSessionScreen({
   initial = null,
   t,
   lang,
+  detail = 'normal',
   voiceMode = 'record',
   wide = false,
   onMenu,
@@ -120,6 +124,8 @@ export function OpencodeSessionScreen({
   initial?: WboSession | null;
   t: WboStrings;
   lang: VoiceLang;
+  /** How much of an answer's work to show (Settings > Chat; lib/chatDetail.ts). */
+  detail?: ChatDetail;
   voiceMode?: VoiceMode;
   wide?: boolean;
   onMenu?: () => void;
@@ -439,6 +445,8 @@ export function OpencodeSessionScreen({
     if (more) setCount((n) => n + TURNS_PAGE);
   };
 
+  /** The detail setting's words, in the app's language. */
+  const dw = chatDetailStrings(uiLang(lang));
   const mine = !!s && (s.mine || (!!user && s.owner.id === user.id));
   const person = mine ? user?.name || t.you : s?.owner.name || t.itsPerson;
   const dot = wboDot(s);
@@ -454,6 +462,57 @@ export function OpencodeSessionScreen({
   /** How it came: the line under a finished answer, and the card a tap opens. */
   const statsOf = (tn: Turn) => (tn.kind === 'assistant' ? turnOf(tn, windowOf) : null);
   const card = stat && statsOf(stat) ? statRows(statsOf(stat)!, t.run, money) : null;
+
+  /**
+   * An answer's thinking and tool rows apart from its words, with what the one
+   * line they are written as while the Chat is compact says (Settings > Chat;
+   * the web's folded() in rooms/opencode-sessions.ts).
+   */
+  const split = (tn: AnswerTurn) => {
+    const work = tn.items.filter((it) => it.t === 'think' || it.t === 'steps');
+    const rest = tn.items.filter((it) => it.t !== 'think' && it.t !== 'steps');
+    const tools = work.reduce((n, it) => n + (it.t === 'steps' ? it.steps.length : 0), 0);
+    const thought = work.reduce((n, it) => n + (it.t === 'think' ? it.text.length : 0), 0);
+    const ms = work.reduce<number | null>(
+      (n, it) => (it.t === 'think' && it.ms != null ? (n ?? 0) + it.ms : n),
+      null,
+    );
+    return { work, rest, tools, thought, ms };
+  };
+  /** One piece of an answer as it is drawn; `open` is a Chat set to detailed. */
+  const drawn = (it: TurnItem, open: boolean) =>
+    it.t === 'think' ? (
+      <Thinking
+        key={`${it.key}:${open ? 'open' : 'folded'}`}
+        text={it.text}
+        live={it.live}
+        open={open}
+        words={{ live: t.thinking, done: t.thought }}
+      />
+    ) : it.t === 'text' ? (
+      <Markdown key={it.key} text={it.text} />
+    ) : it.t === 'steps' ? (
+      <Steps
+        key={`${it.key}:${open ? 'open' : 'folded'}`}
+        steps={it.steps}
+        ran={t.ranTools}
+        detail={open ? 'detailed' : 'normal'}
+      />
+    ) : it.t === 'ask' ? (
+      <AskCard
+        key={it.key}
+        a={it.ask}
+        t={t}
+        canAnswer={canAnswer(it.ask)}
+        busy={answering}
+        note={noteOf(it.ask)}
+        onAnswer={answer}
+      />
+    ) : (
+      <Text key={it.key} style={st.error} accessibilityRole="alert">
+        {it.text}
+      </Text>
+    );
 
   const renderItem = ({ item }: { item: Item }) => {
     if (item.kind === 'cut')
@@ -493,6 +552,8 @@ export function OpencodeSessionScreen({
         />
       );
     }
+    const { work, rest, tools, thought, ms } = split(tn);
+    const compact = detail === 'compact';
     return (
       <View style={st.msgRow} testID="wbo-answer">
         <Text style={st.headText} numberOfLines={1}>
@@ -501,29 +562,14 @@ export function OpencodeSessionScreen({
           {tn.time ? `  ${clock(new Date(tn.time).toISOString())}` : ''}
         </Text>
         {tn.live && !tn.items.length ? <TypingDots /> : null}
-        {tn.items.map((it) =>
-          it.t === 'think' ? (
-            <Thinking key={it.key} text={it.text} live={it.live} words={{ live: t.thinking, done: t.thought }} />
-          ) : it.t === 'text' ? (
-            <Markdown key={it.key} text={it.text} />
-          ) : it.t === 'steps' ? (
-            <Steps key={it.key} steps={it.steps} ran={t.ranTools} />
-          ) : it.t === 'ask' ? (
-            <AskCard
-              key={it.key}
-              a={it.ask}
-              t={t}
-              canAnswer={canAnswer(it.ask)}
-              busy={answering}
-              note={noteOf(it.ask)}
-              onAnswer={answer}
-            />
-          ) : (
-            <Text key={it.key} style={st.error} accessibilityRole="alert">
-              {it.text}
-            </Text>
-          ),
-        )}
+        {/* Compact (Settings > Chat): its thinking and tool rows on one line,
+            the answer and what it asks where they belong. */}
+        {compact && work.length ? (
+          <CompactWork tools={tools} thinking={thought} ms={ms} dw={dw}>
+            {work.map((it) => drawn(it, true))}
+          </CompactWork>
+        ) : null}
+        {(compact ? rest : tn.items).map((it) => drawn(it, detail === 'detailed'))}
         {/* How it came, as the web's Chat says it under its own answers: the
             speed, what it wrote and how long - a tap opens the card. */}
         {!tn.live && statsOf(tn) ? (

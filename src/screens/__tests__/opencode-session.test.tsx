@@ -9,7 +9,7 @@ import { FlatList } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { WorkbenchClient } from '../../api/client';
-import type { BusEvent, WboDetail, WboSession } from '../../api/types';
+import type { BusEvent, ChatDetail, WboDetail, WboSession } from '../../api/types';
 import { DrawerPanel } from '../../components/DrawerPanel';
 import { BusPace, type LiveHub } from '../../live/hub';
 import { LiveContext } from '../../live/LiveContext';
@@ -186,12 +186,19 @@ function fakeClient(d: WboDetail) {
   };
 }
 
-async function show(d: WboDetail, t = en) {
+async function show(d: WboDetail, t = en, detail: ChatDetail = 'normal') {
   const client = fakeClient(d);
   const live = fakeHub();
   await render(
     <LiveContext.Provider value={live.hub}>
-      <OpencodeSessionScreen sid={SID} client={client as unknown as WorkbenchClient} user={null} t={t} lang="en" />
+      <OpencodeSessionScreen
+        sid={SID}
+        client={client as unknown as WorkbenchClient}
+        user={null}
+        t={t}
+        lang="en"
+        detail={detail}
+      />
     </LiveContext.Provider>,
   );
   await act(async () => undefined);
@@ -208,6 +215,29 @@ async function show(d: WboDetail, t = en) {
     expect(screen.getAllByText('deepseek-v4').length).toBeGreaterThan(0);
     expect(screen.getByText('On the computer')).toBeTruthy();
     expect(screen.getByTestId('wbo-composer')).toBeTruthy();
+  });
+
+  it("puts an answer's work behind one line in compact, and opens it (Settings > Chat)", async () => {
+    await show(detail(), en, 'compact');
+    // The line says what was done: one tool read, and how much it thought.
+    expect(screen.getByText('1 tool call · thinking 22 chars')).toBeTruthy();
+    // Nothing of the work is out until the line is opened.
+    expect(screen.queryByText('Look at the regulator.')).toBeNull();
+    expect(screen.queryByText('read · power.kicad_sch')).toBeNull();
+    // What the answer says, and what it asks, stay where they belong.
+    expect(screen.getByText('LDO')).toBeTruthy();
+    expect(screen.getByText('Which fix?')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('compact-work'));
+    expect(screen.getByText('Look at the regulator.')).toBeTruthy();
+    expect(screen.getByText('read · power.kicad_sch')).toBeTruthy();
+  });
+
+  it('opens the thinking and what every tool call read in detailed (Settings > Chat)', async () => {
+    await show(detail(), en, 'detailed');
+    expect(screen.getByText('Look at the regulator.')).toBeTruthy();
+    // The tool's row is open: what it gave back is out too.
+    expect(screen.getByText('U3 LDO')).toBeTruthy();
+    expect(screen.queryByTestId('compact-work')).toBeNull();
   });
 
   it('says how an answer came under it, and opens its card from a tap', async () => {

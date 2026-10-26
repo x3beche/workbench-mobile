@@ -48,6 +48,7 @@ import type {
   FoldGroup,
   SideGroup,
   SidePrefs,
+  ChatDetail,
   WbcDetail,
   WbcMessage,
   WboAnswer,
@@ -770,6 +771,11 @@ export class WorkbenchClient {
     return sideOf(await this.request<Partial<SidePrefs>>('PUT', '/api/me/side/folds', { group, open }));
   }
 
+  /** How much of an answer's work the Chat shows (Settings > Chat), on every device. */
+  async sideChat(detail: ChatDetail): Promise<SidePrefs> {
+    return sideOf(await this.request<Partial<SidePrefs>>('PUT', '/api/me/side/chat', { detail }));
+  }
+
   // ---- files --------------------------------------------------------------
 
   /**
@@ -1008,14 +1014,21 @@ export class WorkbenchClient {
   }
 }
 
+/** One of the Chat's three stops; a server that does not know them answers `normal`. */
+function detailOf(x: unknown): ChatDetail {
+  return x === 'compact' || x === 'detailed' ? x : 'normal';
+}
+
 /** The side prefs as the server says them, with what an older answer leaves out filled in. */
 export function sideOf(v: Partial<SidePrefs> | null | undefined): SidePrefs {
   const pins = v?.pins ?? ({} as Partial<SidePrefs['pins']>);
   const folds = v?.folds ?? ({} as Partial<SidePrefs['folds']>);
+  const chat = (v as Partial<SidePrefs> | null | undefined)?.chat ?? null;
   const list = (x: unknown) => (Array.isArray(x) ? x.filter((y): y is string => typeof y === 'string') : []);
   const fold = (x: unknown) => (typeof x === 'boolean' ? x : null);
   return {
     pins: { claude: list(pins.claude), opencode: list(pins.opencode) },
     folds: { claude: fold(folds.claude), opencode: fold(folds.opencode), rooms: fold(folds.rooms) },
+    chat: { detail: detailOf(chat?.detail) },
   };
 }

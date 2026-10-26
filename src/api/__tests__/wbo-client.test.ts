@@ -62,8 +62,27 @@ describe('the side prefs through the client', () => {
     expect(JSON.parse(String(f.calls[2].init.body))).toEqual({ group: 'claude', open: true });
   });
 
+  it('keeps how much of an answer the Chat shows, as the web keeps it', async () => {
+    const f = fakeFetch(() => jsonResponse(200, { chat: { detail: 'compact', files: true } }));
+    const c = new WorkbenchClient(BASE, { fetch: f.fetch, session: 'sess-a' });
+    expect((await c.side()).chat.detail).toBe('compact');
+    await c.sideChat('detailed');
+    expect(f.calls.map((x) => `${x.init.method ?? 'GET'} ${x.url.slice(BASE.length)}`)).toEqual([
+      'GET /api/me/side',
+      'PUT /api/me/side/chat',
+    ]);
+    expect(JSON.parse(String(f.calls[1].init.body))).toEqual({ detail: 'detailed' });
+  });
+
   it('fills in what an answer leaves out', () => {
-    expect(sideOf(null)).toEqual({ pins: { claude: [], opencode: [] }, folds: { claude: null, opencode: null, rooms: null } });
-    expect(sideOf({ pins: { claude: ['a', 3 as unknown as string] } as never }).pins.claude).toEqual(['a']);
+    expect(sideOf(null)).toEqual({
+      pins: { claude: [], opencode: [] },
+      folds: { claude: null, opencode: null, rooms: null },
+      chat: { detail: 'normal' },
+    });
+    expect(sideOf({ pins: { claude: ['a', 3 as unknown as string] } } as never).pins.claude).toEqual(['a']);
+    // A stop the app does not know (a newer server's) is drawn as normal.
+    expect(sideOf({ chat: { detail: 'sideways' } } as never).chat.detail).toBe('normal');
+    expect(sideOf({ chat: { detail: 'detailed' } } as never).chat.detail).toBe('detailed');
   });
 });

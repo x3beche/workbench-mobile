@@ -19,6 +19,7 @@ import { BackHandler, StyleSheet, Text, useWindowDimensions, View } from 'react-
 import { ApiError, CHAT_TRASH_DAYS, isMissingRoute, type VoiceLang } from '../api/client';
 import type {
   Chat,
+  ChatDetail,
   ChatScope,
   FoldGroup,
   Ideas,
@@ -54,7 +55,7 @@ import { orchStrings } from '../lib/orchStrings';
 import { ccpoolStrings } from '../lib/ccpoolStrings';
 import { settingsStrings } from '../lib/settingsStrings';
 import { knownRooms } from '../lib/rooms';
-import { SIDE_EMPTY, withFold, withPin, withRoomsFold, type RoomsFold } from '../lib/side';
+import { SIDE_EMPTY, withDetail, withFold, withPin, withRoomsFold, type RoomsFold } from '../lib/side';
 import { wbcStrings } from '../lib/wbcStrings';
 import { wboStrings } from '../lib/wboStrings';
 import { inFront } from '../live/hub';
@@ -323,6 +324,17 @@ export function Workspace({
       );
     },
     [client, keep, sendRoomsFold],
+  );
+  /** How much of an answer's work the Chat shows: at once here, then as the server keeps it. */
+  const chooseDetail = useCallback(
+    (d: ChatDetail) => {
+      setSide((now) => withDetail(now, d));
+      client?.sideChat(d).then(
+        (got) => setSide(withRoomsFold(got, roomsLocal.current)),
+        () => loadSide(),
+      );
+    },
+    [client, loadSide],
   );
   const pinSession = useCallback(
     (g: SideGroup, id: string, pinned: boolean) => {
@@ -844,6 +856,7 @@ export function Workspace({
               initial={wboRows?.find((x) => x.session_id === wboOpen) ?? null}
               t={ct}
               lang={lang}
+              detail={side.chat.detail}
               voiceMode={voiceMode}
               wide={wide}
               onMenu={() => setDrawer(true)}
@@ -878,6 +891,8 @@ export function Workspace({
               onVoiceMode={onVoiceMode}
               appLang={appLang}
               onAppLang={onAppLang}
+              detail={side.chat.detail}
+              onDetail={chooseDetail}
               update={update}
               orch={orchSt}
               onAgent={() => setAgentSheet(true)}
@@ -923,6 +938,7 @@ export function Workspace({
               suggestions={suggestions}
               wide={wide}
               lang={lang}
+              detail={side.chat.detail}
               voiceMode={voiceMode}
               onMenu={() => setDrawer(true)}
               onNew={newChat}

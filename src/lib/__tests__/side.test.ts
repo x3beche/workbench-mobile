@@ -7,6 +7,7 @@ import {
   pinnedFirst,
   SIDE_EMPTY,
   visibleRows,
+  withDetail,
   withFold,
   withPin,
   withRoomsFold,
@@ -53,5 +54,20 @@ describe('folding and pins', () => {
     expect(withRoomsFold(kept, { open: false, pending: false }).folds.rooms).toBe(true);
     expect(withRoomsFold(kept, { open: false, pending: true }).folds.rooms).toBe(false);
     expect(withRoomsFold(kept, null)).toBe(kept);
+  });
+
+  it("starts at the Chat's normal detail, and keeps the stop chosen", () => {
+    expect(SIDE_EMPTY.chat).toEqual({ detail: 'normal' });
+    const compact = withDetail(SIDE_EMPTY, 'compact');
+    expect(compact.chat.detail).toBe('compact');
+    // The other side prefs are not disturbed, and neither are they by it.
+    expect(compact.pins).toEqual(SIDE_EMPTY.pins);
+    expect(withFold(compact, 'claude', false).chat.detail).toBe('compact');
+    expect(withPin(compact, 'claude', 's1', true).chat.detail).toBe('compact');
+    expect(withDetail(withFold(SIDE_EMPTY, 'rooms', false), 'detailed')).toEqual({
+      pins: { claude: [], opencode: [] },
+      folds: { claude: null, opencode: null, rooms: false },
+      chat: { detail: 'detailed' },
+    });
   });
 });
