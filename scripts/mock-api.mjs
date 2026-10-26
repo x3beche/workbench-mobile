@@ -19,6 +19,7 @@
  */
 import { Buffer } from 'node:buffer';
 
+import { handleActivity } from './mock-activity.mjs';
 import { handleCcpool } from './mock-ccpool.mjs';
 import { addExport, handleFiles } from './mock-files.mjs';
 import { handleAnalytics, handleOrchestrator, handleRooms } from './mock-orchestrator.mjs';
@@ -259,6 +260,7 @@ export async function handle(req, res) {
   if (p === '/api/health') return json(res, 200, { ok: true, db: 'mock' });
   if (handleS2Api(req, res, p, body)) return;
   if (p === '/api/me/activity/now') return json(res, 200, activityNow());
+  if (handleActivity(req, res, p, json)) return;
   if (p === '/api/public/m/app.json') {
     const newer = process.env.MOCK_UPDATE === '1';
     return json(res, 200, {

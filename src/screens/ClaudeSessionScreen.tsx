@@ -12,6 +12,9 @@
  *   working", "delivered", "not delivered") until the conversation has it,
  *   marked "from Workbench" there. Up to four pictures go with it, from the
  *   phone's photos or camera.
+ * - Claude Code's suggestion of what to type next (the newest page's
+ *   `suggestion`) is the empty box's words, dim and italic, with a Use chip
+ *   that puts it in the box (Tab in the terminal); typing or sending puts it away.
  * - Without a way to write (not one's own, no wb-claude, remote off) the box
  *   is a note saying why, in the server's terms.
  * - The account's bus says when something changed (kind `wbc`, {sid, what}):
@@ -125,6 +128,8 @@ export function ClaudeSessionScreen({
   const [picking, setPicking] = useState(false);
   const [zoom, setZoom] = useState<string | null>(null);
   const before = useRef<number | null>(null);
+  /** Claude Code's suggestion of what to type next, offered in the empty box. */
+  const [suggestion, setSuggestion] = useState<string | null>(null);
   const turnsRef = useRef<WbcTurn[] | null>(null);
   const atBottom = useRef(true);
   const list = useRef<FlatList<Item>>(null);
@@ -166,6 +171,7 @@ export function ClaudeSessionScreen({
         const was = held?.[held.length - 1];
         if (held?.length && newest && (!was || turnKey(newest) !== turnKey(was)) && !atBottom.current) setBelow(true);
         setTurns((now) => (sameTurns(now, next) ? now : next));
+        setSuggestion(page.suggestion || null);
       },
       (e) => {
         if (!mounted.current) return;
@@ -334,6 +340,7 @@ export function ClaudeSessionScreen({
     if (!client || !s?.may_send) return false;
     const with_ = pics;
     if (!text && !with_.length) return false;
+    setSuggestion(null);
     setError(null);
     setNotice(null);
     setPicError(null);
@@ -485,6 +492,7 @@ export function ClaudeSessionScreen({
               mode={voiceMode}
               writing={false}
               placeholder={t.placeholder}
+              suggestion={suggestion ? { text: suggestion, use: t.useSuggestion } : null}
               ready={pics.length > 0}
               onSend={send}
               onStop={() => undefined}

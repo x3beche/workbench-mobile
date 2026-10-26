@@ -1,7 +1,8 @@
 /**
  * Analytics: what the web app's Chat shows bottom left (the Models card - the
  * last 14 days' tokens by provider, this month and today - and the Tools card
- * - this week's tool use), with what follows it overall: money and requests
+ * - this week's tool calls, the Chat's and one's own Claude Code's and
+ * OpenCode's, the last 14 days by source), with what follows it overall: money and requests
  * over 30 days by provider and model (Settings > Agent & LLM on the web), the
  * Orchestrator (its state, its sub-agents now, the incidents the supervisor
  * kept), the job pool (one's own jobs and how full the server is; for the
@@ -49,8 +50,10 @@ import type {
   LlmUsage,
   MyPool,
   OrchStatus,
+  ExtToolUses,
   ToolsUsage,
 } from '../api/types';
+import { ActivitySheetFor } from '../components/Activity';
 import { Bars, Columns, Legend, SERIES } from '../components/Charts';
 import {
   Activity,
@@ -63,6 +66,7 @@ import {
   Menu,
   Network,
   RotateCcw,
+  SquareCode,
   SquareTerminal,
   TriangleAlert,
   Wrench,
@@ -76,6 +80,7 @@ import { failureWord, stateWord, statusDot, whenOf } from '../lib/orchestrator';
 import type { OrchStrings } from '../lib/orchStrings';
 import type { SettingsStrings } from '../lib/settingsStrings';
 import { useBus, useLive } from '../live/LiveContext';
+import { useMaybeSession } from '../state/session';
 import { colors, fonts, gutter, space, type } from '../theme/tokens';
 
 interface Data {
@@ -124,7 +129,7 @@ export function AnalyticsScreen({
     const [summary, usage, tools, orch, incidents, pool, adminPool, sandboxes] = await Promise.all([
       soft(client.llmSummary(14)),
       soft(client.llmUsage(30)),
-      soft(client.toolsUsage('week')),
+      soft(client.toolsUsage('month')),
       soft(client.orchestrator()),
       soft(client.orchestratorIncidents().then((r) => r.incidents)),
       soft(client.myPool()),
@@ -271,7 +276,7 @@ export function AnalyticsScreen({
           ) : null}
           {d.pool || now ? (
             <Group title={t.groups.work} cols={cols} testID="group-work">
-              {now ? <ActivityCard now={now} tps={tps} streaming={streaming} t={t} /> : null}
+              {now ? <ActivityCard now={now} tps={tps} streaming={streaming} t={t} client={client} lang={lang} /> : null}
               {d.pool ? <PoolCard pool={d.pool} t={t} /> : null}
               {d.pool ? <MyJobsCard pool={d.pool} t={t} /> : null}
             </Group>
@@ -280,6 +285,8 @@ export function AnalyticsScreen({
             <Group title={t.groups.tools} cols={cols} testID="group-tools">
               <ToolsCard u={d.tools} t={t} lang={lang} />
               <TopToolsCard u={d.tools} t={t} />
+              {d.tools.external?.claude ? <ExtToolsCard id="claude" x={d.tools.external.claude} t={t} /> : null}
+              {d.tools.external?.opencode ? <ExtToolsCard id="opencode" x={d.tools.external.opencode} t={t} /> : null}
             </Group>
           ) : null}
           {admin_ ? (
@@ -477,6 +484,7 @@ function RowsCard({
   rows,
   first = 4,
   empty,
+  caption,
   testID,
 }: {
   icon: LucideIcon;
@@ -488,6 +496,7 @@ function RowsCard({
   rows: { label: string; value: number; text: string; color?: string }[];
   first?: number;
   empty?: string;
+  caption?: string;
   testID?: string;
 }) {
   return (
@@ -499,6 +508,7 @@ function RowsCard({
       unit={unit}
       right={right}
       chart={rows.length ? <Bars rows={rows.slice(0, first)} /> : <Text style={s.cSub}>{empty}</Text>}
+      caption={caption}
       more={rows.length > first ? <Bars rows={rows.slice(first)} /> : undefined}
       testID={testID}
     />
@@ -627,12 +637,19 @@ function ActivityCard({
   tps,
   streaming,
   t,
+  client,
+  lang,
 }: {
   now: ActivityNow;
   tps: number[];
   streaming: boolean;
   t: SettingsStrings;
+  client: WorkbenchClient | null;
+  lang: 'en' | 'tr';
 }) {
+  // A tap opens the Activity sheet, as the strip over a conversation does (components/Activity.tsx).
+  const [open, setOpen] = useState(false);
+  const session = useMaybeSession();
   const cols = useMemo(() => {
     const pad = Array.from({ length: Math.max(0, NOW_COLS - tps.length) }, () => 0);
     return [...pad, ...tps].map((v, i) => ({ label: String(i), parts: [{ value: v, color: SERIES[0] }] }));
@@ -642,6 +659,12 @@ function ActivityCard({
   const m = now.machine;
   const mem = m ? (m.mem_mb >= 1024 ? `${(m.mem_mb / 1024).toFixed(1)} GB` : `${Math.round(m.mem_mb)} MB`) : '';
   return (
+    <Pressable
+      onPress={() => setOpen(true)}
+      accessibilityRole="button"
+      style={({ pressed }) => (pressed ? { opacity: 0.8 } : null)}
+      testID="analytics-activity-open"
+    >
     <Card
       icon={Activity}
       title={t.activity}
@@ -653,6 +676,10 @@ function ActivityCard({
       caption={m?.sampled ? t.machine(Math.round(m.cpu_pct), mem) : undefined}
       testID={streaming ? 'analytics-activity-live' : 'analytics-activity'}
     />
+      {open ? (
+        <ActivitySheetFor client={client} scope={session?.account?.id ?? 'local'} lang={lang} onClose={() => setOpen(false)} />
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -695,22 +722,45 @@ function MyJobsCard({ pool, t }: { pool: MyPool; t: SettingsStrings }) {
   );
 }
 
+/** Where tool calls come from, in the web top bar Activity's colours for them
+ *  (its sources: the Chat 1st, Claude 5th, OpenCode 6th). */
+const TOOL_SOURCES = [
+  { id: 'workbench', label: 'Workbench', color: colors.series1 },
+  { id: 'claude', label: 'Claude', color: colors.series5 },
+  { id: 'opencode', label: 'OpenCode', color: colors.series6 },
+] as const;
+type ExtId = 'claude' | 'opencode';
+const extWeek = (x: ExtToolUses | null | undefined) => (x ? Object.values(x.tools).reduce((a, v) => a + v.week, 0) : 0);
+const bucketSum = (by: Record<string, number> | undefined) => Object.values(by ?? {}).reduce((a, n) => a + n, 0);
+
+/**
+ * The week's tool calls - the Chat's, and the person's own in Claude Code and
+ * OpenCode - the last 14 days stacked by source like the Models card's, and,
+ * opened, the split and the most used tool (the web card's tooltip).
+ */
 function ToolsCard({ u, t, lang }: { u: ToolsUsage; t: SettingsStrings; lang: 'en' | 'tr' }) {
-  const ranked = Object.entries(u.tools)
-    .filter(([, v]) => v.week > 0)
-    .sort((a, b) => b[1].week - a[1].week);
-  const top = ranked.slice(0, SERIES.length - 1).map(([k]) => k);
-  const cols = u.days.map((x) => {
-    const rest = Object.entries(x.by)
-      .filter(([k]) => !top.includes(k))
-      .reduce((a, [, v]) => a + v, 0);
-    return {
-      label: dayLabel(x.day, lang),
-      parts: [...top.map((k, i) => ({ value: x.by[k] ?? 0, color: color(i) })), { value: rest, color: SERIES[7] }],
-    };
-  });
-  const total = ranked.reduce((a, [, v]) => a + v.week, 0);
-  const done = ranked.reduce((a, [, v]) => a + (v.week_done ?? v.week), 0);
+  const ext = u.external;
+  const own = Object.values(u.tools).reduce((a, v) => a + v.week, 0);
+  const done = Object.values(u.tools).reduce((a, v) => a + (v.week_done ?? v.week), 0);
+  const split: Record<string, number> = { workbench: own, claude: extWeek(ext?.claude), opencode: extWeek(ext?.opencode) };
+  const total = split.workbench + split.claude + split.opencode;
+  // The week's most used tool of any source, each by its own name.
+  const best = [
+    ...Object.entries(u.tools).map(([n, v]) => ({ name: n.replace(/_/g, ' '), week: v.week })),
+    ...(['claude', 'opencode'] as ExtId[]).flatMap((id) =>
+      Object.entries(ext?.[id]?.tools ?? {}).map(([n, v]) => ({ name: n, week: v.week })),
+    ),
+  ]
+    .filter((x) => x.week > 0)
+    .sort((a, b) => b.week - a.week)[0];
+  const cols = u.days.slice(-14).map((x) => ({
+    label: dayLabel(x.day, lang),
+    parts: TOOL_SOURCES.map((src) => ({
+      value: src.id === 'workbench' ? bucketSum(x.by) : bucketSum(ext?.[src.id]?.days[x.day]),
+      color: src.color,
+    })),
+  }));
+  const shown = TOOL_SOURCES.filter((src) => src.id === 'workbench' || ext?.[src.id]);
   return (
     <Card
       icon={Wrench}
@@ -720,8 +770,52 @@ function ToolsCard({ u, t, lang }: { u: ToolsUsage; t: SettingsStrings; lang: 'e
       unit={t.uses(total).replace(/^\d+\s*/, '')}
       right={t.worked(done)}
       chart={total ? <Columns data={cols} height={40} bare testID="tools-chart" /> : undefined}
-      caption={ranked[0] ? `${ranked[0][0].replace(/_/g, ' ')} · ${t.uses(ranked[0][1].week)}` : t.nothing}
+      caption={best ? `${best.name} · ${t.uses(best.week)}` : t.nothing}
+      more={
+        shown.length > 1 || best ? (
+          <View style={s.lines} testID="tools-split">
+            {shown.length > 1
+              ? shown.map((src) => (
+                  <View key={src.id} style={s.splitRow}>
+                    <View style={[s.splitDot, { backgroundColor: src.color }]} />
+                    <Text style={s.line}>{src.label}</Text>
+                    <View style={s.flex} />
+                    <Text style={s.line}>{split[src.id]}</Text>
+                  </View>
+                ))
+              : null}
+            {best ? (
+              <Text style={s.line} numberOfLines={1}>
+                <Text style={s.dim}>{t.mostUsed}: </Text>
+                {best.name} ({best.week}×)
+              </Text>
+            ) : null}
+          </View>
+        ) : undefined
+      }
       testID="analytics-tools"
+    />
+  );
+}
+
+/** The person's own Claude Code or OpenCode tools this week, most called first, in the source's colour. */
+function ExtToolsCard({ id, x, t }: { id: ExtId; x: ExtToolUses; t: SettingsStrings }) {
+  const src = TOOL_SOURCES.find((v) => v.id === id)!;
+  const rows = Object.entries(x.tools)
+    .filter(([, v]) => v.week > 0)
+    .sort((a, b) => b[1].week - a[1].week);
+  const n = rows.reduce((a, [, v]) => a + v.week, 0);
+  return (
+    <RowsCard
+      icon={id === 'claude' ? SquareTerminal : SquareCode}
+      title={id === 'claude' ? 'Claude Code' : 'OpenCode'}
+      period={t.period.week}
+      big={String(n)}
+      unit={t.calls}
+      caption={id === 'claude' ? t.claudeTools : t.opencodeTools}
+      rows={rows.map(([k, v]) => ({ label: k, value: v.week, text: String(v.week), color: src.color }))}
+      empty={t.nothing}
+      testID={`analytics-tools-${id}`}
     />
   );
 }
@@ -845,5 +939,7 @@ const s = StyleSheet.create({
   lines: { gap: 4 },
   line: { fontFamily: fonts.sans, fontSize: 12, color: colors.ink },
   dim: { color: colors.inkDim },
+  splitRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  splitDot: { width: 8, height: 8, borderRadius: 2 },
   none: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim, padding: gutter },
 });

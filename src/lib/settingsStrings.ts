@@ -45,6 +45,11 @@ export interface SettingsStrings {
   toolsAbout: string;
   uses: (n: number) => string;
   worked: (n: number) => string;
+  /** The week's most used tool, of any source. */
+  mostUsed: string;
+  /** The person's own Claude Code and OpenCode tool calls (Tools group). */
+  claudeTools: string;
+  opencodeTools: string;
   orchestrator: string;
   orchestratorAbout: string;
   agentsNow: (n: number) => string;
@@ -120,6 +125,9 @@ const en: SettingsStrings = {
   toolsAbout: 'Tool use this week, by day',
   uses: (n) => (n === 1 ? '1 use' : `${n} uses`),
   worked: (n) => `${n} worked`,
+  mostUsed: 'Most used',
+  claudeTools: 'Your Claude Code tool calls, through the Claude pool',
+  opencodeTools: 'Your OpenCode tool calls, from your computers',
   orchestrator: 'Orchestrator',
   orchestratorAbout: 'Your agent on the server',
   agentsNow: (n) => (n === 1 ? '1 sub-agent in its tree' : `${n} sub-agents in its tree`),
@@ -191,6 +199,9 @@ const tr: SettingsStrings = {
   toolsAbout: 'Bu haftaki araç kullanımı, güne göre',
   uses: (n) => `${n} kullanım`,
   worked: (n) => `${n} başarılı`,
+  mostUsed: 'En çok kullanılan',
+  claudeTools: 'Claude Code araç çağrıların, Claude havuzu üzerinden',
+  opencodeTools: 'OpenCode araç çağrıların, bilgisayarlarından',
   orchestrator: 'Orkestratör',
   orchestratorAbout: 'Sunucudaki ajanınız',
   agentsNow: (n) => `ağacında ${n} alt ajan`,

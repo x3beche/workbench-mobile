@@ -10,6 +10,7 @@
  */
 import { streamRawSse, streamSse, type RawEvent, type StreamResult, type XhrLike } from './sse';
 import type {
+  ActivityData,
   ActivityNow,
   AdminPool,
   AdminSandboxes,
@@ -569,6 +570,11 @@ export class WorkbenchClient {
   /** What goes on now: tokens a second, jobs, the machine (the web top bar's Activity). */
   activityNow(): Promise<ActivityNow> {
     return this.request<ActivityNow>('GET', '/api/me/activity/now');
+  }
+
+  /** The tokens over a range by source, with its totals and what goes on now (the web top bar's Activity). */
+  activity(range: string): Promise<ActivityData> {
+    return this.request<ActivityData>('GET', `/api/me/activity?range=${encodeURIComponent(range)}`);
   }
 
   // ---- live streams through S2 (backend/s2live.py) ---------------------------

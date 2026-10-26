@@ -71,6 +71,11 @@ export function useSession(): Session {
   return s;
 }
 
+/** The session, or null outside one (a view that may be drawn on its own, e.g. in a test). */
+export function useMaybeSession(): Session | null {
+  return useContext(Ctx);
+}
+
 export function SessionProvider({ children, deps }: { children: ReactNode; deps?: ClientDeps }) {
   const [phase, setPhase] = useState<Phase>('boot');
   const [server, setServer] = useState<string | null>(null);

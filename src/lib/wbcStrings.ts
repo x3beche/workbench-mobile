@@ -38,6 +38,8 @@ export interface WbcStrings {
   reading: string;
   /** The box's empty words: the web's "write to this Claude Code session…", short enough for one line on a phone. */
   placeholder: string;
+  /** The chip that puts Claude Code's suggestion in the box. */
+  useSuggestion: string;
   // a sent message's state
   sentWaiting: string;
   queuedTyping: string;
@@ -114,6 +116,7 @@ const en: WbcStrings = {
   readingOlder: 'Reading earlier turns',
   reading: 'Reading the session',
   placeholder: 'Write to this session…',
+  useSuggestion: 'Use',
   sentWaiting: 'sent — waiting for the computer',
   queuedTyping: 'queued — you are typing on the computer',
   queuedDialog: 'queued — Claude is asking something on the computer',
@@ -186,6 +189,7 @@ const tr: WbcStrings = {
   readingOlder: 'Önceki turlar okunuyor',
   reading: 'Oturum okunuyor',
   placeholder: 'Bu oturuma yazın…',
+  useSuggestion: 'Kullan',
   sentWaiting: 'gönderildi — bilgisayar bekleniyor',
   queuedTyping: 'sırada — bilgisayarda yazıyorsunuz',
   queuedDialog: 'sırada — Claude bilgisayarda bir şey soruyor',

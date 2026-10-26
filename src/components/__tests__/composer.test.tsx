@@ -57,6 +57,34 @@ describe('Composer', () => {
     expect(screen.getByTestId('composer-input')).toHaveDisplayValue('');
   });
 
+  it("offers Claude Code's suggestion in the empty box; Use puts it in, typing or sending puts it away", async () => {
+    const onSend = jest.fn(async () => true);
+    const sug = { text: 'Run DRC again', use: 'Use' };
+    await render(
+      <Composer client={null} lang="auto" writing={false} onSend={onSend} onStop={jest.fn()} placeholder="Write" suggestion={sug} />,
+    );
+    expect(screen.getByTestId('composer-input').props.placeholder).toBe('Run DRC again');
+    await fireEvent.press(screen.getByTestId('composer-use-suggestion'));
+    expect(screen.getByTestId('composer-input')).toHaveDisplayValue('Run DRC again');
+    expect(screen.queryByTestId('composer-use-suggestion')).toBeNull();
+    await fireEvent.press(screen.getByTestId('send'));
+    expect(onSend).toHaveBeenCalledWith('Run DRC again');
+    // Sent: the box's own words again, no chip.
+    expect(screen.getByTestId('composer-input').props.placeholder).toBe('Write');
+    expect(screen.queryByTestId('composer-use-suggestion')).toBeNull();
+  });
+
+  it('puts the suggestion away once something is typed', async () => {
+    const sug = { text: 'Run DRC again', use: 'Use' };
+    await render(
+      <Composer client={null} lang="auto" writing={false} onSend={jest.fn(async () => true)} onStop={jest.fn()} placeholder="Write" suggestion={sug} />,
+    );
+    await fireEvent.changeText(screen.getByTestId('composer-input'), 'Che');
+    await fireEvent.changeText(screen.getByTestId('composer-input'), '');
+    expect(screen.getByTestId('composer-input').props.placeholder).toBe('Write');
+    expect(screen.queryByTestId('composer-use-suggestion')).toBeNull();
+  });
+
   it('shows Stop while an answer is being written', async () => {
     const onStop = jest.fn();
     await render(<Composer client={null} lang="auto" writing onSend={jest.fn(async () => true)} onStop={onStop} />);

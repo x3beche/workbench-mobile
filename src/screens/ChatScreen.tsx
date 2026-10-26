@@ -18,6 +18,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -26,6 +27,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type VoiceLang } from '../api/client';
 import type { Chat, ChatEvent, ChatMessage } from '../api/types';
+import { ActivityStrip } from '../components/Activity';
 import { Appear } from '../components/Appear';
 import { Composer, type ComposerHandle } from '../components/Composer';
 import { ArrowDown, ChevronDown, Copy, Ellipsis, Menu, SquarePen, TextSelect } from '../components/icons';
@@ -42,7 +44,11 @@ import { greeting } from '../lib/groups';
 import { useBus, useLive } from '../live/LiveContext';
 import { useSession } from '../state/session';
 import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
+import { uiLang } from '../update/strings';
 import type { VoiceMode } from '../voice/voice';
+
+/** Narrower than this, the Activity strip is left out (Analytics' Activity card still opens it). */
+const STRIP_MIN = 300;
 
 type Action = { kind: 'load'; chat: Chat } | { kind: 'event'; ev: ChatEvent } | { kind: 'piece'; ev: ChatEvent };
 
@@ -112,7 +118,8 @@ export function ChatScreen({
   /** The "…" in the top bar: rename, pin, archive, export, delete (once it is on the server). */
   onMore?: (chat: { id: string; title: string }) => void;
 }) {
-  const { client, user } = useSession();
+  const { client, user, account } = useSession();
+  const { width } = useWindowDimensions();
   const [id, setId] = useState<string | null>(initial?.id ?? null);
   const idRef = useRef(id);
   idRef.current = id;
@@ -385,7 +392,8 @@ export function ChatScreen({
 
   return (
     <SafeAreaView style={st.safe} edges={['top', 'left', 'right', 'bottom']} testID="chat-screen">
-      <View style={[st.head, under && st.headUnder]}>
+      <View style={[st.top, under && st.headUnder]}>
+      <View style={st.head}>
         {!wide && onMenu ? (
           <IconButton icon={Menu} label="Open the conversations" onPress={onMenu} testID="open-drawer" />
         ) : (
@@ -421,6 +429,9 @@ export function ChatScreen({
         ) : (
           <View style={st.side} />
         )}
+      </View>
+      {/* The web top bar's Activity, as a slim strip; left out where it would crowd a very narrow screen. */}
+      {width >= STRIP_MIN ? <ActivityStrip client={client} scope={account?.id ?? 'local'} lang={uiLang(lang)} /> : null}
       </View>
       <View style={st.flex}>
         <FlatList
@@ -619,13 +630,12 @@ function SelectText({ text, onClose }: { text: string; onClose: () => void }) {
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
+  top: { borderBottomWidth: 1, borderBottomColor: 'transparent' },
   head: {
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: space.xs + 2,
-    borderBottomWidth: 1,
-    borderBottomColor: 'transparent',
   },
   headUnder: { borderBottomColor: colors.line },
   // On a wide screen the lines and the composer keep a reading width, in the middle.

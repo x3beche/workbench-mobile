@@ -69,6 +69,12 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/74c-ccpool-sessions.png" width="200" alt="Claude pool: My sessions">
 </p>
 <p>
+  <img src="docs/screenshots/48-activity-strip.png" width="200" alt="Activity under the top bar: tokens a second, the range's tokens">
+  <img src="docs/screenshots/49-activity-sheet.png" width="200" alt="Activity opened: ranges, figures, tokens by source">
+  <img src="docs/screenshots/72b-analytics-tools-split.png" width="200" alt="Tools: Workbench, Claude Code and OpenCode calls, 14 days by source">
+  <img src="docs/screenshots/91b-claude-suggestion.png" width="200" alt="Claude Code's suggestion in the empty box, with Use">
+</p>
+<p>
   <img src="docs/screenshots/21-wide-chat.png" width="520" alt="On a wide screen the drawer is a column that stays open">
   <img src="docs/screenshots/34-wide-scrollbar.png" width="520" alt="The web build's thin scrollbars, as the web app draws them">
 </p>
@@ -206,7 +212,11 @@ Then you sign in with the same e-mail address and password as on the web.
   saying why, and "update wb-claude" says when the computer's wb-claude is
   old (it takes no pictures). The account's bus (`wbc`) says when to read
   again; while a session is active it is also read every few seconds as a
-  safety net, never in the background. English and Turkish.
+  safety net, never in the background. From 1.6.3 Claude Code's own
+  suggestion of what to type next (the newest page's `suggestion`) is the
+  empty box's words, dim and italic, with a small Use chip that puts it in
+  the box (Tab in the terminal; a phone has none); typing or sending puts it
+  away. English and Turkish.
 - **OpenCode sessions** (from 1.6.1): one's own OpenCode runs under
   `wb-opencode` (redline-studio's docs/WB-OPENCODE.md), a group of the
   drawer under Claude sessions: name, what OpenCode does (ready, working,
@@ -282,7 +292,12 @@ Then you sign in with the same e-mail address and password as on the web.
   (tokens a day for 14 days by provider, this month and today, the answers'
   median speed; `GET /api/llm/summary`), money a day for 30 days by model
   with requests by provider and by model (`GET /api/llm/usage`), the Tools
-  card (this week's tool use by day; `GET /api/cc/tools-usage`), the
+  card (this week's tool use by day; `GET /api/cc/tools-usage`; from 1.6.3
+  `?span=month`, with one's own Claude Code and OpenCode tool calls next to
+  Workbench's - the week's sum, the last 14 days stacked by source in the
+  Activity's colours like the Models card's bars, opened the split and the
+  most used tool, and a card each listing Claude Code's and OpenCode's
+  tools), the
   Orchestrator (its state, its sub-agents, the incidents the supervisor
   kept), the job pool (one's own jobs, how full the server is) and, for the
   owner and the admins, the latest finished jobs with their wait and run
@@ -293,6 +308,21 @@ Then you sign in with the same e-mail address and password as on the web.
   uppercase labels (LLM, Agents, Work, Tools, Server), two cards a row where
   they fit. A card the server has no route for, or the account may not see,
   is left out.
+- **Activity** (from 1.6.3), the web top bar's: a slim strip under a
+  conversation's top bar - the tokens a second written now (its dot green
+  while they flow), a small chart of the tokens over the range chosen and
+  their total ("18.0M tok · 24h"), and whichever of Claude prompts, jobs,
+  CPU and memory are switched on, what does not fit left out from the end.
+  A tap (or a tap on Analytics' Activity card) opens it: the range (30m to
+  30d, or one's own from 1m to 30d), the figures (tokens in, out and cache,
+  now by source, calls, Claude's prompts and calls, jobs, CPU, memory), the
+  tokens over the range stacked by source - Chat, Orchestrator, Agents,
+  Other jobs, Claude, OpenCode - in the chart palette, a touch reading a
+  moment and the legend hiding a source, and what the strip shows. The
+  range and the strip's figures are kept per account on the phone
+  (`GET /api/me/activity?range=`; now through the account's `activity`
+  stream, else `GET /api/me/activity/now` every 5 s). Left out on a screen
+  narrower than 300 px.
 - **Typing**: a rounded box floats right above the keyboard, the conversation
   shrinks above it with the newest lines in view, and the box grows with
   what you write up to six lines (16 px text), then scrolls inside. Its round

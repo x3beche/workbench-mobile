@@ -341,16 +341,29 @@ export function handleAnalytics(req, res, p, url) {
     }), true;
   }
   if (p === '/api/cc/tools-usage') {
+    // The month by day (the card shows the last 14), with the person's own Claude Code and OpenCode calls.
     const names = ['part_search', 'read_board', 'model_build', 'datasheet', 'render', 'web_search'];
-    const days = Array.from({ length: 7 }, (_, k) => ({
-      day: isoDay(6 - k),
+    const days = Array.from({ length: 30 }, (_, k) => ({
+      day: isoDay(29 - k),
       by: Object.fromEntries(names.map((t, j) => [t, Math.max(0, wave(k + j, 0, 9 - j))])),
     }));
+    const lastWeek = days.slice(-7);
     const tools = Object.fromEntries(names.map((t) => {
-      const week = days.reduce((a, d) => a + (d.by[t] || 0), 0);
+      const week = lastWeek.reduce((a, d) => a + (d.by[t] || 0), 0);
       return [t, { uses: week * 4, done: week * 4 - 1, week, week_done: Math.max(0, week - 1) }];
     }));
-    return json(res, 200, { tools, mine: 40, days, span: 'week' }), true;
+    const ext = (list, scale) => {
+      const byDay = Object.fromEntries(days.map((d, k) => [d.day, Object.fromEntries(list.map((t, j) => [t, Math.max(0, wave(k * 2 + j, 0, scale - 3 * j))]))]));
+      const tl = Object.fromEntries(list.map((t) => [t, {
+        uses: days.reduce((a, d) => a + (byDay[d.day][t] || 0), 0),
+        week: lastWeek.reduce((a, d) => a + (byDay[d.day][t] || 0), 0),
+      }]));
+      return { tools: tl, days: byDay };
+    };
+    return json(res, 200, { tools, mine: 40, days, span: 'month', external: {
+      claude: ext(['Bash', 'Read', 'Edit', 'Grep', 'Write', 'TodoWrite'], 22),
+      opencode: ext(['bash', 'read', 'edit', 'glob'], 12),
+    } }), true;
   }
   if (p === '/api/me/orchestrator/incidents') {
     return json(res, 200, { incidents: [

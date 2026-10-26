@@ -9,7 +9,7 @@
  * stay there, when it is stopped, to read over like any other.
  */
 import { forwardRef, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { VoiceLang, WorkbenchClient } from '../api/client';
 import { tick } from '../lib/feel';
@@ -54,9 +54,13 @@ export const Composer = forwardRef<
     tool?: ReactNode;
     /** Something goes with the line already: Send works with no words. */
     ready?: boolean;
+    /** What to type next, offered in the empty box (dim, italic) with a chip
+     *  that puts it in (Claude Code's own suggestion; phones have no Tab).
+     *  Gone once something is typed or sent, until another comes. */
+    suggestion?: { text: string; use: string } | null;
   }
 >(function Composer(
-  { client, lang, mode = 'record', writing, onSend, onStop, onVoiceNote, placeholder = 'Message', above, tool, ready = false },
+  { client, lang, mode = 'record', writing, onSend, onStop, onVoiceNote, placeholder = 'Message', above, tool, ready = false, suggestion = null },
   ref,
 ) {
   const [text, setText] = useState('');
@@ -65,6 +69,9 @@ export const Composer = forwardRef<
   const [webHeight, setWebHeight] = useState(MIN_H);
   const [focused, setFocused] = useState(false);
   const input = useRef<TextInput>(null);
+  // The suggestion put away by typing or sending, until the server has another.
+  const [dropped, setDropped] = useState<string | null>(null);
+  const offer = suggestion && suggestion.text !== dropped && !text ? suggestion : null;
   const voice = useVoiceRecorder(
     client,
     lang,
@@ -91,6 +98,7 @@ export const Composer = forwardRef<
     const t = text.trim();
     if (!t && !ready) return;
     tick();
+    if (suggestion) setDropped(suggestion.text);
     setText('');
     setWebHeight(MIN_H);
     onSend(t).then((ok) => {
@@ -141,17 +149,18 @@ export const Composer = forwardRef<
         <TextInput
           ref={input}
           testID="composer-input"
-          style={[s.input, Platform.OS === 'web' && { height: webHeight }]}
+          style={[s.input, offer && s.suggested, Platform.OS === 'web' && { height: webHeight }]}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           value={text}
           onChangeText={(t) => {
             if (Platform.OS === 'web' && t.length < text.length) setWebHeight(MIN_H);
             setText(t);
+            if (t && suggestion) setDropped(suggestion.text);
             if (voice.error) voice.setError(null);
             if (voice.notice) voice.setNotice(null);
           }}
-          placeholder={placeholder}
+          placeholder={offer ? offer.text : placeholder}
           placeholderTextColor={colors.inkDim}
           selectionColor={colors.inkDim}
           accessibilityLabel={placeholder}
@@ -168,6 +177,21 @@ export const Composer = forwardRef<
           enterKeyHint="enter"
         />
         <View style={s.tools}>
+          {offer ? (
+            <Pressable
+              onPress={() => {
+                setText(offer.text);
+                input.current?.focus();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`${offer.use}: ${offer.text}`}
+              hitSlop={6}
+              style={({ pressed }) => [s.use, pressed && s.usePressed]}
+              testID="composer-use-suggestion"
+            >
+              <Text style={s.useText}>{offer.use}</Text>
+            </Pressable>
+          ) : null}
           {tool}
           <IconButton
             icon={Mic}
@@ -234,6 +258,19 @@ const s = StyleSheet.create({
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
   },
   tools: { flexDirection: 'row', alignItems: 'center', height: MIN_H, gap: 2 },
+  // The suggestion in the empty box: dim and italic, as in Claude Code's terminal.
+  suggested: { fontStyle: 'italic' },
+  use: {
+    height: 26,
+    paddingHorizontal: 10,
+    marginRight: 2,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: colors.line,
+    justifyContent: 'center',
+  },
+  usePressed: { backgroundColor: colors.hover },
+  useText: { fontFamily: fonts.sans, fontSize: 12, color: colors.inkDim },
   mic: { width: 40, height: 40 },
   round: {
     width: ROUND,

@@ -425,12 +425,21 @@ export interface LlmUsage {
   cost: TimeSeries;
 }
 
-/** GET /api/cc/tools-usage?span=week: the Chat's tools, by day. */
+/** GET /api/cc/tools-usage?span=month: the Chat's tools, by day. */
 export interface ToolsUsage {
   tools: Record<string, { uses: number; done: number; week: number; week_done?: number }>;
   mine: number;
   days: { day: string; by: Record<string, number> }[];
   span?: string;
+  /** The person's own tool calls outside the Chat, in the same buckets: their
+   *  Claude Code (the Claude pool) and OpenCode; null where there is none to tell. */
+  external?: { claude: ExtToolUses | null; opencode: ExtToolUses | null };
+}
+
+/** One outside source's tool calls: each tool's total and week, and each bucket by tool. */
+export interface ExtToolUses {
+  tools: Record<string, { uses: number; week: number }>;
+  days: Record<string, Record<string, number>>;
 }
 
 /** GET /api/me/orchestrator/incidents: what the supervisor kept (crash, out of memory, key refused, ...). */
@@ -524,6 +533,35 @@ export interface ActivityNow {
     sampled: boolean;
     parts: { kind: 'orchestrator' | 'sandbox' | 'jobs'; name: string; cpu_pct: number | null; mem_mb: number }[];
   };
+}
+
+/** GET /api/me/activity?range=24h: the tokens over a range by source, its totals, and what goes on now. */
+export interface ActivityData extends ActivityNow {
+  range: string;
+  t0: number;
+  step: number;
+  n: number;
+  sources?: ActivitySource[];
+  series: Record<ActivitySource, number[] | undefined>;
+  total: {
+    tokens: number;
+    input: number;
+    output: number;
+    calls: number;
+    by: Record<ActivitySource, number | undefined>;
+    cache_read?: number;
+    cache_write?: number;
+  };
+  /** The person's own Claude pool use over the range; absent without a key. */
+  claude?: {
+    prompts: number;
+    calls: number;
+    tokens: number;
+    input?: number;
+    output?: number;
+    cache_read?: number;
+    cache_write?: number;
+  } | null;
 }
 
 // ---- Claude sessions (backend/wbclaude.py: /api/wbc/*) -------------------------
@@ -621,6 +659,8 @@ export interface WbcTurnsPage {
   turns: WbcTurn[];
   more: boolean;
   before: number | null;
+  /** The newest page only: what Claude Code suggests typing next, with nothing typed after it. */
+  suggestion?: string | null;
 }
 
 // ---- OpenCode sessions (backend/wbopencode.py: /api/wbo/*) ---------------------

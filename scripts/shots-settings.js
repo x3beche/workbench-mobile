@@ -64,6 +64,13 @@ async function scrollTo(page, testID) {
   await shot(page, '71-analytics');
   await scrollTo(page, 'analytics-tools');
   await shot(page, '72-analytics-tools');
+  // Opened: the week by source and the most used tool; then Claude Code's and OpenCode's own tools.
+  await page.click(tid('analytics-tools'));
+  await sleep(300);
+  await shot(page, '72b-analytics-tools-split');
+  await page.click(tid('analytics-tools'));
+  await scrollTo(page, 'analytics-tools-claude');
+  await shot(page, '72c-analytics-tools-claude-opencode');
   await scrollTo(page, 'analytics-orchestrator');
   await shot(page, '73-analytics-orchestrator-pool');
   await scrollTo(page, 'analytics-sandboxes');

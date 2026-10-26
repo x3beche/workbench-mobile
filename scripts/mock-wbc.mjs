@@ -261,6 +261,9 @@ const SESSIONS = [
   },
 ];
 
+// Claude Code's suggestion of what to type next, until a line is sent (turns' `suggestion`).
+SESSIONS[0].suggestion = 'Run DRC again with the 0.15 mm clearance rule';
+
 const bySid = (sid) => SESSIONS.find((x) => x.row.session_id === sid);
 const tell = (sid, what) => publish('bus', { k: 'wbc', p: { sid, what }, t: Date.now() });
 const RULES = { max: 4, bytes: 5 * 1024 * 1024, types: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'] };
@@ -316,7 +319,7 @@ export function handleWbc(req, res, p, url, body) {
     const got = rows.slice(cut);
     // Slow enough for the loader at the top to be seen.
     return (
-      setTimeout(() => json(res, 200, { turns: got, more: cut > 0, before: got[0]?.at ?? null }), before ? 700 : 0),
+      setTimeout(() => json(res, 200, { turns: got, more: cut > 0, before: got[0]?.at ?? null, suggestion: before ? null : s.suggestion ?? null }), before ? 700 : 0),
       true
     );
   }
@@ -372,6 +375,7 @@ export function handleWbc(req, res, p, url, body) {
     };
     Object.defineProperty(msg, 'bytes', { value: got.pics, enumerable: false });
     s.messages.push(msg);
+    s.suggestion = null;
     tell(s.row.session_id, 'message');
     // Claude is working: it waits; at the prompt again, it is typed in and Claude answers.
     setTimeout(() => {

@@ -110,7 +110,9 @@ export function activityNow() {
     at: Math.floor(Date.now() / 1000),
     live: { tps, by: { chat: tps * 0.7, orchestrator: tps * 0.3 }, window_s: 10 },
     jobs: { running: 2, queued: 1, agents: 1, total: 3, kinds: { build: 1, render: 1 } },
-    machine: { cpu_pct: 18 + (beat % 5) * 3, mem_mb: 3480 + (beat % 7) * 40, sampled: true, parts: [] },
+    machine: { cpu_pct: 18 + (beat % 5) * 3, mem_mb: 3480 + (beat % 7) * 40, sampled: true,
+               parts: [{ kind: 'orchestrator', name: 'orchestrator', cpu_pct: 9 + (beat % 3), mem_mb: 1450 },
+                       { kind: 'sandbox', name: 'main', cpu_pct: 6, mem_mb: 1900 }, { kind: 'jobs', name: 'pool', cpu_pct: null, mem_mb: 130 }] },
   };
 }
 if (ON) {

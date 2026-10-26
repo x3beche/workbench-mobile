@@ -67,6 +67,23 @@ async function signIn(page) {
     '| step 8 not yet', !t1.includes('Step 8:'), '| composer', !!(await page.$(tid('wbc-composer'))));
   await page.screenshot({ path: `${OUT}/91-claude-session.png` });
 
+  // Claude Code's suggestion in the empty box; Use puts it in, and the box is emptied again.
+  const ph = await page.$eval(tid('composer-input'), (el) => el.getAttribute('placeholder'));
+  console.log('suggestion as placeholder', ph.includes('0.15 mm'), '| Use chip', !!(await page.$(tid('composer-use-suggestion'))));
+  await page.screenshot({ path: `${OUT}/91b-claude-suggestion.png`, clip: { x: 0, y: 844 - 220, width: 390, height: 220 } });
+  await page.click(tid('composer-use-suggestion'));
+  await sleep(300);
+  console.log('taken', (await page.$eval(tid('composer-input'), (el) => el.value)).includes('0.15 mm'),
+    '| chip gone', !(await page.$(tid('composer-use-suggestion'))));
+  await page.screenshot({ path: `${OUT}/91c-claude-suggestion-used.png`, clip: { x: 0, y: 844 - 220, width: 390, height: 220 } });
+  await page.click(tid('composer-input'), { clickCount: 3 });
+  await page.keyboard.press('Backspace');
+  await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="composer-input"]');
+    if (el.value) { el.select(); document.execCommand('delete'); }
+  });
+  await sleep(200);
+
   // Up to the top of what is read: the page before comes in.
   const scrollUp = () =>
     page.evaluate(() => {

@@ -168,6 +168,19 @@ async function open(c: ReturnType<typeof client>, hub: LiveHub | null = null) {
     expect(screen.getByTestId('wbc-composer')).toBeTruthy();
   });
 
+  it("offers Claude Code's suggestion in the empty box, and Use puts it in", async () => {
+    const c = client();
+    c.wbcTurns.mockImplementation(async () => ({ turns: TURNS, more: false, before: null, suggestion: 'Run the linter too' }));
+    await open(c);
+    expect(screen.getByTestId('composer-input').props.placeholder).toBe('Run the linter too');
+    await fireEvent.press(screen.getByTestId('composer-use-suggestion'));
+    expect(screen.getByTestId('composer-input')).toHaveDisplayValue('Run the linter too');
+    await fireEvent.press(screen.getByTestId('send'));
+    await tick(0);
+    expect(c.wbcSend).toHaveBeenCalledWith('s1', 'Run the linter too', []);
+    expect(screen.getByTestId('composer-input').props.placeholder).toBe(en.placeholder);
+  });
+
   it('is a note saying why when it cannot be written to', async () => {
     const c = client({ may_send: false, why: 'no-bridge', bridge: null, status: 'ended' });
     await open(c);

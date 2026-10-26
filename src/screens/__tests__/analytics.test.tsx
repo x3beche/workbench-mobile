@@ -1,6 +1,6 @@
 /** Analytics: each section from the route the web app reads; the server's own only for the owner and admins. */
 import * as React from 'react';
-import { act, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { WorkbenchClient } from '../../api/client';
 import { orchStrings } from '../../lib/orchStrings';
@@ -82,6 +82,48 @@ function client(over: Partial<Record<string, unknown>> = {}) {
     expect(screen.getByText('Sunucu')).toBeTruthy();
     expect(screen.getByText('1/4')).toBeTruthy();
     expect(screen.getByText('Modeller')).toBeTruthy();
+  });
+});
+
+(canRender ? describe : describe.skip)('Analytics, tools', () => {
+  it("counts the person's Claude Code and OpenCode tool calls next to the Chat's, 14 days of bars", async () => {
+    const days = Array.from({ length: 30 }, (_, i) => ({ day: `2026-10-${String(i + 1).padStart(2, '0')}`, by: { part_search: 1 } }));
+    const c = client({
+      toolsUsage: jest.fn(async () => ({
+        tools: { part_search: { uses: 30, done: 30, week: 7, week_done: 7 } },
+        mine: 30,
+        days,
+        span: 'month',
+        external: {
+          claude: { tools: { Bash: { uses: 40, week: 20 }, Read: { uses: 9, week: 3 } }, days: { '2026-10-30': { Bash: 5 } } },
+          opencode: { tools: { edit: { uses: 4, week: 2 } }, days: {} },
+        },
+      })),
+    });
+    await render(<AnalyticsScreen client={c} t={settingsStrings('en')} ot={orchStrings('en')} lang="en" />);
+    await act(async () => undefined);
+    expect(c.toolsUsage).toHaveBeenCalledWith('month');
+    // 7 + 23 + 2 this week; the most used is Claude Code's Bash.
+    expect(screen.getByText('32')).toBeTruthy();
+    expect(screen.getByText('Bash · 20 uses')).toBeTruthy();
+    // As many bars as the Models card: the last 14 days.
+    const bars = screen.getByTestId('tools-chart').children[0] as { children: unknown[] };
+    expect(bars.children).toHaveLength(14);
+    expect(screen.getByTestId('analytics-tools-claude')).toBeTruthy();
+    expect(screen.getByTestId('analytics-tools-opencode')).toBeTruthy();
+    expect(screen.getByText('Your OpenCode tool calls, from your computers')).toBeTruthy();
+    // Opened: the split by source.
+    await fireEvent.press(screen.getByTestId('analytics-tools'));
+    expect(screen.getByTestId('tools-split')).toBeTruthy();
+    expect(screen.getByText('Most used:', { exact: false })).toBeTruthy();
+    expect(screen.getAllByText('23').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('has no Claude Code or OpenCode cards from an older server', async () => {
+    await render(<AnalyticsScreen client={client()} t={settingsStrings('en')} ot={orchStrings('en')} lang="en" />);
+    await act(async () => undefined);
+    expect(screen.getByTestId('analytics-tools')).toBeTruthy();
+    expect(screen.queryByTestId('analytics-tools-claude')).toBeNull();
   });
 });
 
