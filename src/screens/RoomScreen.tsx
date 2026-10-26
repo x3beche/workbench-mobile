@@ -40,6 +40,7 @@ import { ErrorText, Glyph, IconButton } from '../components/ui';
 import { orchStrings } from '../lib/orchStrings';
 import { layLatest, PAGE, putOlder } from '../lib/paging';
 import { asChatMessage, ROOM_ICON, ROOM_LABEL } from '../lib/rooms';
+import { AT_BOTTOM, followBottom } from '../lib/stickBottom';
 import { useBus, useLive } from '../live/LiveContext';
 import * as prefs from '../storage/prefs';
 import { colors, fonts, gutter, motion, space, touch, type } from '../theme/tokens';
@@ -50,8 +51,6 @@ import type { VoiceMode } from '../voice/voice';
 const EVERY = 2000;
 /** A burst of lines told on the bus is read once, this long after the first. */
 const BUS_GATHER_MS = 60;
-/** Within this many pixels of the newest line, the reader is at the bottom and kept there. */
-const AT_BOTTOM = 60;
 
 export function RoomScreen({
   room,
@@ -94,6 +93,8 @@ export function RoomScreen({
   const [below, setBelow] = useState(false);
   const atBottom = useRef(true);
   const list = useRef<FlatList<RoomLine>>(null);
+  /** A line arriving, or one being written, while the reader is at the bottom: stay there. */
+  const follow = useCallback(() => followBottom(list.current, () => atBottom.current), []);
   const linesRef = useRef<RoomLine[] | null>(null);
   useEffect(() => {
     linesRef.current = lines;
@@ -266,6 +267,7 @@ export function RoomScreen({
               <MessageItem m={asChatMessage(item)} mine={!!user && item.by?.id === user.id} />
             )}
             onScroll={scrolled}
+            onContentSizeChange={follow}
             scrollEventThrottle={64}
             onEndReached={loadOlder}
             onEndReachedThreshold={0.3}

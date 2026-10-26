@@ -5,6 +5,7 @@
  */
 import * as React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { FlatList } from 'react-native';
 
 import type { WorkbenchClient } from '../../api/client';
 import type { BusEvent, WbcDetail, WbcMessage, WbcSession, WbcTurn } from '../../api/types';
@@ -166,6 +167,32 @@ async function open(c: ReturnType<typeof client>, hub: LiveHub | null = null) {
     expect(screen.getByText('from Workbench')).toBeTruthy();
     expect(screen.getByText('at the prompt')).toBeTruthy();
     expect(screen.getByTestId('wbc-composer')).toBeTruthy();
+  });
+
+  it('follows the newest turn as one arrives, and stays put for a reader further up', async () => {
+    const c = client();
+    await open(c);
+    const list = screen.getByTestId('wbc-list');
+    const to = jest.spyOn(FlatList.prototype, 'scrollToOffset').mockImplementation(() => undefined);
+
+    // At the bottom: the content growing - a turn arriving, an answer being written - keeps it there.
+    await fireEvent(list, 'contentSizeChange', 390, 2400);
+    await tick(60);
+    expect(to).toHaveBeenCalledWith({ offset: 0, animated: false });
+
+    // Read further up: the page stays exactly where it was, and New messages offers the way down.
+    to.mockClear();
+    await fireEvent.scroll(list, {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 900 },
+        contentSize: { width: 390, height: 2400 },
+        layoutMeasurement: { width: 390, height: 700 },
+      },
+    });
+    await fireEvent(list, 'contentSizeChange', 390, 2600);
+    await tick(60);
+    expect(to).not.toHaveBeenCalled();
+    to.mockRestore();
   });
 
   it("offers Claude Code's suggestion in the empty box, and Use puts it in", async () => {

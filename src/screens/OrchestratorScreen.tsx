@@ -74,6 +74,7 @@ import {
 } from '../lib/orchestrator';
 import type { OrchStrings } from '../lib/orchStrings';
 import { PAGE } from '../lib/paging';
+import { AT_BOTTOM, followBottom } from '../lib/stickBottom';
 import { useBus, useLive } from '../live/LiveContext';
 import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
 
@@ -118,6 +119,8 @@ export const OrchestratorScreen = forwardRef<
   const list = useRef<FlatList<OrchMessage>>(null);
   /** At the newest line (the list is upside down: offset 0 is the bottom), so kept there. */
   const atBottom = useRef(true);
+  /** A line arriving, or one being written, while the reader is at the bottom: stay there. */
+  const follow = useCallback(() => followBottom(list.current, () => atBottom.current), []);
   const [below, setBelow] = useState(false);
   /** How many of the session's messages are drawn, by session: the newest ten, ten more as the reader nears the top. */
   const [countOf, setCountOf] = useState<{ sid: string | null; n: number }>({ sid: null, n: PAGE });
@@ -434,7 +437,7 @@ export const OrchestratorScreen = forwardRef<
   const sub = view ? nodeOf(view) : null;
 
   const scrolled = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const at = e.nativeEvent.contentOffset.y < 60;
+    const at = e.nativeEvent.contentOffset.y < AT_BOTTOM;
     atBottom.current = at;
     if (at && below) setBelow(false);
   };
@@ -588,6 +591,7 @@ export const OrchestratorScreen = forwardRef<
               keyExtractor={(m, i) => m.id || String(i)}
               renderItem={({ item }) => <MsgView m={item} sub={!!view} t={t} lang={lang} onOpen={show} />}
               onScroll={scrolled}
+              onContentSizeChange={follow}
               scrollEventThrottle={64}
               onEndReached={showOlder}
               onEndReachedThreshold={0.3}

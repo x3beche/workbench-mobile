@@ -52,6 +52,7 @@ import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
 import { ErrorText, Glyph, IconButton, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
+import { AT_BOTTOM, followBottom } from '../lib/stickBottom';
 import { clock } from '../lib/time';
 import { admit, IMAGE_RULES, isoOf, pictureType, serverWords, type Picked } from '../lib/wbc';
 import {
@@ -85,7 +86,6 @@ const BUSY_MS = 2000;
 const QUIET_MS = 10_000;
 /** A burst of bus events is read once, this long after the first. */
 const GATHER_MS = 150;
-const AT_BOTTOM = 60;
 
 type Item =
   | { kind: 'turn'; turn: Turn; same: boolean }
@@ -142,6 +142,8 @@ export function OpencodeSessionScreen({
   const [s2Live, setS2Live] = useState(false);
   const atBottom = useRef(true);
   const list = useRef<FlatList<Item>>(null);
+  /** A message arriving, or one being written, while the reader is at the bottom: stay there. */
+  const follow = useCallback(() => followBottom(list.current, () => atBottom.current), []);
   const mounted = useRef(true);
   const loading = useRef(false);
   const lastRead = useRef(0);
@@ -570,6 +572,7 @@ export function OpencodeSessionScreen({
             }
             renderItem={renderItem}
             onScroll={scrolled}
+            onContentSizeChange={follow}
             scrollEventThrottle={64}
             onEndReached={loadOlder}
             onEndReachedThreshold={0.3}

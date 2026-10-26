@@ -51,6 +51,7 @@ import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
 import { ErrorText, Glyph, IconButton, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
+import { AT_BOTTOM, followBottom } from '../lib/stickBottom';
 import { clock } from '../lib/time';
 import {
   admit,
@@ -84,8 +85,6 @@ const EVERY = 5000;
 const SAFETY = 30_000;
 /** A burst of bus events is read once, this long after the first. */
 const GATHER_MS = 120;
-/** Within this many pixels of the newest turn, the reader is at the bottom and kept there. */
-const AT_BOTTOM = 60;
 
 type Item = { kind: 'turn'; turn: WbcTurn; same: boolean } | { kind: 'msg'; m: WbcMessage };
 
@@ -133,6 +132,8 @@ export function ClaudeSessionScreen({
   const turnsRef = useRef<WbcTurn[] | null>(null);
   const atBottom = useRef(true);
   const list = useRef<FlatList<Item>>(null);
+  /** A turn arriving, or one being written, while the reader is at the bottom: stay there. */
+  const follow = useCallback(() => followBottom(list.current, () => atBottom.current), []);
   const mounted = useRef(true);
   const seq = useRef(0);
   useEffect(() => {
@@ -459,6 +460,7 @@ export function ClaudeSessionScreen({
             keyExtractor={(it) => (it.kind === 'turn' ? `t:${turnKey(it.turn)}` : `m:${it.m.id}`)}
             renderItem={renderItem}
             onScroll={scrolled}
+            onContentSizeChange={follow}
             scrollEventThrottle={64}
             onEndReached={loadOlder}
             onEndReachedThreshold={0.3}

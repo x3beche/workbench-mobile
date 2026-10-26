@@ -604,6 +604,12 @@ the answer fade in in 160 ms, sheets rise in 180 ms - and with the system's
 reduced-motion setting on, none of it moves (`components/Appear.tsx`,
 `components/Drawer.tsx`, `components/motion.ts`).
 
+A thread - a conversation, a room, a Claude Code or OpenCode session, the
+Orchestrator's - opens at its newest line and stays there while the reader is
+there: a line arriving, or an answer being written, brings the list back down
+(`lib/stickBottom.ts`). Read further up, and nothing moves: the page is left
+exactly where it was, and "New messages" offers the way down.
+
 ### Keyboard
 
 The app draws edge to edge (Android 15 requires it), and then Android's
