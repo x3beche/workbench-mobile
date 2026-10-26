@@ -74,7 +74,7 @@ import {
 } from '../lib/orchestrator';
 import type { OrchStrings } from '../lib/orchStrings';
 import { PAGE } from '../lib/paging';
-import { AT_BOTTOM, followBottom } from '../lib/stickBottom';
+import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { useBus, useLive } from '../live/LiveContext';
 import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
 
@@ -117,10 +117,10 @@ export const OrchestratorScreen = forwardRef<
   const [sheet, setSheet] = useState<'mcp' | 'agent' | null>(null);
   const [width, setWidth] = useState(0);
   const list = useRef<FlatList<OrchMessage>>(null);
-  /** At the newest line (the list is upside down: offset 0 is the bottom), so kept there. */
-  const atBottom = useRef(true);
+  /** Who is reading the bottom of the thread, told by their finger alone (lib/stickBottom.ts). */
+  const reader = useMemo(() => bottomReader(), []);
   /** A line arriving, or one being written, while the reader is at the bottom: stay there. */
-  const follow = useCallback(() => followBottom(list.current, () => atBottom.current), []);
+  const follow = useCallback(() => followBottom(list.current, reader.atBottom), [reader]);
   const [below, setBelow] = useState(false);
   /** How many of the session's messages are drawn, by session: the newest ten, ten more as the reader nears the top. */
   const [countOf, setCountOf] = useState<{ sid: string | null; n: number }>({ sid: null, n: PAGE });
@@ -266,9 +266,9 @@ export const OrchestratorScreen = forwardRef<
 
   // The session shown: its transcript read, then kept up by the stream.
   useEffect(() => {
-    atBottom.current = true;
+    reader.toBottom(); // a session opened at its newest line
     if (shown) loadTx(shown);
-  }, [shown, loadTx]);
+  }, [shown, loadTx, reader]);
 
   const setNode = useCallback((sid: string, state: AgentState | null) => {
     if (!state) return;
@@ -324,7 +324,7 @@ export const OrchestratorScreen = forwardRef<
       return;
     }
     // A new message while the reader is further up: offered, not forced.
-    if (e.type === 'message' && !atBottom.current && e.id && !txOf?.x.messages.some((m) => m.id === e.id)) setBelow(true);
+    if (e.type === 'message' && !reader.atBottom() && e.id && !txOf?.x.messages.some((m) => m.id === e.id)) setBelow(true);
     setTxOf((now) => (now && now.sid === sid ? { sid, x: applyEvent(now.x, e, sid) } : now));
   };
   useEffect(() => {
@@ -436,14 +436,15 @@ export const OrchestratorScreen = forwardRef<
   const show = (sid: string | null) => setView(sid && sid !== root ? sid : null);
   const sub = view ? nodeOf(view) : null;
 
+  /** The list moving itself - keeping a reader's place as lines arrive - scrolls too,
+   *  and is not the reader: only a finger says where they are (lib/stickBottom.ts). */
   const scrolled = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const at = e.nativeEvent.contentOffset.y < AT_BOTTOM;
-    atBottom.current = at;
-    if (at && below) setBelow(false);
+    reader.scroll(e.nativeEvent.contentOffset.y);
+    if (reader.atBottom() && below) setBelow(false);
   };
   const toBottom = () => {
     setBelow(false);
-    atBottom.current = true;
+    reader.toBottom();
     list.current?.scrollToOffset({ offset: 0, animated: true });
   };
   /** Ten more of the session's messages, as the reader nears the top. */
@@ -591,11 +592,15 @@ export const OrchestratorScreen = forwardRef<
               keyExtractor={(m, i) => m.id || String(i)}
               renderItem={({ item }) => <MsgView m={item} sub={!!view} t={t} lang={lang} onOpen={show} />}
               onScroll={scrolled}
+              onScrollBeginDrag={reader.begin}
+              onScrollEndDrag={reader.end}
+              onMomentumScrollBegin={reader.begin}
+              onMomentumScrollEnd={reader.end}
               onContentSizeChange={follow}
               scrollEventThrottle={64}
               onEndReached={showOlder}
               onEndReachedThreshold={0.3}
-              maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+              maintainVisibleContentPosition={KEEP_PLACE}
               contentContainerStyle={s.pad}
               // Upside down: the footer is the top (more to come, or why it stops there), the header the bottom.
               ListFooterComponent={

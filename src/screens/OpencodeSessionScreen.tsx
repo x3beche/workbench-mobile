@@ -53,7 +53,7 @@ import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
 import { ErrorText, Glyph, IconButton, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
-import { AT_BOTTOM, followBottom } from '../lib/stickBottom';
+import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { clock } from '../lib/time';
 import { money } from '../lib/numbers';
 import { statRows, statsLine } from '../lib/runStats';
@@ -170,10 +170,11 @@ export function OpencodeSessionScreen({
   }, [client]);
   const windowOf = useCallback((model?: string | null) => (model ? (windows[model] ?? null) : null), [windows]);
   const [s2Live, setS2Live] = useState(false);
-  const atBottom = useRef(true);
   const list = useRef<FlatList<Item>>(null);
+  /** Who is reading the bottom of the thread, told by their finger alone (lib/stickBottom.ts). */
+  const reader = useMemo(() => bottomReader(), []);
   /** A message arriving, or one being written, while the reader is at the bottom: stay there. */
-  const follow = useCallback(() => followBottom(list.current, () => atBottom.current), []);
+  const follow = useCallback(() => followBottom(list.current, reader.atBottom), [reader]);
   const mounted = useRef(true);
   const loading = useRef(false);
   const lastRead = useRef(0);
@@ -209,7 +210,7 @@ export function OpencodeSessionScreen({
         if (!mounted.current) return;
         const was = held.current;
         const newest = d.messages[d.messages.length - 1];
-        if (was?.length && newest && newest.id !== was[was.length - 1]?.id && !atBottom.current) setBelow(true);
+        if (was?.length && newest && newest.id !== was[was.length - 1]?.id && !reader.atBottom()) setBelow(true);
         setView({ s: d, msgs: d.messages ?? [] });
         setError(null);
       },
@@ -220,7 +221,7 @@ export function OpencodeSessionScreen({
         setError(fail(e, t.cantRead));
       },
     );
-  }, [client, sid, fail, t]);
+  }, [client, sid, fail, t, reader]);
 
   useEffect(() => {
     refresh();
@@ -246,9 +247,9 @@ export function OpencodeSessionScreen({
         return got.s === v.s && got.msgs === v.msgs ? v : { s: got.s, msgs: got.msgs };
       });
       const fresh = e.type === 'message' && e.session === sid && !held.current?.some((m) => m.id === e.id);
-      if (fresh && !atBottom.current) setBelow(true);
+      if (fresh && !reader.atBottom()) setBelow(true);
     },
-    [sid, refresh],
+    [sid, refresh, reader],
   );
   useEffect(() => {
     if (!hub || !client) return;
@@ -301,14 +302,15 @@ export function OpencodeSessionScreen({
     return () => clearInterval(timer);
   }, [s2Live, busy, refresh]);
 
+  /** The list moving itself - keeping a reader's place as lines arrive - scrolls too,
+   *  and is not the reader: only a finger says where they are (lib/stickBottom.ts). */
   const scrolled = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const at = e.nativeEvent.contentOffset.y < AT_BOTTOM;
-    atBottom.current = at;
-    if (at && below) setBelow(false);
+    reader.scroll(e.nativeEvent.contentOffset.y);
+    if (reader.atBottom() && below) setBelow(false);
   };
   const toBottom = () => {
     setBelow(false);
-    atBottom.current = true;
+    reader.toBottom();
     list.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
@@ -619,11 +621,15 @@ export function OpencodeSessionScreen({
             }
             renderItem={renderItem}
             onScroll={scrolled}
+            onScrollBeginDrag={reader.begin}
+            onScrollEndDrag={reader.end}
+            onMomentumScrollBegin={reader.begin}
+            onMomentumScrollEnd={reader.end}
             onContentSizeChange={follow}
             scrollEventThrottle={64}
             onEndReached={loadOlder}
             onEndReachedThreshold={0.3}
-            maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+            maintainVisibleContentPosition={KEEP_PLACE}
             ListFooterComponent={
               more ? (
                 <Pressable onPress={loadOlder} accessibilityRole="button" style={st.older} testID="wbo-older">

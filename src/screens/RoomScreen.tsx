@@ -40,7 +40,7 @@ import { ErrorText, Glyph, IconButton } from '../components/ui';
 import { orchStrings } from '../lib/orchStrings';
 import { layLatest, PAGE, putOlder } from '../lib/paging';
 import { asChatMessage, ROOM_ICON, ROOM_LABEL } from '../lib/rooms';
-import { AT_BOTTOM, followBottom } from '../lib/stickBottom';
+import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { useBus, useLive } from '../live/LiveContext';
 import * as prefs from '../storage/prefs';
 import { colors, fonts, gutter, motion, space, touch, type } from '../theme/tokens';
@@ -91,10 +91,11 @@ export function RoomScreen({
   const [more, setMore] = useState(true);
   const [older, setOlder] = useState(false);
   const [below, setBelow] = useState(false);
-  const atBottom = useRef(true);
   const list = useRef<FlatList<RoomLine>>(null);
+  /** Who is reading the bottom of the thread, told by their finger alone (lib/stickBottom.ts). */
+  const reader = useMemo(() => bottomReader(), []);
   /** A line arriving, or one being written, while the reader is at the bottom: stay there. */
-  const follow = useCallback(() => followBottom(list.current, () => atBottom.current), []);
+  const follow = useCallback(() => followBottom(list.current, reader.atBottom), [reader]);
   const linesRef = useRef<RoomLine[] | null>(null);
   useEffect(() => {
     linesRef.current = lines;
@@ -118,7 +119,7 @@ export function RoomScreen({
         if (held === null || gap) setMore(got.length >= PAGE);
         // Something new at the end while the reader is further up: offered, not forced.
         const newest = next[next.length - 1]?.id;
-        if (held?.length && newest && newest !== held[held.length - 1]?.id && !atBottom.current) setBelow(true);
+        if (held?.length && newest && newest !== held[held.length - 1]?.id && !reader.atBottom()) setBelow(true);
         setLines((now) => (sameLines(now, next) ? now : next));
         setError(null);
       },
@@ -126,7 +127,7 @@ export function RoomScreen({
         if (mounted.current) setError(e instanceof ApiError ? e.message : 'The room could not be read.');
       },
     );
-  }, [client, room]);
+  }, [client, room, reader]);
 
   useEffect(() => {
     load();
@@ -152,14 +153,15 @@ export function RoomScreen({
   }, [client, room, more, older]);
 
   // The list is drawn upside down (newest at the bottom, where it opens): offset 0 is the bottom.
+  /** The list moving itself - keeping a reader's place as lines arrive - scrolls too,
+   *  and is not the reader: only a finger says where they are (lib/stickBottom.ts). */
   const scrolled = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const at = e.nativeEvent.contentOffset.y < AT_BOTTOM;
-    atBottom.current = at;
-    if (at && below) setBelow(false);
+    reader.scroll(e.nativeEvent.contentOffset.y);
+    if (reader.atBottom() && below) setBelow(false);
   };
   const toBottom = () => {
     setBelow(false);
-    atBottom.current = true;
+    reader.toBottom();
     list.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
@@ -267,11 +269,15 @@ export function RoomScreen({
               <MessageItem m={asChatMessage(item)} mine={!!user && item.by?.id === user.id} />
             )}
             onScroll={scrolled}
+            onScrollBeginDrag={reader.begin}
+            onScrollEndDrag={reader.end}
+            onMomentumScrollBegin={reader.begin}
+            onMomentumScrollEnd={reader.end}
             onContentSizeChange={follow}
             scrollEventThrottle={64}
             onEndReached={loadOlder}
             onEndReachedThreshold={0.3}
-            maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+            maintainVisibleContentPosition={KEEP_PLACE}
             // Upside down, the footer is the top: the older page coming in, or where the thread starts.
             ListFooterComponent={
               older ? (

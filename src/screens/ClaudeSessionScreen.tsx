@@ -51,7 +51,7 @@ import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
 import { ErrorText, Glyph, IconButton, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
-import { AT_BOTTOM, followBottom } from '../lib/stickBottom';
+import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { clock } from '../lib/time';
 import {
   admit,
@@ -130,10 +130,11 @@ export function ClaudeSessionScreen({
   /** Claude Code's suggestion of what to type next, offered in the empty box. */
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const turnsRef = useRef<WbcTurn[] | null>(null);
-  const atBottom = useRef(true);
   const list = useRef<FlatList<Item>>(null);
+  /** Who is reading the bottom of the thread, told by their finger alone (lib/stickBottom.ts). */
+  const reader = useMemo(() => bottomReader(), []);
   /** A turn arriving, or one being written, while the reader is at the bottom: stay there. */
-  const follow = useCallback(() => followBottom(list.current, () => atBottom.current), []);
+  const follow = useCallback(() => followBottom(list.current, reader.atBottom), [reader]);
   const mounted = useRef(true);
   const seq = useRef(0);
   useEffect(() => {
@@ -170,7 +171,7 @@ export function ClaudeSessionScreen({
         }
         const newest = next[next.length - 1];
         const was = held?.[held.length - 1];
-        if (held?.length && newest && (!was || turnKey(newest) !== turnKey(was)) && !atBottom.current) setBelow(true);
+        if (held?.length && newest && (!was || turnKey(newest) !== turnKey(was)) && !reader.atBottom()) setBelow(true);
         setTurns((now) => (sameTurns(now, next) ? now : next));
         setSuggestion(page.suggestion || null);
       },
@@ -180,7 +181,7 @@ export function ClaudeSessionScreen({
         setError(fail(e, t.cantRead));
       },
     );
-  }, [client, sid, fail, t]);
+  }, [client, sid, fail, t, reader]);
 
   const refresh = useCallback(
     (withTurns = false): Promise<void> => {
@@ -263,14 +264,15 @@ export function ClaudeSessionScreen({
   }, [live, pace, refresh]);
 
   // Upside down (newest at the bottom, where it opens): offset 0 is the bottom.
+  /** The list moving itself - keeping a reader's place as lines arrive - scrolls too,
+   *  and is not the reader: only a finger says where they are (lib/stickBottom.ts). */
   const scrolled = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const at = e.nativeEvent.contentOffset.y < AT_BOTTOM;
-    atBottom.current = at;
-    if (at && below) setBelow(false);
+    reader.scroll(e.nativeEvent.contentOffset.y);
+    if (reader.atBottom() && below) setBelow(false);
   };
   const toBottom = () => {
     setBelow(false);
-    atBottom.current = true;
+    reader.toBottom();
     list.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
@@ -460,11 +462,15 @@ export function ClaudeSessionScreen({
             keyExtractor={(it) => (it.kind === 'turn' ? `t:${turnKey(it.turn)}` : `m:${it.m.id}`)}
             renderItem={renderItem}
             onScroll={scrolled}
+            onScrollBeginDrag={reader.begin}
+            onScrollEndDrag={reader.end}
+            onMomentumScrollBegin={reader.begin}
+            onMomentumScrollEnd={reader.end}
             onContentSizeChange={follow}
             scrollEventThrottle={64}
             onEndReached={loadOlder}
             onEndReachedThreshold={0.3}
-            maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+            maintainVisibleContentPosition={KEEP_PLACE}
             ListFooterComponent={
               older ? (
                 <ActivityIndicator

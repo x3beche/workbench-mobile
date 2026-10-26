@@ -5,6 +5,7 @@
  * folding and pinning as the person chose on the server.
  */
 import * as React from 'react';
+import { FlatList } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { WorkbenchClient } from '../../api/client';
@@ -63,6 +64,15 @@ function fakeHub() {
   };
   return { hub: hub as unknown as LiveHub, follows };
 }
+
+/** A scroll event as the inverted list sends it: how far from the newest line (offset 0). */
+const scrollOf = (y: number) => ({
+  nativeEvent: {
+    contentOffset: { x: 0, y },
+    contentSize: { width: 390, height: 2400 },
+    layoutMeasurement: { width: 390, height: 700 },
+  },
+});
 
 const row = (over: Partial<WboSession> = {}): WboSession => ({
   session_id: SID,
@@ -236,6 +246,34 @@ async function show(d: WboDetail, t = en) {
     expect(screen.getByText('2,000')).toBeTruthy(); // its prompt, the cache read inside it
     expect(screen.getByText('800 · 40%')).toBeTruthy();
     expect(screen.getByText('deepseek/deepseek-v4 · Workbench')).toBeTruthy();
+  });
+
+  it('follows an answer as it streams, and stays put for a reader further up', async () => {
+    await show(detail());
+    const list = screen.getByTestId('wbo-list');
+    const to = jest.spyOn(FlatList.prototype, 'scrollToOffset').mockImplementation(() => undefined);
+    const frame = async () => {
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 70));
+      });
+    };
+
+    // The list keeping its own place as a tool call or a thought arrives - which it
+    // sends as a scroll - is not the reader: it still follows them.
+    await fireEvent.scroll(list, scrollOf(240));
+    await fireEvent(list, 'contentSizeChange', 390, 2600);
+    await frame();
+    expect(to).toHaveBeenCalledWith({ offset: 0, animated: false });
+
+    // A finger is: reading further up and the page is left exactly where it was.
+    to.mockClear();
+    await fireEvent(list, 'scrollBeginDrag', scrollOf(240));
+    await fireEvent.scroll(list, scrollOf(900));
+    await fireEvent(list, 'scrollEndDrag', scrollOf(900));
+    await fireEvent(list, 'contentSizeChange', 390, 2800);
+    await frame();
+    expect(to).not.toHaveBeenCalled();
+    to.mockRestore();
   });
 
   it('leaves the word out while OpenCode works - the dot says it', async () => {

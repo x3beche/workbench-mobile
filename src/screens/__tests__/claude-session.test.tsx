@@ -157,6 +157,15 @@ async function open(c: ReturnType<typeof client>, hub: LiveHub | null = null) {
   await tick(0);
 }
 
+/** A scroll event as the list sends it: how far from the newest line (offset 0). */
+const scrollOf = (y: number) => ({
+  nativeEvent: {
+    contentOffset: { x: 0, y },
+    contentSize: { width: 390, height: 2400 },
+    layoutMeasurement: { width: 390, height: 700 },
+  },
+});
+
 (canRender ? describe : describe.skip)('a Claude session', () => {
   it('opens at its newest turns, ten at a time, with the remote mark', async () => {
     const c = client();
@@ -180,16 +189,21 @@ async function open(c: ReturnType<typeof client>, hub: LiveHub | null = null) {
     await tick(60);
     expect(to).toHaveBeenCalledWith({ offset: 0, animated: false });
 
-    // Read further up: the page stays exactly where it was, and New messages offers the way down.
+    // The list moving itself - keeping the place of someone reading further up -
+    // is no sign that the reader left the bottom: it still follows them.
     to.mockClear();
-    await fireEvent.scroll(list, {
-      nativeEvent: {
-        contentOffset: { x: 0, y: 900 },
-        contentSize: { width: 390, height: 2400 },
-        layoutMeasurement: { width: 390, height: 700 },
-      },
-    });
+    await fireEvent.scroll(list, scrollOf(900));
     await fireEvent(list, 'contentSizeChange', 390, 2600);
+    await tick(60);
+    expect(to).toHaveBeenCalledWith({ offset: 0, animated: false });
+
+    // A finger, though, is: read further up and the page stays exactly where it
+    // was, "New messages" offering the way down.
+    to.mockClear();
+    await fireEvent(list, 'scrollBeginDrag', scrollOf(900));
+    await fireEvent.scroll(list, scrollOf(900));
+    await fireEvent(list, 'scrollEndDrag', scrollOf(900));
+    await fireEvent(list, 'contentSizeChange', 390, 2800);
     await tick(60);
     expect(to).not.toHaveBeenCalled();
     to.mockRestore();

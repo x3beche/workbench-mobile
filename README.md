@@ -617,7 +617,11 @@ A thread - a conversation, a room, a Claude Code or OpenCode session, the
 Orchestrator's - opens at its newest line and stays there while the reader is
 there: a line arriving, or an answer being written, brings the list back down
 (`lib/stickBottom.ts`), and 24 px of air sits under that line, before the
-box. Read further up, and nothing moves: the page is left
+box. Where the reader is is told by their finger alone - a drag or its
+momentum - because the list moves itself as content arrives (keeping the place
+of someone reading further up), and those moves arrive as scrolls too: read as
+the reader's, they said "they have scrolled away" while the person sat at the
+bottom watching a tool call appear, and following stopped. Read further up, and nothing moves: the page is left
 exactly where it was, and "New messages" offers the way down.
 
 ### Keyboard
