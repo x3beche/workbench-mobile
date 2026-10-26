@@ -43,8 +43,15 @@ import type {
   User,
   VirtualFolder,
   VirtualTree,
+  SideGroup,
+  SidePrefs,
   WbcDetail,
   WbcMessage,
+  WboAnswer,
+  WboAsk,
+  WboDetail,
+  WboSend,
+  WboSession,
   WbcSession,
   WbcTurnsPage,
 } from './types';
@@ -656,8 +663,12 @@ export class WorkbenchClient {
    * (the server checks each by its bytes: png, jpeg, gif or webp, 5 MB).
    */
   async wbcSend(sid: string, text: string, pictures: UploadPart[] = []): Promise<WbcMessage> {
-    const path = `/api/wbc/sessions/${encodeURIComponent(sid)}/messages`;
-    if (!pictures.length) return this.request<WbcMessage>('POST', path, { text });
+    return this.postLine<WbcMessage>(`/api/wbc/sessions/${encodeURIComponent(sid)}/messages`, text, pictures);
+  }
+
+  /** A line with up to four pictures: JSON without them, a form of `text` and `images` with them. */
+  private async postLine<T>(path: string, text: string, pictures: UploadPart[]): Promise<T> {
+    if (!pictures.length) return this.request<T>('POST', path, { text });
     const form = new FormData();
     form.append('text', text);
     for (const p of pictures) {
@@ -670,7 +681,7 @@ export class WorkbenchClient {
       { method: 'POST', body: form, headers: { Accept: 'application/json', [CSRF_HEADER]: '1' } },
       UPLOAD_TIMEOUT_MS,
     );
-    return this.read<WbcMessage>(res, path);
+    return this.read<T>(res, path);
   }
 
   /** Where a turn's picture is (`req`, `n` from its `images`). */
@@ -696,6 +707,54 @@ export class WorkbenchClient {
       return null;
     }
     return blobToDataUri(await res.blob());
+  }
+
+  // ---- OpenCode sessions (backend/wbopencode.py) ------------------------------
+
+  /** One's own OpenCode sessions, the connected first. */
+  async wboSessions(): Promise<WboSession[]> {
+    const got = await this.request<{ sessions?: WboSession[] }>('GET', '/api/wbo/sessions');
+    return got?.sessions ?? [];
+  }
+
+  /** One session: its last messages, the lines sent from Workbench, what it asks, who may write. */
+  wboSession(sid: string): Promise<WboDetail> {
+    return this.request<WboDetail>('GET', `/api/wbo/sessions/${encodeURIComponent(sid)}`);
+  }
+
+  /** A line given to OpenCode as a prompt: JSON `{text}`, or with pictures a form of `text` and `images`. */
+  async wboSend(sid: string, text: string, pictures: UploadPart[] = []): Promise<WboSend> {
+    return this.postLine<WboSend>(`/api/wbo/sessions/${encodeURIComponent(sid)}/messages`, text, pictures);
+  }
+
+  /** An answer to what OpenCode asks (a form's fields, or a permission's decision). */
+  wboAnswer(sid: string, ask: string, body: WboAnswer): Promise<WboAsk> {
+    return this.request<WboAsk>(
+      'POST',
+      `/api/wbo/sessions/${encodeURIComponent(sid)}/asks/${encodeURIComponent(ask)}/answer`,
+      body,
+    );
+  }
+
+  /** Where a picture sent with a line is (read with wbcImage). */
+  wboMessageImagePath(sid: string, mid: string, n: number): string {
+    return `/api/wbo/sessions/${encodeURIComponent(sid)}/messages/${encodeURIComponent(mid)}/images/${n}`;
+  }
+
+  // ---- the Chat list's pins and folds (backend/session_prefs.py) -------------
+
+  /** One's own pins and folds of the session groups, as the web keeps them. */
+  async side(): Promise<SidePrefs> {
+    return sideOf(await this.request<Partial<SidePrefs>>('GET', '/api/me/side'));
+  }
+
+  async sidePin(group: SideGroup, id: string, pinned: boolean): Promise<SidePrefs> {
+    return sideOf(await this.request<Partial<SidePrefs>>('PUT', '/api/me/side/pins', { group, id, pinned }));
+  }
+
+  /** A group folded (false) or open (true); null goes back to the default rule. */
+  async sideFold(group: SideGroup, open: boolean | null): Promise<SidePrefs> {
+    return sideOf(await this.request<Partial<SidePrefs>>('PUT', '/api/me/side/folds', { group, open }));
   }
 
   // ---- files --------------------------------------------------------------
@@ -934,4 +993,16 @@ export class WorkbenchClient {
     }
     return this.read<Transcript>(res, '/api/voice/transcribe');
   }
+}
+
+/** The side prefs as the server says them, with what an older answer leaves out filled in. */
+export function sideOf(v: Partial<SidePrefs> | null | undefined): SidePrefs {
+  const pins = v?.pins ?? ({} as Partial<SidePrefs['pins']>);
+  const folds = v?.folds ?? ({} as Partial<SidePrefs['folds']>);
+  const list = (x: unknown) => (Array.isArray(x) ? x.filter((y): y is string => typeof y === 'string') : []);
+  const fold = (x: unknown) => (typeof x === 'boolean' ? x : null);
+  return {
+    pins: { claude: list(pins.claude), opencode: list(pins.opencode) },
+    folds: { claude: fold(folds.claude), opencode: fold(folds.opencode) },
+  };
 }

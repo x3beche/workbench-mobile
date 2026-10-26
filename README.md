@@ -57,6 +57,12 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/98-claude-note.png" width="200" alt="Without wb-claude: why it cannot be written to">
 </p>
 <p>
+  <img src="docs/screenshots/81-drawer-opencode.png" width="200" alt="OpenCode sessions in the drawer: the newest five, Show N more, a pinned one">
+  <img src="docs/screenshots/82-opencode-ask.png" width="200" alt="OpenCode asks a question: options with their descriptions, checkboxes, Other">
+  <img src="docs/screenshots/87-opencode-delivered.png" width="200" alt="Answered from the phone, a line with a picture delivered, the answer streamed">
+  <img src="docs/screenshots/88-opencode-permission.png" width="200" alt="A permission: Allow once, Always allow, Reject">
+</p>
+<p>
   <img src="docs/screenshots/21-wide-chat.png" width="520" alt="On a wide screen the drawer is a column that stays open">
   <img src="docs/screenshots/34-wide-scrollbar.png" width="520" alt="The web build's thin scrollbars, as the web app draws them">
 </p>
@@ -195,6 +201,38 @@ Then you sign in with the same e-mail address and password as on the web.
   old (it takes no pictures). The account's bus (`wbc`) says when to read
   again; while a session is active it is also read every few seconds as a
   safety net, never in the background. English and Turkish.
+- **OpenCode sessions** (from 1.6.1): one's own OpenCode runs under
+  `wb-opencode` (redline-studio's docs/WB-OPENCODE.md), a group of the
+  drawer under Claude sessions: name, what OpenCode does (ready, working,
+  waiting for your answer, not connected), the computer, when, and the live
+  dot - green ready, pulsing while it works, amber while it waits for an
+  answer (`GET /api/wbo/sessions`). A session opens in the app's own
+  conversation look, at its newest message, older turns ten at a time as the
+  reader nears the top: the person's lines as bubbles ("from Workbench" with
+  their pictures on the ones sent from here, "On the computer" on the
+  others), OpenCode's answer under the model's name with its thinking in the
+  Chat's folded block, its words in Markdown and its tool calls as the
+  Chat's step rows (`GET /api/wbo/sessions/{sid}`). Live through the
+  account's S2 stream `wbo` (text deltas laid on by their place, `o`); the
+  session is read again every two seconds while it works when the stream is
+  not there, and the bus (`wbo`) says when a line or the run changed. The
+  box sends words and up to four pictures (photos or camera), and a line
+  shows "sent - waiting for the computer", "delivered" or why not; where it
+  cannot be written to the box is a note, and "update wb-opencode" says when
+  the computer's is old. **What OpenCode asks** is a card, as on the web: a
+  question's header, text and options with their descriptions (checkboxes
+  where several may be chosen, an "Other" field where it takes its own
+  words) and Answer; a permission with what it would run and Allow once /
+  Always allow / Reject (`POST .../asks/{id}/answer`). An answered card
+  shows the choice and where it was made (from the Chat, on the computer).
+- **Folds and pins** (from 1.6.1): the Claude and OpenCode groups fold and
+  open by their header (a chevron; folded, the count and a live dot), and a
+  long press on a session offers Open and Pin / Unpin. Pinned sessions come
+  first and stay in sight while the group is folded; an open group shows the
+  newest five and "Show N more". Both are the person's own on the server
+  (`GET /api/me/side`, `PUT /api/me/side/pins`, `PUT /api/me/side/folds`),
+  the same as the web's on every device; until a group was folded by hand
+  it is open while a session in it is live or open.
 - **Settings** (from 1.5.7; the account at the foot of the drawer opens it):
   the accounts (switch, add, sign one out), Agent & LLM, the app's
   **language** (Auto, English, Türkçe - apart from the voice language),
@@ -267,7 +305,7 @@ Then you sign in with the same e-mail address and password as on the web.
   older cannot do this: 1.5.0 is installed by hand once, and from then on
   each build published on the server is offered in the app.
 - **Back** (Android) closes a sheet, then the drawer, then a sub-agent's session
-  and the Orchestrator, then the room or the Claude session, then goes
+  and the Orchestrator, then the room or the Claude or OpenCode session, then goes
   back to the conversation open before, then leaves the app.
 
 The device keeps only the server list, the accounts (server, name, e-mail),
@@ -408,7 +446,7 @@ Chrome in Docker at 390 x 844, and 900 px wide for the side column, against
 the made-up server, which also runs tools and writes an answer slowly; with
 `TARGET=https://your.server` the server and sign-in screens are taken against
 that server, whose own wrong-password error is shown;
-`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48, `SHOTS=rooms` a room read a page at a time, 50-53, `SHOTS=accounts` 60-63, `SHOTS=settings` Settings and Analytics, 70-80, and `SHOTS=claude` the Claude sessions, 90-99). The keyboard shot
+`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48, `SHOTS=rooms` a room read a page at a time, 50-53, `SHOTS=accounts` 60-63, `SHOTS=settings` Settings and Analytics, 70-80, `SHOTS=claude` the Claude sessions, 90-99, and `SHOTS=opencode` the OpenCode sessions and the groups' folds and pins, 80b-89b). The keyboard shot
 makes the window 336 px shorter, as a phone keyboard does, and checks the
 composer is still on screen. `SHOTS_DIR=/some/dir` writes them elsewhere. App icons are
 drawn by `scripts/make-icons.js` from the web app's section mark.
@@ -430,6 +468,8 @@ drawn by `scripts/make-icons.js` from the web app's section mark.
 | The app's own update | `GET /api/public/m/app.json` (`version`, `versionCode`, `size`, `sha256`, `url`; `notes` when the server gives them), `GET /api/public/m/app.apk`; no session needed |
 | The Orchestrator | `GET /api/me/orchestrator` (state, model, `halted`, `crash_loop`, providers with their models, `mcp_version`), `POST .../start`, `POST .../stop`, `PUT /api/me/llm/agent` `{provider_id, model}`, `GET .../tree`, `GET .../sessions/{sid}`, `GET .../events` (`text/event-stream`: `hello`, `message`, `part`, `delta`, `removed`, `status`, `session`, `error`, `lost`, `bye`) |
 | Analytics | `GET /api/llm/summary?days=14`, `GET /api/llm/usage?provider=all&days=30`, `GET /api/cc/tools-usage?span=week`, `GET /api/me/orchestrator/incidents`, `GET /api/pool`; owner and admins: `GET /api/admin/pool`, `GET /api/admin/sandboxes` |
+| OpenCode sessions | `GET /api/wbo/sessions`, `GET /api/wbo/sessions/{sid}` (`messages`, `sends`, `asks`, `may_send`, `why`, `bridge`), `POST .../messages` (JSON `{text}`, or multipart `text` + up to 4 `images`), `POST .../asks/{id}/answer` (`{answer}` or `{decision}`), `GET .../messages/{id}/images/{n}`; S2 stream `wbo`, bus kind `wbo` `{sid, what}` |
+| The groups' pins and folds | `GET /api/me/side`, `PUT /api/me/side/pins {group, id, pinned}`, `PUT /api/me/side/folds {group, open}`; bus kind `side` |
 | Claude sessions | `GET /api/wbc/sessions`, `GET /api/wbc/sessions/{sid}` (`may_send`, `why`, `bridge`, `messages`), `GET .../turns?limit=&before=`, `POST .../messages` (JSON `{text}`, or multipart `text` + up to 4 `images`), `GET .../images/{req}/{n}`, `GET .../messages/{id}/images/{n}`; bus kind `wbc` `{sid, what}` |
 | MCP tools | `GET /api/mcp/tools` (`version`, `count`, `agents`, `groups` of tools with their parameters) |
 | Export | `POST /api/cc/chats/{id}/export` `{format: md\|pdf, lang}` (the file kept in Files), then `GET /api/files/{fileId}` |
@@ -451,15 +491,17 @@ src/
   state/session.tsx     server -> sign-in -> app
   storage/prefs.ts      recent servers, last e-mail, voice language
   screens/              Server, Login, Workspace (drawer + conversation or Files), Chat,
-                        Files, FilePreview, Room, Orchestrator, ClaudeSession
+                        Files, FilePreview, Room, Orchestrator, ClaudeSession, OpencodeSession
   components/           Drawer, DrawerPanel, SwipeRow, Tabs, FileThumb, Markdown, MessageItem,
                         Composer, RecordingBar, sheets and dialogs, icons (Lucide), controls,
-                        WbcPicture (a Claude session's pictures, read with the session, and the viewer)
+                        WbcPicture (a Claude session's pictures, read with the session, and the viewer),
+                        SessionGroup (a drawer group that folds and pins), AskCard (what OpenCode asks)
   lib/                  the Orchestrator (orchestrator.ts: its tree, the live stream on a transcript,
                         its calls in words; orchStrings.ts: English and Turkish), Markdown parser, answer-stream reducer, day groups, tool steps, times,
                         Files (what each side shows, rights), chat export, share (native / web),
                         the Claude sessions (wbc.ts: words, turns by the page, sent lines, pictures;
-                        wbcStrings.ts: English and Turkish)
+                        wbcStrings.ts: English and Turkish), the OpenCode sessions (wbo.ts: turns, live
+                        records, sends, asks; wboStrings.ts), the groups' folds and pins (side.ts)
   update/               the in-app update: app.json read and compared (release.ts), the download,
                         its checksum and the installer (apk.ts; apk.web.ts shows versions only),
                         the hook Account and the drawer read (useUpdate.ts), English and Turkish

@@ -1,0 +1,426 @@
+/**
+ * The OpenCode sessions, without drawing them: one's own OpenCode runs under
+ * wb-opencode (backend/wbopencode.py), as the web app's Chat shows them
+ * (frontend/src/app/rooms/opencode-sessions.ts) - what a run is doing in
+ * words and as a dot, which sessions the drawer lists, the conversation as
+ * the Chat draws an answer (its thinking, its words, its tool calls as step
+ * rows), the live changes of the account's S2 stream `wbo` laid onto it,
+ * the lines sent from here until the conversation shows them, and what
+ * OpenCode asks (a form of questions, a permission) with the answer chosen.
+ */
+import type { Step, WboAsk, WboDetail, WboField, WboMsg, WboPart, WboSend, WboSession } from '../api/types';
+import { deltaPast, type Dot } from './orchestrator';
+import type { WboStrings } from './wboStrings';
+
+/** Messages kept while one is followed live (the server sends at most 120). */
+export const MAX_MSGS = 200;
+/** Turns shown at first and added at a time, as a room's lines. */
+export const TURNS_PAGE = 10;
+
+/** What a run is doing, in words. */
+export function wboWord(s: Pick<WboSession, 'status' | 'bridge'> | null, t: WboStrings): string {
+  if (!s?.bridge?.connected) return t.notConnected;
+  if (s.status === 'waiting') return t.waitingAnswer;
+  if (s.status === 'busy') return t.working;
+  if (s.status === 'retry') return t.retrying;
+  return t.ready;
+}
+
+/** The live dot: pulsing while OpenCode works, amber while it waits for an answer or retries, green ready; none unconnected. */
+export function wboDot(s: Pick<WboSession, 'status' | 'bridge'> | null | undefined): Dot | null {
+  if (!s?.bridge?.connected) return null;
+  if (s.status === 'waiting' || s.status === 'retry') return 'retry';
+  if (s.status === 'busy') return 'running';
+  return 'idle';
+}
+
+/** A folded group's one dot: working before waiting before ready. */
+export function groupDot(dots: (Dot | null)[]): Dot | null {
+  if (dots.includes('running')) return 'running';
+  if (dots.includes('retry')) return 'retry';
+  return dots.some(Boolean) ? 'idle' : null;
+}
+
+/** The drawer's: connected ones, the last day's, the open one and the pinned ones; a search narrows them by name and computer. */
+export function shownWbo(
+  rows: WboSession[],
+  q = '',
+  open: string | null = null,
+  pinned: (id: string) => boolean = () => false,
+  now = Date.now(),
+): WboSession[] {
+  const words = q.trim().toLowerCase();
+  const day = now - 86_400_000;
+  return rows.filter(
+    (s) =>
+      (s.bridge?.connected || (s.updated ?? 0) > day || s.session_id === open || pinned(s.session_id)) &&
+      (!words ||
+        s.name.toLowerCase().includes(words) ||
+        (s.computer || '').toLowerCase().includes(words) ||
+        'opencode'.includes(words)),
+  );
+}
+
+// ---- the conversation as the Chat draws it ------------------------------------
+
+/** One piece of OpenCode's answer: its thinking, its words, a run of tool calls, a question, an error. */
+export type TurnItem =
+  | { t: 'think'; key: string; text: string; live: boolean }
+  | { t: 'text'; key: string; text: string; live: boolean }
+  | { t: 'steps'; key: string; steps: Step[] }
+  | { t: 'ask'; key: string; ask: WboAsk }
+  | { t: 'error'; key: string; text: string };
+
+export type Turn =
+  | { kind: 'user'; id: string; msg: WboMsg }
+  | {
+      kind: 'assistant';
+      id: string;
+      items: TurnItem[];
+      live: boolean;
+      writing: boolean;
+      time: number | null;
+      model: string | null;
+      ms?: number;
+    };
+
+/** An OpenCode tool call as the Chat's own step row: "bash · npm test", what it gave back when opened. */
+export function toStep(p: WboPart): Step {
+  const status = p.status === 'error' ? 'error' : p.status === 'completed' ? 'done' : 'running';
+  const tool = p.tool || 'tool';
+  return {
+    id: p.id,
+    tool,
+    status,
+    // The words go in as values: a command's own braces are never read as the sentence's slots.
+    say: p.title ? '{tool} · {title}' : '{tool}',
+    vars: p.title ? { tool, title: p.title } : { tool },
+    summary: p.output || p.input || undefined,
+    error: p.error || undefined,
+    ms: p.start && p.end ? p.end - p.start : undefined,
+  };
+}
+
+/**
+ * Rows: each person's message, and each run of OpenCode's messages (its
+ * steps, one message each) as one answer - its thinking, words and tool
+ * calls in order; a tool call OpenCode asks with is its card instead (a
+ * permission keeps its step row too).
+ */
+export function buildTurns(msgs: WboMsg[], asks: WboAsk[] = []): Turn[] {
+  const byPart = new Map(asks.filter((a) => a.part).map((a) => [a.part as string, a]));
+  const out: Turn[] = [];
+  for (const m of msgs) {
+    const last = out[out.length - 1];
+    if (m.role === 'user') {
+      out.push({ kind: 'user', id: m.id, msg: m });
+      continue;
+    }
+    let tn = last?.kind === 'assistant' ? last : null;
+    if (!tn) {
+      tn = {
+        kind: 'assistant',
+        id: m.id,
+        items: [],
+        live: false,
+        writing: false,
+        time: m.time,
+        model: m.model ?? null,
+      };
+      out.push(tn);
+    }
+    tn.model = m.model ?? tn.model;
+    tn.live = !m.done;
+    tn.writing = false;
+    if (m.done && tn.time) tn.ms = m.done - tn.time;
+    m.parts.forEach((p, i) => {
+      const lastPart = !m.done && i === m.parts.length - 1;
+      const key = m.id + p.id;
+      if (p.type === 'reasoning') tn.items.push({ t: 'think', key, text: p.text ?? '', live: lastPart });
+      else if (p.type === 'text') {
+        tn.items.push({ t: 'text', key, text: p.text ?? '', live: lastPart });
+        if (lastPart) tn.writing = true;
+      } else if (p.type === 'tool') {
+        const a = byPart.get(p.id);
+        if (!a || a.kind === 'permission') {
+          const prev = tn.items[tn.items.length - 1];
+          if (prev?.t === 'steps') prev.steps.push(toStep(p));
+          else tn.items.push({ t: 'steps', key, steps: [toStep(p)] });
+        }
+        if (a) tn.items.push({ t: 'ask', key: 'ask' + a.id, ask: a });
+      }
+    });
+    if (m.error) tn.items.push({ t: 'error', key: m.id + 'err', text: m.error });
+  }
+  return out;
+}
+
+/** The ids of the messages that came from Workbench (OpenCode's id of each line delivered). */
+export function remoteIds(sends: WboSend[]): Set<string> {
+  return new Set(sends.map((m) => m.inbox).filter((x): x is string => !!x));
+}
+
+/** The line from Workbench that became this message, if one did. */
+export function sendOf(sends: WboSend[], mid: string): WboSend | null {
+  return sends.find((x) => x.inbox === mid) ?? null;
+}
+
+/** Lines on their way, and the failed ones of the last ten minutes, not yet in the conversation. */
+export function pendingSends(sends: WboSend[], msgs: WboMsg[], now = Date.now() / 1000): WboSend[] {
+  const have = new Set(msgs.map((m) => m.id));
+  const recent = now - 600;
+  return sends.filter(
+    (m) =>
+      m.status === 'queued' ||
+      (m.status === 'delivered' && !!m.inbox && !have.has(m.inbox) && (m.delivered_at ?? 0) > recent) ||
+      (m.status !== 'delivered' && (m.at ?? 0) > recent),
+  );
+}
+
+/** What OpenCode asks whose tool call is in no message held: the open ones and those settled in the last hour. */
+export function looseAsks(asks: WboAsk[], msgs: WboMsg[], now = Date.now() / 1000): WboAsk[] {
+  const parts = new Set(msgs.flatMap((m) => m.parts.map((p) => p.id)));
+  const hour = now - 3600;
+  return asks.filter(
+    (a) =>
+      (!a.part || !parts.has(a.part)) &&
+      (a.status === 'pending' || a.status === 'answering' || (a.settled_at ?? 0) > hour),
+  );
+}
+
+/** The model of the last answer. */
+export function lastModel(msgs: WboMsg[]): string | null {
+  for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].role === 'assistant' && msgs[i].model) return msgs[i].model!;
+  return null;
+}
+
+// ---- live: the account's S2 stream `wbo` ----------------------------------------
+
+/** A record of the stream `wbo` (backend/wbopencode.py Book.told). */
+export interface WboEvent {
+  type: 'message' | 'part' | 'delta' | 'ask' | 'status' | 'session' | 'error' | string;
+  session?: string;
+  id?: string;
+  message?: string;
+  role?: 'user' | 'assistant';
+  agent?: string | null;
+  model?: string | null;
+  time?: number | null;
+  done?: number | null;
+  error?: string;
+  part?: WboPart | string;
+  delta?: string;
+  o?: number;
+  ask?: WboAsk;
+  status?: WboSession['status'];
+  title?: string;
+}
+
+/** An ask as it is now, put into the session: its state follows (waiting while one is open). */
+export function putAsk(s: WboDetail, a: WboAsk): WboDetail {
+  const asks = s.asks ?? [];
+  const i = asks.findIndex((x) => x.id === a.id);
+  const next = i < 0 ? [...asks, a] : asks.map((x, j) => (j === i ? a : x));
+  const waiting = next.some((x) => x.status === 'pending' || x.status === 'answering');
+  const status = waiting ? 'waiting' : s.status === 'waiting' ? 'busy' : s.status;
+  return { ...s, asks: next, status: s.bridge?.connected ? status : s.status };
+}
+
+/**
+ * One record of the stream laid onto the session shown. `read`: what it says
+ * cannot be laid on (an error), the session is read again. Anything about
+ * another session leaves both as they were (the same objects).
+ */
+export function applyWbo(
+  s: WboDetail | null,
+  msgs: WboMsg[],
+  e: WboEvent,
+  sid: string,
+): { s: WboDetail | null; msgs: WboMsg[]; read?: boolean } {
+  const same = { s, msgs };
+  if (!e || typeof e !== 'object') return same;
+  if (e.type === 'session') {
+    if (e.id !== sid || !s) return same;
+    return { s: { ...s, title: e.title ?? s.title, name: e.title || s.name }, msgs };
+  }
+  if (e.session !== sid) return same;
+  if (e.type === 'status') return s && e.status ? { s: { ...s, status: e.status }, msgs } : same;
+  if (e.type === 'error') return { ...same, read: true };
+  if (e.type === 'ask') return s && e.ask?.id ? { s: putAsk(s, e.ask), msgs } : same;
+  if (!['message', 'part', 'delta'].includes(e.type)) return same;
+  const mid = e.type === 'message' ? e.id : e.message;
+  if (!mid) return same;
+  const next = [...msgs];
+  let i = next.findIndex((m) => m.id === mid);
+  if (i < 0) {
+    next.push({
+      id: mid,
+      role: e.role ?? 'assistant',
+      agent: e.agent ?? null,
+      model: e.model ?? null,
+      time: e.time ?? Date.now(),
+      done: null,
+      parts: [],
+    });
+    i = next.length - 1;
+    if (next.length > MAX_MSGS) {
+      next.shift();
+      i--;
+    }
+  }
+  const m = { ...next[i] };
+  if (e.type === 'message') {
+    m.role = e.role ?? m.role;
+    m.agent = e.agent ?? m.agent;
+    m.model = e.model ?? m.model;
+    m.time = e.time ?? m.time;
+    m.done = e.done ?? null;
+    if (e.error) m.error = e.error;
+  } else if (e.type === 'part') {
+    const pid = e.id;
+    if (!pid || !e.part || typeof e.part !== 'object') return same;
+    const np: WboPart = { ...e.part, id: pid };
+    const k = m.parts.findIndex((p) => p.id === pid);
+    m.parts = k < 0 ? [...m.parts, np] : m.parts.map((p, j) => (j === k ? np : p));
+  } else {
+    const pid = typeof e.part === 'string' ? e.part : '';
+    if (!pid || typeof e.delta !== 'string') return same;
+    const k = m.parts.findIndex((p) => p.id === pid);
+    if (k < 0) m.parts = [...m.parts, { id: pid, type: pid.startsWith('r') ? 'reasoning' : 'text', text: e.delta }];
+    else {
+      const add = deltaPast(m.parts[k].text ?? '', e.delta, e.o);
+      if (!add) return same;
+      m.parts = m.parts.map((p, j) => (j === k ? { ...p, text: (p.text ?? '') + add } : p));
+    }
+  }
+  next[i] = m;
+  return { s, msgs: next };
+}
+
+// ---- what a line sent became, why one cannot write -----------------------------
+
+export function sendWord(m: WboSend, t: WboStrings, words: (x: string) => string = (x) => x): string {
+  switch (m.status) {
+    case 'queued':
+      return t.sentWaiting;
+    case 'delivered':
+      return t.delivered;
+    case 'refused':
+      return t.refused;
+    case 'expired':
+      return t.expired;
+    default:
+      return t.notDelivered + (m.error ? `: ${words(m.error)}` : '');
+  }
+}
+
+export function sendTone(m: WboSend): 'ok' | 'danger' | null {
+  return m.status === 'delivered' ? 'ok' : m.status === 'queued' ? null : 'danger';
+}
+
+export function wboWhy(s: Pick<WboSession, 'why' | 'owner'>, t: WboStrings): string {
+  switch (s.why) {
+    case 'not-yours':
+      return t.why.notYours(s.owner?.name || t.itsPerson);
+    case 'no-bridge':
+      return t.why.noBridge;
+    case 'remote-off':
+      return t.why.remoteOff;
+    case 'imp':
+      return t.why.imp;
+    default:
+      return t.why.other;
+  }
+}
+
+// ---- what OpenCode asks ----------------------------------------------------------
+
+/** A choice being made in a card: field -> picked values, and its own words. */
+export interface Choice {
+  picks: Record<string, string[]>;
+  others: Record<string, string>;
+}
+export const NO_CHOICE: Choice = { picks: {}, others: {} };
+
+/** An option tapped: one of several toggles; the only one is taken or let go (and its own words cleared). */
+export function choose(c: Choice, f: WboField, v: string): Choice {
+  const cur = c.picks[f.key] ?? [];
+  const next =
+    f.type === 'multiselect' ? (cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]) : cur[0] === v ? [] : [v];
+  return {
+    picks: { ...c.picks, [f.key]: next },
+    others: f.type === 'multiselect' ? c.others : { ...c.others, [f.key]: '' },
+  };
+}
+
+/** Its own words typed: for a one-answer question they replace the option picked. */
+export function setOther(c: Choice, f: WboField, v: string): Choice {
+  return {
+    picks: v.trim() && f.type !== 'multiselect' ? { ...c.picks, [f.key]: [] } : c.picks,
+    others: { ...c.others, [f.key]: v },
+  };
+}
+
+export function valueOf(c: Choice, f: WboField): unknown {
+  const pk = c.picks[f.key] ?? [];
+  const ot = (c.others[f.key] ?? '').trim();
+  if (f.type === 'multiselect') return ot ? [...pk, ot] : pk;
+  if (f.type === 'number' || f.type === 'integer') return ot ? Number(ot) : undefined;
+  if (f.type === 'boolean') return pk[0] === 'true' ? true : pk[0] === 'false' ? false : undefined;
+  return ot || pk[0];
+}
+
+const filled = (v: unknown) => (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== '');
+
+/** Every required question has an answer, and at least one has. */
+export function isReady(a: WboAsk, c: Choice): boolean {
+  const fs = a.fields ?? [];
+  return fs.every((f) => !f.required || filled(valueOf(c, f))) && fs.some((f) => filled(valueOf(c, f)));
+}
+
+/** The answer sent: the fields answered. */
+export function answerOf(a: WboAsk, c: Choice): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const f of a.fields ?? []) {
+    const v = valueOf(c, f);
+    if (filled(v)) out[f.key] = v;
+  }
+  return out;
+}
+
+/** A boolean question's two options, when OpenCode gave none. */
+export function optionsOf(f: WboField, yes = 'Yes', no = 'No'): WboField['options'] {
+  if (f.options.length || f.type !== 'boolean') return f.options;
+  return [
+    { value: 'true', label: yes, description: '' },
+    { value: 'false', label: no, description: '' },
+  ];
+}
+
+export function askState(a: WboAsk, t: WboStrings): string {
+  switch (a.status) {
+    case 'pending':
+      return t.waitingAnswer;
+    case 'answering':
+      return t.sendingAnswer;
+    case 'answered':
+    case 'replied':
+      return a.via === 'chat' ? t.answeredChat : t.answeredComputer;
+    default:
+      return t.noLonger;
+  }
+}
+
+/** What was answered to one question (the options' labels), or chosen while on its way. */
+export function shownAnswer(a: WboAsk, f: WboField): string {
+  const src = a.status === 'answering' ? a.chosen?.answer : a.answer;
+  const v = src?.[f.key];
+  if (v === undefined || v === null || v === '') return '';
+  const label = (x: string) => f.options.find((o) => o.value === x)?.label ?? x;
+  return Array.isArray(v) ? v.map((x) => label(String(x))).join(', ') : label(String(v));
+}
+
+export function decisionWord(a: WboAsk, t: WboStrings): string {
+  const d = a.status === 'answering' ? a.chosen?.decision : a.decision;
+  return d === 'once' ? t.allowedOnce : d === 'always' ? t.alwaysAllowed : d === 'reject' ? t.rejected : '';
+}

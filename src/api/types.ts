@@ -622,3 +622,150 @@ export interface WbcTurnsPage {
   more: boolean;
   before: number | null;
 }
+
+// ---- OpenCode sessions (backend/wbopencode.py: /api/wbo/*) ---------------------
+
+/** The wb-opencode run on the person's computer that holds a session. Times in seconds. */
+export interface WboBridge {
+  id: string;
+  connected: boolean;
+  /** Remote lines are taken on that computer (`wb-opencode --no-remote` refuses them). */
+  remote: boolean;
+  host: string;
+  platform: string;
+  version: string;
+  opencode: string;
+  cwd: string;
+  model: string;
+  seen: number | null;
+  started: number | null;
+  /** A newer wb-opencode is out. */
+  outdated?: boolean;
+}
+
+/** One of one's own OpenCode sessions (GET /api/wbo/sessions). `updated` in milliseconds. */
+export interface WboSession {
+  session_id: string;
+  title: string;
+  name: string;
+  status: 'idle' | 'busy' | 'retry' | 'waiting' | 'ended';
+  /** OpenCode waits for an answer (a question or a permission). */
+  asking?: boolean;
+  directory: string;
+  computer: string;
+  updated: number | null;
+  seen: number | null;
+  created: number | null;
+  parent: string | null;
+  tokens: { input: number; output: number };
+  mine: boolean;
+  owner: { id: string | null; name: string };
+  bridge: WboBridge | null;
+  may_send: boolean;
+  why: string;
+}
+
+/** A piece of an OpenCode message: its words, its reasoning, a tool call, a file. Times in milliseconds. */
+export interface WboPart {
+  id: string;
+  type: 'text' | 'reasoning' | 'tool' | 'file';
+  text?: string;
+  tool?: string;
+  status?: string;
+  title?: string;
+  input?: string;
+  output?: string;
+  error?: string;
+  start?: number;
+  end?: number;
+}
+
+/** One OpenCode message (a person's line, or one step of its answer). Times in milliseconds. */
+export interface WboMsg {
+  id: string;
+  role: 'user' | 'assistant';
+  agent?: string | null;
+  model?: string | null;
+  time: number | null;
+  done: number | null;
+  parts: WboPart[];
+  error?: string;
+}
+
+/** A line written to a session from Workbench, and what became of it. Times in seconds. */
+export interface WboSend {
+  id: string;
+  text: string;
+  by: { id?: string; name?: string };
+  status: 'queued' | 'delivered' | 'refused' | 'failed' | 'expired';
+  error: string;
+  at: number | null;
+  updated: number | null;
+  delivered_at: number | null;
+  /** OpenCode's id of the message it became. */
+  inbox: string | null;
+  images?: { n: number; type: string; bytes: number }[];
+  images_gone?: boolean;
+}
+
+/** One question of a form OpenCode's question tool asks. */
+export interface WboField {
+  key: string;
+  type: 'string' | 'multiselect' | 'boolean' | 'number' | 'integer';
+  title: string;
+  description: string;
+  options: { value: string; label: string; description: string }[];
+  custom: boolean;
+  required: boolean;
+  min?: number;
+  max?: number;
+}
+
+/** What OpenCode asks: its question tool's form, or a permission prompt. Times in seconds. */
+export interface WboAsk {
+  id: string;
+  kind: 'form' | 'permission';
+  form_kind?: string;
+  title?: string;
+  fields?: WboField[];
+  part?: string | null;
+  message?: string | null;
+  action?: string;
+  resources?: string[];
+  save?: string[];
+  message_text?: string;
+  status: 'pending' | 'answering' | 'answered' | 'replied' | 'cancelled' | 'gone';
+  answer?: Record<string, unknown> | null;
+  decision?: 'once' | 'always' | 'reject' | null;
+  /** Where it was answered. */
+  via?: 'chat' | 'computer';
+  error?: string | null;
+  /** What was chosen here while it is on its way. */
+  chosen?: { answer?: Record<string, unknown>; decision?: string; message?: string };
+  at: number | null;
+  settled_at: number | null;
+}
+
+/** GET /api/wbo/sessions/{sid}: the session with its last messages, the lines sent and what it asks. */
+export interface WboDetail extends WboSession {
+  messages: WboMsg[];
+  truncated: boolean;
+  sends: WboSend[];
+  asks?: WboAsk[];
+  images?: WbcImageRules;
+}
+
+/** An answer to what OpenCode asks: a form's {field: value}, or a permission's decision. */
+export type WboAnswer =
+  | { answer: Record<string, unknown> }
+  | { decision: 'once' | 'always' | 'reject'; message?: string };
+
+// ---- the Chat list's own choices (backend/session_prefs.py: /api/me/side) ------
+
+export type SideGroup = 'claude' | 'opencode';
+
+/** Pinned sessions per group (newest pin first) and each group folded or not (null: never chosen). */
+export interface SidePrefs {
+  pins: Record<SideGroup, string[]>;
+  folds: Record<SideGroup, boolean | null>;
+}

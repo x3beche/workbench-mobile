@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { ApiError, CHAT_TRASH_DAYS, isMissingRoute, type VoiceLang } from '../api/client';
-import type { Chat, ChatScope, Ideas, OrchStatus, Room, RoomId, WbcSession } from '../api/types';
+import type { Chat, ChatScope, Ideas, OrchStatus, Room, RoomId, SideGroup, SidePrefs, WbcSession, WboSession } from '../api/types';
 import { AgentSheet } from '../components/AgentSheet';
 import { Appear } from '../components/Appear';
 import { Drawer } from '../components/Drawer';
@@ -40,7 +40,9 @@ import { tick } from '../lib/feel';
 import { orchStrings } from '../lib/orchStrings';
 import { settingsStrings } from '../lib/settingsStrings';
 import { knownRooms } from '../lib/rooms';
+import { SIDE_EMPTY, withFold, withPin } from '../lib/side';
 import { wbcStrings } from '../lib/wbcStrings';
+import { wboStrings } from '../lib/wboStrings';
 import { inFront } from '../live/hub';
 import { useBus, useLive } from '../live/LiveContext';
 import { shareFile, sharePdf } from '../lib/share';
@@ -55,6 +57,7 @@ import { FilesScreen, type FilesHandle } from './FilesScreen';
 import { OrchestratorScreen, type OrchestratorHandle } from './OrchestratorScreen';
 import { AnalyticsScreen } from './AnalyticsScreen';
 import { ClaudeSessionScreen } from './ClaudeSessionScreen';
+import { OpencodeSessionScreen } from './OpencodeSessionScreen';
 import { RoomScreen } from './RoomScreen';
 import { SettingsScreen } from './SettingsScreen';
 
@@ -138,6 +141,11 @@ export function Workspace({
   /** One's own Claude Code sessions (null until read, and on a server without them), and the one open on screen. */
   const [wbcRows, setWbcRows] = useState<WbcSession[] | null>(null);
   const [wbcOpen, setWbcOpen] = useState<string | null>(null);
+  /** One's own OpenCode sessions, the same way. */
+  const [wboRows, setWboRows] = useState<WboSession[] | null>(null);
+  const [wboOpen, setWboOpen] = useState<string | null>(null);
+  /** The session groups' pins and folds, the person's own on the server (the web's, the same on every device). */
+  const [side, setSide] = useState<SidePrefs>(SIDE_EMPTY);
   const [rooms, setRooms] = useState<Room[] | null>(null);
   const [roomsSeen, setRoomsSeen] = useState<Record<string, string>>({});
   const files = useRef<FilesHandle>(null);
@@ -153,6 +161,7 @@ export function Workspace({
   const ot = useMemo(() => orchStrings(ui), [ui]);
   const stt = useMemo(() => settingsStrings(ui), [ui]);
   const wt = useMemo(() => wbcStrings(ui), [ui]);
+  const ct = useMemo(() => wboStrings(ui), [ui]);
   const updateNote =
     update.check.state === 'available'
       ? updateStrings(uiLang(lang)).drawer(update.check.release.version)
@@ -238,6 +247,56 @@ export function Workspace({
     loadWbc();
   }, [loadWbc]);
 
+  /** One's OpenCode sessions, for their group in the drawer: a server without them (older) has none. */
+  const loadWbo = useCallback((): Promise<void> => {
+    if (!client) return Promise.resolve();
+    return client.wboSessions().then(
+      (got) => setWboRows(got),
+      () => undefined,
+    );
+  }, [client]);
+
+  useEffect(() => {
+    loadWbo();
+  }, [loadWbo]);
+
+  /** The groups' pins and folds; on a server without them the defaults hold (open while live, nothing pinned). */
+  const loadSide = useCallback((): Promise<void> => {
+    if (!client) return Promise.resolve();
+    return client.side().then(
+      (got) => setSide(got),
+      () => undefined,
+    );
+  }, [client]);
+
+  useEffect(() => {
+    loadSide();
+  }, [loadSide]);
+
+  /** A group folded or opened: at once here, then as the server keeps it. */
+  const foldGroup = useCallback(
+    (g: SideGroup, open: boolean) => {
+      tick();
+      setSide((now) => withFold(now, g, open));
+      client?.sideFold(g, open).then(
+        (got) => setSide(got),
+        () => undefined,
+      );
+    },
+    [client],
+  );
+  const pinSession = useCallback(
+    (g: SideGroup, id: string, pinned: boolean) => {
+      tick();
+      setSide((now) => withPin(now, g, id, pinned));
+      client?.sidePin(g, id, pinned).then(
+        (got) => setSide(got),
+        () => loadSide(),
+      );
+    },
+    [client, loadSide],
+  );
+
   useEffect(() => {
     loadRooms();
     if (!keep) return;
@@ -275,6 +334,18 @@ export function Workspace({
     }, 10_000);
     return () => clearInterval(t);
   }, [loadWbc, wbcPace, wbcKnown]);
+  // A wb-opencode that goes quiet tells nobody either.
+  const wboPace = useMemo(() => hub?.pace(30_000) ?? null, [hub]);
+  const wboKnown = wboRows !== null;
+  useEffect(() => {
+    if (!wboKnown) return;
+    const t = setInterval(() => {
+      if (!inFront()) return;
+      if (wboPace && !wboPace.due()) return;
+      loadWbo();
+    }, 10_000);
+    return () => clearInterval(t);
+  }, [loadWbo, wboPace, wboKnown]);
 
   /** A room was read: its badge is counted again from what is remembered here. */
   const roomSeen = useCallback(() => {
@@ -312,12 +383,18 @@ export function Workspace({
       fn();
     }, ms);
   }, []);
-  useBus(['line', 'orch', 'cc', 'wbc'], (e) => {
+  useBus(['line', 'orch', 'cc', 'wbc', 'wbo', 'side'], (e) => {
     if (e.k === '$down') return;
     if (e.k === 'wbc' || e.k === '$open') {
       wbcPace?.mark();
       later('wbc', 150, loadWbc);
     }
+    if (e.k === 'wbo' || e.k === '$open') {
+      wboPace?.mark();
+      later('wbo', 150, loadWbo);
+    }
+    // Pins or folds changed on another device.
+    if (e.k === 'side' || e.k === '$open') later('side', 150, loadSide);
     if (e.k === 'line' || e.k === '$open') later('rooms', 120, loadRooms);
     if (e.k === 'orch' || e.k === '$open') later('orch', 120, loadOrch);
     if (e.k === 'cc' || e.k === '$open') {
@@ -380,6 +457,7 @@ export function Workspace({
     setRoom(null);
     setOrch(false);
     setWbcOpen(null);
+    setWboOpen(null);
     if (chat.id === openId) {
       setDrawer(false);
       return;
@@ -394,6 +472,7 @@ export function Workspace({
     setRoom(which);
     setOrch(false);
     setWbcOpen(null);
+    setWboOpen(null);
     setDrawer(false);
   };
 
@@ -404,6 +483,18 @@ export function Workspace({
     setRoom(null);
     setOrch(false);
     setWbcOpen(sid);
+    setWboOpen(null);
+    setDrawer(false);
+  };
+
+  /** An OpenCode session takes the screen the same way. */
+  const openWbo = (sid: string) => {
+    tick();
+    setPage('chat');
+    setRoom(null);
+    setOrch(false);
+    setWbcOpen(null);
+    setWboOpen(sid);
     setDrawer(false);
   };
 
@@ -414,6 +505,7 @@ export function Workspace({
     setRoom(null);
     setOrch(true);
     setWbcOpen(null);
+    setWboOpen(null);
     setDrawer(false);
   };
 
@@ -423,6 +515,7 @@ export function Workspace({
     setRoom(null);
     setOrch(false);
     setWbcOpen(null);
+    setWboOpen(null);
     if (!openId) {
       setDrawer(false);
       return;
@@ -438,6 +531,7 @@ export function Workspace({
     setRoom(null);
     setOrch(false);
     setWbcOpen(null);
+    setWboOpen(null);
     setDrawer(false);
   };
 
@@ -460,6 +554,10 @@ export function Workspace({
         setWbcOpen(null);
         return true;
       }
+      if (wboOpen) {
+        setWboOpen(null);
+        return true;
+      }
       if (page === 'files') {
         if (!files.current?.back()) setPage('chat');
         return true;
@@ -476,7 +574,7 @@ export function Workspace({
       return false;
     });
     return () => sub.remove();
-  }, [drawer, wide, show, page, room, orch, wbcOpen]);
+  }, [drawer, wide, show, page, room, orch, wbcOpen, wboOpen]);
 
   const created = useCallback((chat: Chat) => {
     setOpenId(chat.id);
@@ -658,6 +756,12 @@ export function Workspace({
       wbc={wbcRows ? { t: wt, rows: wbcRows } : null}
       openWbc={wbcOpen}
       onWbc={openWbc}
+      wbo={wboRows ? { t: ct, rows: wboRows } : null}
+      openWbo={wboOpen}
+      onWbo={openWbo}
+      side={side}
+      onFold={foldGroup}
+      onPin={pinSession}
     />
   );
 
@@ -690,6 +794,22 @@ export function Workspace({
               wide={wide}
               onMenu={() => setDrawer(true)}
               onClose={() => setWbcOpen(null)}
+            />
+          </Appear>
+        ) : wboOpen ? (
+          <Appear key={`wbo-${wboOpen}`} duration={motion.fade}>
+            <OpencodeSessionScreen
+              sid={wboOpen}
+              client={client}
+              user={user}
+              initial={wboRows?.find((x) => x.session_id === wboOpen) ?? null}
+              t={ct}
+              lang={lang}
+              voiceMode={voiceMode}
+              wide={wide}
+              onMenu={() => setDrawer(true)}
+              onClose={() => setWboOpen(null)}
+              onChanged={() => later('wbo', 150, loadWbo)}
             />
           </Appear>
         ) : room ? (

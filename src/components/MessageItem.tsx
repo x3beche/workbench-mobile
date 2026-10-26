@@ -28,7 +28,8 @@ export function modelName(id: string | undefined): string {
 /** More steps than this in one place fold into a "Ran N tools" row. */
 const FOLD_STEPS = 3;
 
-function Thinking({ text, live }: { text: string; live?: boolean }) {
+/** The answer's thinking, folded; `words` for another language (OpenCode sessions). */
+export function Thinking({ text, live, words }: { text: string; live?: boolean; words?: { live: string; done: string } }) {
   const [open, setOpen] = useState(false);
   if (!text.trim()) return null;
   return (
@@ -40,7 +41,7 @@ function Thinking({ text, live }: { text: string; live?: boolean }) {
     >
       <View style={s.stepRow}>
         <Glyph icon={open ? ChevronDown : ChevronRight} size={14} color={colors.inkDim} />
-        <Text style={s.stepText}>{live ? 'Thinking' : 'Thought it through'}</Text>
+        <Text style={s.stepText}>{live ? (words?.live ?? 'Thinking') : (words?.done ?? 'Thought it through')}</Text>
       </View>
       {open ? (
         <Text style={s.think}>{text}</Text>
@@ -88,7 +89,8 @@ function StepRow({ step }: { step: Step }) {
   );
 }
 
-function Steps({ steps }: { steps: Step[] }) {
+/** The tools that ran in one place, folded into one row when there are many; `ran` says it in another language. */
+export function Steps({ steps, ran }: { steps: Step[]; ran?: (n: number, failed: number) => string }) {
   const running = steps.some((x) => stepState(x) === 'running');
   const [open, setOpen] = useState(false);
   if (steps.length <= FOLD_STEPS || running || open) {
@@ -113,7 +115,7 @@ function Steps({ steps }: { steps: Step[] }) {
           <Glyph icon={failed ? CircleAlert : Check} size={14} color={failed ? colors.danger : colors.inkDim} />
         </View>
         <Text style={s.stepText}>
-          Ran {steps.length} tools{failed ? `, ${failed} failed` : ''}
+          {ran ? ran(steps.length, failed) : `Ran ${steps.length} tools${failed ? `, ${failed} failed` : ''}`}
         </Text>
         <Glyph icon={ChevronRight} size={14} color={colors.inkDim} />
       </View>

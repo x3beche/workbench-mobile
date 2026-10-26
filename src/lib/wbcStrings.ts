@@ -73,6 +73,14 @@ export interface WbcStrings {
   newBelow: string;
   back: string;
   menu: string;
+  // the drawer's groups (Claude sessions, OpenCode sessions): folding and pins, as the web's list
+  foldList: string;
+  unfoldList: string;
+  showMore: (n: number) => string;
+  pin: string;
+  unpin: string;
+  pinned: string;
+  open: string;
   /** The server's own words, as the web translates them. */
   server: Record<string, string>;
 }
@@ -139,6 +147,13 @@ const en: WbcStrings = {
   newBelow: 'New messages',
   back: 'Close the session',
   menu: 'Open the conversations',
+  foldList: 'Fold this list',
+  unfoldList: 'Unfold this list',
+  showMore: (n) => `Show ${n} more`,
+  pin: 'Pin',
+  unpin: 'Unpin',
+  pinned: 'pinned',
+  open: 'Open',
   server: {},
 };
 
@@ -205,6 +220,13 @@ const tr: WbcStrings = {
   newBelow: 'Yeni mesajlar',
   back: 'Oturumu kapat',
   menu: 'Sohbetleri aç',
+  foldList: 'Bu listeyi daralt',
+  unfoldList: 'Bu listeyi aç',
+  showMore: (n) => `${n} tane daha göster`,
+  pin: 'Sabitle',
+  unpin: 'Sabitlemeyi kaldır',
+  pinned: 'sabitlendi',
+  open: 'Aç',
   // The server's refusals, as the web app's i18n.ts writes them in Turkish.
   server: {
     'no wb-claude is connected to this session': 'bu oturuma bağlı bir wb-claude yok',

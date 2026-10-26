@@ -86,6 +86,13 @@ const mockClient = {
   wbcSessions: jest.fn(async () => {
     throw new Error('Not Found');
   }),
+  // The OpenCode sessions and the groups' pins and folds (1.6.1): none, as an older server - opencode-session.test.tsx covers them.
+  wboSessions: jest.fn(async () => {
+    throw new Error('Not Found');
+  }),
+  side: jest.fn(async () => {
+    throw new Error('Not Found');
+  }),
   getChat: jest.fn(async (id: string) => full(CHATS.find((c) => c.id === id) ?? listed(id, 'Gone', 1))),
   live: jest.fn(async () => undefined),
   createChat: jest.fn(async (provider?: string, model?: string) => {

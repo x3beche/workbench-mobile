@@ -15,6 +15,7 @@
  * tells of room lines and conversation changes, an answer's pieces also go
  * to its `chat-<id>` stream, the Orchestrator's events to `orch`.
  * Claude sessions (scripts/mock-wbc.mjs): three of Ada's Claude Code runs.
+ * OpenCode sessions and the list's pins and folds (scripts/mock-wbo.mjs).
  */
 import { Buffer } from 'node:buffer';
 
@@ -22,6 +23,7 @@ import { addExport, handleFiles } from './mock-files.mjs';
 import { handleAnalytics, handleOrchestrator, handleRooms } from './mock-orchestrator.mjs';
 import { activityNow, handleS2Api, publish } from './mock-s2.mjs';
 import { handleWbc } from './mock-wbc.mjs';
+import { handleWbo } from './mock-wbo.mjs';
 
 const ago = (min) => new Date(Date.now() - min * 60_000).toISOString();
 const me = { id: 'u1', name: 'Ada Demir', email: 'ada@example.com' };
@@ -259,15 +261,15 @@ export async function handle(req, res) {
   if (p === '/api/public/m/app.json') {
     const newer = process.env.MOCK_UPDATE === '1';
     return json(res, 200, {
-      version: newer ? '1.6.1' : '1.6.0',
-      versionCode: newer ? 19 : 18,
+      version: newer ? '1.6.2' : '1.6.1',
+      versionCode: newer ? 20 : 19,
       size: 39_800_000,
       sha256: '0'.repeat(64),
       published_at: ago(60),
       min_sdk: 24,
       min_android: '7.0',
       abis: ['arm64-v8a'],
-      file: newer ? 'workbench-1.6.1.apk' : 'workbench-1.6.0.apk',
+      file: newer ? 'workbench-1.6.2.apk' : 'workbench-1.6.1.apk',
       url: '/api/public/m/app.apk',
       ...(newer
         ? {
@@ -414,6 +416,7 @@ export async function handle(req, res) {
   if (handleOrchestrator(req, res, p, body)) return;
   if (handleRooms(req, res, p, url, body)) return;
   if (handleWbc(req, res, p, url, body)) return;
+  if (handleWbo(req, res, p, url, body)) return;
   const m = p.match(/^\/api\/cc\/chats\/([^/]+)(\/.*)?$/);
   if (m) {
     const chat = chats.find((c) => c.id === m[1]);

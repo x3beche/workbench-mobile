@@ -23,16 +23,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CHAT_TRASH_DAYS, type WorkbenchClient } from '../api/client';
 import { displayServer } from '../api/server';
-import type { Chat, ChatScope, Room, RoomId, User, WbcSession } from '../api/types';
+import type { Chat, ChatScope, Room, RoomId, SideGroup, SidePrefs, User, WbcSession, WboSession } from '../api/types';
 import { filterChats, groupChats, groupOf, rowTime } from '../lib/groups';
 import { ROOM_ICON, ROOM_LABEL, roomSnippet, unread as unreadOf } from '../lib/rooms';
 import { shortTime } from '../lib/time';
+import { isPinned, SIDE_EMPTY } from '../lib/side';
 import { isoOf, liveDot, shownSessions, stateWord } from '../lib/wbc';
 import type { WbcStrings } from '../lib/wbcStrings';
+import { shownWbo, wboDot, wboWord } from '../lib/wbo';
+import type { WboStrings } from '../lib/wboStrings';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
 import { Avatar } from './Avatar';
-import { ChartColumn, ChevronRight, FolderOpen, Network, Search, SquarePen, SquareTerminal, X } from './icons';
-import { StateDot } from './StateDot';
+import { ChartColumn, ChevronRight, FolderOpen, Network, Search, SquareCode, SquarePen, SquareTerminal, X } from './icons';
+import { SessionGroup, type SessionRowData } from './SessionGroup';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
 import { Tabs } from './Tabs';
 import { Button, ErrorText, Glyph } from './ui';
@@ -79,6 +82,12 @@ export function DrawerPanel({
   wbc = null,
   openWbc = null,
   onWbc,
+  wbo = null,
+  openWbo = null,
+  onWbo,
+  side = SIDE_EMPTY,
+  onFold,
+  onPin,
 }: {
   client: WorkbenchClient | null;
   server: string | null;
@@ -125,6 +134,14 @@ export function DrawerPanel({
   /** The Claude session open on screen, if any. */
   openWbc?: string | null;
   onWbc?: (sid: string) => void;
+  /** One's own OpenCode sessions (GET /api/wbo/sessions) and their words; null on a server without them. */
+  wbo?: { t: WboStrings; rows: WboSession[] } | null;
+  openWbo?: string | null;
+  onWbo?: (sid: string) => void;
+  /** The groups' pins and folds (GET /api/me/side), and what changes them. */
+  side?: SidePrefs;
+  onFold?: (group: SideGroup, open: boolean) => void;
+  onPin?: (group: SideGroup, id: string, pinned: boolean) => void;
 }) {
   const [q, setQ] = useState('');
   const [found, setFound] = useState<{ q: string; scope: ChatScope; chats: Chat[] } | null>(null);
@@ -173,8 +190,35 @@ export function DrawerPanel({
   };
 
   const who = user?.name || user?.email || 'Local mode';
-  // The connected ones and the last day's, as on the web; a search narrows them.
-  const claude = useMemo(() => (wbc && onWbc ? shownSessions(wbc.rows, q, openWbc) : []), [wbc, onWbc, q, openWbc]);
+  // The connected ones, the last day's and the pinned ones, as on the web; a search narrows them.
+  const claude = useMemo<SessionRowData[]>(() => {
+    if (!wbc || !onWbc) return [];
+    const pins = new Set(side.pins.claude);
+    const rows = shownSessions(wbc.rows, q, openWbc);
+    // A pinned one stays in the list however long ago it was used (shownSessions keeps the last day's).
+    const more = q.trim() ? [] : wbc.rows.filter((x) => pins.has(x.session_id) && !rows.includes(x));
+    return [...rows, ...more].map((x) => ({
+      id: x.session_id,
+      name: x.name,
+      snip: [stateWord(x, wbc.t), x.computer].filter(Boolean).join(' · '),
+      when: x.last_ts ? shortTime(isoOf(x.last_ts)) : '',
+      dot: liveDot(x.bridge),
+      live: !!x.bridge?.connected,
+    }));
+  }, [wbc, onWbc, q, openWbc, side]);
+  const opencode = useMemo<SessionRowData[]>(() => {
+    if (!wbo || !onWbo) return [];
+    return shownWbo(wbo.rows, q, openWbo, (id) => isPinned(side, 'opencode', id)).map((x) => ({
+      id: x.session_id,
+      name: x.name,
+      snip: [wboWord(x, wbo.t), x.computer].filter(Boolean).join(' · '),
+      when: x.updated ? shortTime(new Date(x.updated).toISOString()) : '',
+      dot: wboDot(x),
+      live: !!x.bridge?.connected,
+    }));
+  }, [wbo, onWbo, q, openWbo, side]);
+  const fold = onFold ?? (() => undefined);
+  const pin = onPin ?? (() => undefined);
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom', 'left']}>
@@ -278,15 +322,39 @@ export function DrawerPanel({
                 ))}
               </View>
             ) : null}
-            {wbc && onWbc && claude.length ? (
-              <View testID="drawer-wbc">
-                <Text style={s.group}>
-                  {wbc.t.group} · {claude.length}
-                </Text>
-                {claude.map((x) => (
-                  <WbcRow key={x.session_id} s={x} t={wbc.t} on={x.session_id === openWbc} onPress={() => onWbc(x.session_id)} />
-                ))}
-              </View>
+            {wbc && onWbc ? (
+              <SessionGroup
+                group="claude"
+                label={wbc.t.group}
+                rows={claude}
+                icon={SquareTerminal}
+                prefs={side}
+                selected={openWbc}
+                searching={!!q.trim()}
+                t={wbc.t}
+                onOpen={onWbc}
+                onFold={fold}
+                onPin={pin}
+                testID="drawer-wbc"
+                prefix="wbc"
+              />
+            ) : null}
+            {wbo && onWbo ? (
+              <SessionGroup
+                group="opencode"
+                label={wbo.t.group}
+                rows={opencode}
+                icon={SquareCode}
+                prefs={side}
+                selected={openWbo}
+                searching={!!q.trim()}
+                t={wbo.t}
+                onOpen={onWbo}
+                onFold={fold}
+                onPin={pin}
+                testID="drawer-wbo"
+                prefix="wbo"
+              />
             ) : null}
             {error ? (
               <View style={s.note}>
@@ -464,51 +532,6 @@ function OrchRow({ label, snip, on, onPress }: { label: string; snip: string; on
   );
 }
 
-/**
- * One of one's Claude Code sessions: the terminal mark with its live dot
- * while wb-claude holds it (green at the prompt, pulsing while Claude works,
- * amber while it waits), its name and when it was last used, and what it
- * does now - or its status - with the computer.
- */
-function WbcRow({ s: x, t, on, onPress }: { s: WbcSession; t: WbcStrings; on: boolean; onPress: () => void }) {
-  const dot = liveDot(x.bridge);
-  const snip = [stateWord(x, t), x.computer].filter(Boolean).join(' · ');
-  return (
-    <Pressable
-      testID={`wbc-${x.session_id}`}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: on }}
-      accessibilityLabel={`${x.name}, ${snip}`}
-      style={s.room}
-    >
-      {({ pressed }) => (
-        <>
-          <View style={s.roomIco}>
-            <Glyph icon={SquareTerminal} size={20} color={pressed ? colors.inkDim : colors.ink} />
-            {dot ? (
-              <View style={s.wbcDot} testID={`wbc-dot-${x.session_id}`}>
-                <StateDot s={dot} size={8} />
-              </View>
-            ) : null}
-          </View>
-          <View style={s.roomText}>
-            <View style={s.roomTop}>
-              <Text style={[s.title, on && s.titleOn, pressed && s.dimText]} numberOfLines={1}>
-                {x.name}
-              </Text>
-              {x.last_ts ? <Text style={s.when}>{shortTime(isoOf(x.last_ts))}</Text> : null}
-            </View>
-            <Text style={s.snip} numberOfLines={1}>
-              {snip}
-            </Text>
-          </View>
-        </>
-      )}
-    </Pressable>
-  );
-}
-
 function Row({
   chat,
   on,
@@ -617,15 +640,6 @@ const s = StyleSheet.create({
     paddingVertical: space.sm + 2,
   },
   roomIco: { width: 20, paddingTop: 2, alignItems: 'center' },
-  // The live dot on the terminal mark's corner, ringed by the drawer's ground.
-  wbcDot: {
-    position: 'absolute',
-    right: -4,
-    bottom: -3,
-    padding: 2,
-    borderRadius: 6,
-    backgroundColor: colors.surface,
-  },
   roomText: { flex: 1, minWidth: 0, gap: 3 },
   roomTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   snip: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },
