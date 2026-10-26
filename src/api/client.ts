@@ -22,6 +22,7 @@ import type {
   Ideas,
   Incident,
   LlmSummary,
+  PoolOverview,
   LlmUsage,
   McpCatalog,
   MyPool,
@@ -43,6 +44,7 @@ import type {
   User,
   VirtualFolder,
   VirtualTree,
+  FoldGroup,
   SideGroup,
   SidePrefs,
   WbcDetail,
@@ -551,6 +553,11 @@ export class WorkbenchClient {
     return this.request<MyPool>('GET', '/api/pool');
   }
 
+  /** Settings > Claude pool as this person sees it (backend/ccpool.py); 403/404 where it is not theirs to see. */
+  ccpoolOverview(): Promise<PoolOverview> {
+    return this.request<PoolOverview>('GET', '/api/ccpool/overview');
+  }
+
   adminPool(): Promise<AdminPool> {
     return this.request<AdminPool>('GET', '/api/admin/pool');
   }
@@ -753,7 +760,7 @@ export class WorkbenchClient {
   }
 
   /** A group folded (false) or open (true); null goes back to the default rule. */
-  async sideFold(group: SideGroup, open: boolean | null): Promise<SidePrefs> {
+  async sideFold(group: FoldGroup, open: boolean | null): Promise<SidePrefs> {
     return sideOf(await this.request<Partial<SidePrefs>>('PUT', '/api/me/side/folds', { group, open }));
   }
 
@@ -1003,6 +1010,6 @@ export function sideOf(v: Partial<SidePrefs> | null | undefined): SidePrefs {
   const fold = (x: unknown) => (typeof x === 'boolean' ? x : null);
   return {
     pins: { claude: list(pins.claude), opencode: list(pins.opencode) },
-    folds: { claude: fold(folds.claude), opencode: fold(folds.opencode) },
+    folds: { claude: fold(folds.claude), opencode: fold(folds.opencode), rooms: fold(folds.rooms) },
   };
 }

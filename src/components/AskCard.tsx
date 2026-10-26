@@ -7,7 +7,11 @@
  * be chosen) and an "Other" field where OpenCode takes its own words - and
  * Answer; or a permission - what it would run, Allow once / Always allow /
  * Reject. Answered, the card shows what was chosen. A choice is shown by
- * ink and weight and a tick, never a fill.
+ * ink and weight and a tick, never a fill. A question drawn from the tool's
+ * own call (`local`: an older wb-opencode forwards no form) shows its
+ * options as they are offered, not tappable, with one warning line saying
+ * why; once answered on the computer, what was chosen (or the tool's own
+ * output when that cannot be read).
  */
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -134,7 +138,16 @@ export function AskCard({
           ) : null}
         </>
       )}
-      {a.status === 'pending' && note ? <Text style={s.note}>{note}</Text> : null}
+      {a.raw ? (
+        <Text style={[s.note, wrapAnywhere]} selectable testID="ask-raw">
+          {a.raw}
+        </Text>
+      ) : null}
+      {a.status === 'pending' && note ? (
+        <Text style={[s.note, a.local && s.warn]} accessibilityRole={a.local ? 'alert' : undefined} testID="ask-note">
+          {note}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -215,6 +228,25 @@ function Question({
         <Text style={s.chosen} testID="ask-chosen">
           {shown}
         </Text>
+      ) : a.status === 'pending' && opts.length ? (
+        // asked, not answerable from here: the choices as they are offered
+        <View style={s.opts} accessibilityLabel={f.title || f.description}>
+          {opts.map((o) => (
+            <View
+              key={o.value}
+              style={s.opt}
+              accessible
+              accessibilityLabel={o.description ? `${o.label}. ${o.description}` : o.label}
+              testID={`ask-ro-${f.key}-${o.value}`}
+            >
+              {many ? <View style={s.box} /> : null}
+              <View style={s.optText}>
+                <Text style={s.optLabel}>{o.label}</Text>
+                {o.description ? <Text style={s.optDesc}>{o.description}</Text> : null}
+              </View>
+            </View>
+          ))}
+        </View>
       ) : null}
     </View>
   );
@@ -286,4 +318,5 @@ const s = StyleSheet.create({
   save: { flexBasis: '100%', fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   err: { flexBasis: '100%', fontFamily: fonts.sans, fontSize: type.tiny, color: colors.danger },
   note: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },
+  warn: { color: colors.warn },
 });

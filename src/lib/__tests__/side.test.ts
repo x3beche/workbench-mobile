@@ -1,6 +1,16 @@
 /** The drawer's session groups folded and pinned as the web's Chat list: the person's choice, else open while live. */
 import type { SidePrefs } from '../../api/types';
-import { FOLD_FIRST, isOpen, isPinned, pinnedFirst, SIDE_EMPTY, visibleRows, withFold, withPin } from '../side';
+import {
+  FOLD_FIRST,
+  isOpen,
+  isPinned,
+  pinnedFirst,
+  SIDE_EMPTY,
+  visibleRows,
+  withFold,
+  withPin,
+  withRoomsFold,
+} from '../side';
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `s${i}`);
 const id = (x: string) => x;
@@ -32,5 +42,16 @@ describe('folding and pins', () => {
     expect(open).toEqual(['s8', 's0', 's1', 's2', 's3', 's4', 's9']);
     expect(open.length - 2).toBe(FOLD_FIRST);
     expect(visibleRows(p, 'claude', rows, id, true, null, true)).toHaveLength(10);
+  });
+
+  it('keeps the rooms open until folded, and their fold on the phone while the server cannot keep it', () => {
+    expect(isOpen(SIDE_EMPTY, 'rooms', true)).toBe(true);
+    // an older server says nothing of the rooms: the phone's choice holds
+    expect(withRoomsFold(SIDE_EMPTY, { open: false, pending: true }).folds.rooms).toBe(false);
+    // the server keeps it: its word, once nothing is waiting to be told
+    const kept = withFold(SIDE_EMPTY, 'rooms', true);
+    expect(withRoomsFold(kept, { open: false, pending: false }).folds.rooms).toBe(true);
+    expect(withRoomsFold(kept, { open: false, pending: true }).folds.rooms).toBe(false);
+    expect(withRoomsFold(kept, null)).toBe(kept);
   });
 });

@@ -43,7 +43,7 @@ import type { User, WboAnswer, WboAsk, WboDetail, WboMsg, WboSend, WboSession } 
 import { Appear } from '../components/Appear';
 import { AskCard } from '../components/AskCard';
 import { Composer } from '../components/Composer';
-import { Camera, Images, Menu, Paperclip, SquareCode, X } from '../components/icons';
+import { ArrowUpToLine, Camera, Images, Menu, Paperclip, SquareCode, X } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Markdown } from '../components/Markdown';
 import { modelName, Steps, Thinking, TypingDots } from '../components/MessageItem';
@@ -57,6 +57,7 @@ import { admit, IMAGE_RULES, isoOf, pictureType, serverWords, type Picked } from
 import {
   applyWbo,
   buildTurns,
+  localWhy,
   looseAsks,
   pendingSends,
   putAsk,
@@ -65,6 +66,7 @@ import {
   sendTone,
   sendWord,
   TURNS_PAGE,
+  updateWord,
   wboDot,
   wboWhy,
   wboWord,
@@ -407,8 +409,11 @@ export function OpencodeSessionScreen({
   const person = mine ? user?.name || t.you : s?.owner.name || t.itsPerson;
   const dot = wboDot(s);
   const sub = [t.opencode, s?.computer, s?.directory].filter(Boolean).join(' · ');
-  const canAnswer = (a: WboAsk) => a.status === 'pending' && !!s?.may_send;
-  const note = s && !s.may_send ? wboWhy(s, t) : null;
+  const canAnswer = (a: WboAsk) => a.status === 'pending' && !a.local && !!s?.may_send;
+  const why = s && !s.may_send ? wboWhy(s, t) : null;
+  // A question drawn from the tool's own call says why it is not answered here; any other, why one cannot write.
+  const noteOf = (a: WboAsk) => (a.local ? localWhy(s, t) : why);
+  const update = updateWord(s, t);
 
   const renderItem = ({ item }: { item: Item }) => {
     if (item.kind === 'cut')
@@ -421,7 +426,14 @@ export function OpencodeSessionScreen({
     if (item.kind === 'ask')
       return (
         <View style={st.msgRow}>
-          <AskCard a={item.a} t={t} canAnswer={canAnswer(item.a)} busy={answering} note={note} onAnswer={answer} />
+          <AskCard
+            a={item.a}
+            t={t}
+            canAnswer={canAnswer(item.a)}
+            busy={answering}
+            note={noteOf(item.a)}
+            onAnswer={answer}
+          />
         </View>
       );
     const tn = item.turn;
@@ -469,7 +481,7 @@ export function OpencodeSessionScreen({
               t={t}
               canAnswer={canAnswer(it.ask)}
               busy={answering}
-              note={note}
+              note={noteOf(it.ask)}
               onAnswer={answer}
             />
           ) : (
@@ -504,17 +516,23 @@ export function OpencodeSessionScreen({
         </View>
         <IconButton icon={X} label={t.back} onPress={() => onClose?.()} testID="wbo-close" />
       </View>
-      {s?.bridge?.connected && (!s.bridge.remote || s.bridge.outdated) ? (
+      {(s?.bridge?.connected && !s.bridge.remote) || update ? (
         <View style={st.tags}>
-          {!s.bridge.remote ? <Text style={st.tag}>{t.remoteOff}</Text> : null}
-          {s.bridge.outdated ? (
+          {s?.bridge?.connected && !s.bridge.remote ? <Text style={st.tag}>{t.remoteOff}</Text> : null}
+          {update ? (
+            // An older wb-opencode on that computer (before 0.2.0 it cannot hand answers to OpenCode), connected or not.
             <Pressable
               onPress={() => setNotice(t.updateWboLong)}
               accessibilityRole="button"
+              accessibilityLabel={update}
               accessibilityHint={t.updateWboLong}
+              style={st.update}
               testID="wbo-outdated"
             >
-              <Text style={st.tag}>{t.updateWbo}</Text>
+              <Glyph icon={ArrowUpToLine} size={13} color={colors.warn} />
+              <Text style={st.updateText} numberOfLines={1}>
+                {update}
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -810,6 +828,18 @@ const st = StyleSheet.create({
     fontSize: type.tiny,
     color: colors.inkDim,
   },
+  update: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    maxWidth: '100%',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.warn,
+  },
+  updateText: { flexShrink: 1, fontFamily: fonts.sansSemi, fontSize: type.tiny, color: colors.warn },
   mono: { fontFamily: fonts.mono },
   column: { width: '100%', maxWidth: 780, alignSelf: 'center' },
   pad: { paddingTop: space.xs, paddingBottom: space.md, flexGrow: 1 },

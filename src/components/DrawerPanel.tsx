@@ -23,19 +23,42 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CHAT_TRASH_DAYS, type WorkbenchClient } from '../api/client';
 import { displayServer } from '../api/server';
-import type { Chat, ChatScope, Room, RoomId, SideGroup, SidePrefs, User, WbcSession, WboSession } from '../api/types';
+import type {
+  Chat,
+  ChatScope,
+  FoldGroup,
+  Room,
+  RoomId,
+  SideGroup,
+  SidePrefs,
+  User,
+  WbcSession,
+  WboSession,
+} from '../api/types';
 import { filterChats, groupChats, groupOf, rowTime } from '../lib/groups';
 import { ROOM_ICON, ROOM_LABEL, roomSnippet, unread as unreadOf } from '../lib/rooms';
 import { shortTime } from '../lib/time';
-import { isPinned, SIDE_EMPTY } from '../lib/side';
+import { isOpen, isPinned, SIDE_EMPTY } from '../lib/side';
 import { isoOf, liveDot, shownSessions, stateWord } from '../lib/wbc';
 import type { WbcStrings } from '../lib/wbcStrings';
 import { shownWbo, wboDot, wboWord } from '../lib/wbo';
 import type { WboStrings } from '../lib/wboStrings';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
 import { Avatar } from './Avatar';
-import { ChartColumn, ChevronRight, FolderOpen, Network, Search, SquareCode, SquarePen, SquareTerminal, X } from './icons';
-import { SessionGroup, type SessionRowData } from './SessionGroup';
+import {
+  ChartColumn,
+  ChevronRight,
+  FolderOpen,
+  Network,
+  Search,
+  SquareCode,
+  SquarePen,
+  SquareTerminal,
+  X,
+} from './icons';
+import { DrawerRow } from './DrawerRow';
+import { StateDot } from './StateDot';
+import { GroupHead, SessionGroup, type SessionRowData } from './SessionGroup';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
 import { Tabs } from './Tabs';
 import { Button, ErrorText, Glyph } from './ui';
@@ -140,7 +163,7 @@ export function DrawerPanel({
   onWbo?: (sid: string) => void;
   /** The groups' pins and folds (GET /api/me/side), and what changes them. */
   side?: SidePrefs;
-  onFold?: (group: SideGroup, open: boolean) => void;
+  onFold?: (group: FoldGroup, open: boolean) => void;
   onPin?: (group: SideGroup, id: string, pinned: boolean) => void;
 }) {
   const [q, setQ] = useState('');
@@ -218,6 +241,11 @@ export function DrawerPanel({
     }));
   }, [wbo, onWbo, q, openWbo, side]);
   const fold = onFold ?? (() => undefined);
+  // The rooms are open until folded by hand (kept as the session groups' folds); folded, their unread is on the header.
+  const roomsOpen = isOpen(side, 'rooms', true);
+  // Folded, a dot: warn while a room's question waits for an answer, accent while a room has lines not read here.
+  const roomsUnread = (rooms ?? []).some((r) => unreadOf(r, roomsSeen?.[r.room]) > 0);
+  const roomsWaiting = (rooms ?? []).some((r) => r.waiting > 0);
   const pin = onPin ?? (() => undefined);
 
   return (
@@ -307,11 +335,26 @@ export function DrawerPanel({
                 threads, above the conversations. */}
             {!q.trim() && ((onRoom && rooms?.length) || (orchestrator && onOrchestrator)) ? (
               <View testID="drawer-rooms">
-                <Text style={s.group}>Rooms</Text>
-                {orchestrator && onOrchestrator ? (
+                <GroupHead
+                  label={`Rooms · ${(onRoom ? (rooms?.length ?? 0) : 0) + (orchestrator && onOrchestrator ? 1 : 0)}`}
+                  open={roomsOpen}
+                  onPress={() => fold('rooms', !roomsOpen)}
+                  hint={roomsOpen ? 'Folds the rooms' : 'Opens the rooms'}
+                  right={
+                    roomsOpen ? null : roomsWaiting ? (
+                      <View testID="drawer-rooms-dot" accessibilityLabel="A question waits for an answer">
+                        <StateDot s="retry" size={7} />
+                      </View>
+                    ) : roomsUnread ? (
+                      <View style={s.news} testID="drawer-rooms-dot" accessibilityLabel="unread" />
+                    ) : null
+                  }
+                  testID="drawer-rooms-fold"
+                />
+                {roomsOpen && orchestrator && onOrchestrator ? (
                   <OrchRow label={orchestrator.label} snip={orchestrator.snip} on={orchOn} onPress={onOrchestrator} />
                 ) : null}
-                {(onRoom ? (rooms ?? []) : []).map((r) => (
+                {(onRoom && roomsOpen ? (rooms ?? []) : []).map((r) => (
                   <RoomRow
                     key={r.room}
                     room={r}
@@ -532,6 +575,7 @@ function OrchRow({ label, snip, on, onPress }: { label: string; snip: string; on
   );
 }
 
+/** A conversation: its title and when, the same row as the sessions' (DrawerRow). */
 function Row({
   chat,
   on,
@@ -546,30 +590,15 @@ function Row({
   onLongPress: () => void;
 }) {
   return (
-    <Pressable
-      testID={`chat-${chat.id}`}
+    <DrawerRow
+      title={chat.title}
+      when={trash ? (chat.days_left == null ? '' : `${chat.days_left} d left`) : rowTime(chat, groupOf(chat))}
+      on={on}
       onPress={onPress}
       onLongPress={onLongPress}
-      delayLongPress={350}
-      accessibilityRole="button"
-      accessibilityState={{ selected: on }}
-      accessibilityLabel={chat.title}
-      accessibilityHint={
-        trash ? 'Restore or delete forever' : 'Swipe left, or long press, for archive, delete and more'
-      }
-      style={s.row}
-    >
-      {({ pressed }) => (
-        <>
-          <Text style={[s.title, on && s.titleOn, pressed && s.dimText]} numberOfLines={1}>
-            {chat.title}
-          </Text>
-          <Text style={s.when}>
-            {trash ? (chat.days_left == null ? '' : `${chat.days_left} d left`) : rowTime(chat, groupOf(chat))}
-          </Text>
-        </>
-      )}
-    </Pressable>
+      hint={trash ? 'Restore or delete forever' : 'Swipe left, or long press, for archive, delete and more'}
+      testID={`chat-${chat.id}`}
+    />
   );
 }
 
@@ -618,14 +647,6 @@ const s = StyleSheet.create({
     fontSize: type.tiny,
     color: colors.inkDim,
   },
-  row: {
-    backgroundColor: colors.surface,
-    minHeight: touch,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: gutter,
-  },
   title: { flex: 1, fontFamily: fonts.sans, fontSize: 15, color: colors.ink },
   titleOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
   when: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
@@ -652,6 +673,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.accent,
   },
+  news: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent },
   badgeText: { fontFamily: fonts.sansMedium, fontSize: type.tiny, color: colors.inkOnAccent },
   note: { paddingHorizontal: gutter, paddingVertical: space.md, gap: space.sm, alignItems: 'flex-start' },
   wait: { marginTop: space.xl },

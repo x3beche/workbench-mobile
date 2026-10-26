@@ -63,6 +63,12 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/88-opencode-permission.png" width="200" alt="A permission: Allow once, Always allow, Reject">
 </p>
 <p>
+  <img src="docs/screenshots/88b-opencode-old-question.png" width="200" alt="Under wb-opencode 0.1.0: the question drawn from the tool's call, not answerable here, and Update wb-opencode in the header">
+  <img src="docs/screenshots/81b-drawer-rooms-folded.png" width="200" alt="Rooms folded with its dot; session rows as conversation rows">
+  <img src="docs/screenshots/74b-ccpool.png" width="200" alt="Settings > Claude pool: the windows, the week's ring and its people">
+  <img src="docs/screenshots/74c-ccpool-sessions.png" width="200" alt="Claude pool: My sessions">
+</p>
+<p>
   <img src="docs/screenshots/21-wide-chat.png" width="520" alt="On a wide screen the drawer is a column that stays open">
   <img src="docs/screenshots/34-wide-scrollbar.png" width="520" alt="The web build's thin scrollbars, as the web app draws them">
 </p>
@@ -218,13 +224,23 @@ Then you sign in with the same e-mail address and password as on the web.
   not there, and the bus (`wbo`) says when a line or the run changed. The
   box sends words and up to four pictures (photos or camera), and a line
   shows "sent - waiting for the computer", "delivered" or why not; where it
-  cannot be written to the box is a note, and "update wb-opencode" says when
-  the computer's is old. **What OpenCode asks** is a card, as on the web: a
+  cannot be written to the box is a note, and a warning-coloured "Update
+  wb-opencode 0.1.0 → 0.2.0" in the header says when the computer's is older
+  than the server's, connected or not (`bridge.outdated`, `bridge.latest`;
+  from 1.6.2). **What OpenCode asks** is a card, as on the web: a
   question's header, text and options with their descriptions (checkboxes
   where several may be chosen, an "Other" field where it takes its own
   words) and Answer; a permission with what it would run and Allow once /
   Always allow / Reject (`POST .../asks/{id}/answer`). An answered card
   shows the choice and where it was made (from the Chat, on the computer).
+  A `question` tool call with no ask of it (wb-opencode before 0.2.0
+  forwards no forms) is still that card, drawn from the call's input (from
+  1.6.2): its options shown but not tappable, "waiting for an answer", and
+  one warning line - "Update wb-opencode on that computer to answer here"
+  when the computer's cannot hand answers on (`bridge.answers` false), else
+  "Answer it on the computer". When the real ask arrives it takes its place;
+  once answered on the computer the card shows the choice, read from the
+  tool's output.
 - **Folds and pins** (from 1.6.1): the Claude and OpenCode groups fold and
   open by their header (a chevron; folded, the count and a live dot), and a
   long press on a session offers Open and Pin / Unpin. Pinned sessions come
@@ -232,7 +248,14 @@ Then you sign in with the same e-mail address and password as on the web.
   newest five and "Show N more". Both are the person's own on the server
   (`GET /api/me/side`, `PUT /api/me/side/pins`, `PUT /api/me/side/folds`),
   the same as the web's on every device; until a group was folded by hand
-  it is open while a session in it is live or open.
+  it is open while a session in it is live or open. From 1.6.2 the Rooms
+  fold too ("Rooms · 4", open until folded; folded, a dot - amber while a
+  room's question waits, accent while a room has lines not read), kept with
+  the others (`folds.rooms`); a server that does not keep it yet answers 422
+  and the phone keeps it, sending it once the server does. Session rows are
+  the conversations' own row: the title with the kind's small icon before it
+  (the live dot on it), what it does and the computer under it, the time at
+  the right.
 - **Settings** (from 1.5.7; the account at the foot of the drawer opens it):
   the accounts (switch, add, sign one out), Agent & LLM, the app's
   **language** (Auto, English, Türkçe - apart from the voice language),
@@ -242,6 +265,18 @@ Then you sign in with the same e-mail address and password as on the web.
   starts again to wear a new one - the voice language and when its words
   appear, and the app's version, its update and About. Two sections side by
   side on a wide screen.
+- **Claude pool** (from 1.6.2, in Settings where the server's pool is set up
+  and the person may see it): the web's Settings > Claude pool, read-only
+  (`GET /api/ccpool/overview`). The subscription's windows (5-hour, 7-day
+  and any other the plan reports) as meters with their % and when they
+  start again; the week's plan as a ring - each person's part in their
+  colour, Outside the pool grey, Unused the empty track, the used % in the
+  middle, "≈" before each part - with the people for the week under it
+  (requests, tokens, API value, plan this week, plan 5 hours, last use);
+  and My sessions (name, status, computer, last activity, prompts / calls,
+  tokens, API value). No keys given and no shares by hand from the phone.
+  Pull to refresh; read again every 30 s while open (the overview has no
+  event on the bus). English and the web's Turkish.
 - **Analytics** (from 1.5.7, in the drawer): what the web app's Chat shows
   bottom left and more, each from the route the web reads - the Models card
   (tokens a day for 14 days by provider, this month and today, the answers'
@@ -446,7 +481,7 @@ Chrome in Docker at 390 x 844, and 900 px wide for the side column, against
 the made-up server, which also runs tools and writes an answer slowly; with
 `TARGET=https://your.server` the server and sign-in screens are taken against
 that server, whose own wrong-password error is shown;
-`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48, `SHOTS=rooms` a room read a page at a time, 50-53, `SHOTS=accounts` 60-63, `SHOTS=settings` Settings and Analytics, 70-80, `SHOTS=claude` the Claude sessions, 90-99, and `SHOTS=opencode` the OpenCode sessions and the groups' folds and pins, 80b-89b). The keyboard shot
+`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48, `SHOTS=rooms` a room read a page at a time, 50-53, `SHOTS=accounts` 60-63, `SHOTS=settings` Settings, the Claude pool and Analytics, 70-80 and 74b-77b, `SHOTS=claude` the Claude sessions, 90-99, and `SHOTS=opencode` the OpenCode sessions and the groups' folds and pins, 80b-89b). The keyboard shot
 makes the window 336 px shorter, as a phone keyboard does, and checks the
 composer is still on screen. `SHOTS_DIR=/some/dir` writes them elsewhere. App icons are
 drawn by `scripts/make-icons.js` from the web app's section mark.

@@ -641,6 +641,10 @@ export interface WboBridge {
   started: number | null;
   /** A newer wb-opencode is out. */
   outdated?: boolean;
+  /** The server's own wb-opencode version (the one to update to). */
+  latest?: string;
+  /** It hands answers to OpenCode (0.2.0 and newer): what OpenCode asks can be answered from here. */
+  answers?: boolean;
 }
 
 /** One of one's own OpenCode sessions (GET /api/wbo/sessions). `updated` in milliseconds. */
@@ -744,6 +748,10 @@ export interface WboAsk {
   chosen?: { answer?: Record<string, unknown>; decision?: string; message?: string };
   at: number | null;
   settled_at: number | null;
+  /** Drawn from the question tool's own call (no ask of it here): shown, not answered here. */
+  local?: boolean;
+  /** Its output, when what was chosen cannot be read from it. */
+  raw?: string;
 }
 
 /** GET /api/wbo/sessions/{sid}: the session with its last messages, the lines sent and what it asks. */
@@ -763,9 +771,99 @@ export type WboAnswer =
 // ---- the Chat list's own choices (backend/session_prefs.py: /api/me/side) ------
 
 export type SideGroup = 'claude' | 'opencode';
+/** What folds in the drawer: the session groups, and the rooms (open until folded). */
+export type FoldGroup = SideGroup | 'rooms';
 
 /** Pinned sessions per group (newest pin first) and each group folded or not (null: never chosen). */
 export interface SidePrefs {
   pins: Record<SideGroup, string[]>;
-  folds: Record<SideGroup, boolean | null>;
+  folds: Record<FoldGroup, boolean | null>;
+}
+
+// ---- Settings > Claude pool (backend/ccpool.py: GET /api/ccpool/overview) ----
+
+/** A subscription window: how much is used and when it starts again (seconds). */
+export interface PoolWindow {
+  pct: number;
+  resets_at: number | null;
+  /** The last one known (the usage call refused for now). */
+  stale?: boolean;
+}
+
+/** Requests, tokens and API value over some span (an account's week, a session). */
+export interface PoolFigures {
+  requests: number;
+  in_tokens: number;
+  out_tokens: number;
+  cache_read: number;
+  cache_write: number;
+  total_tokens: number;
+  cost_usd: number;
+  cost_estimated_usd?: number;
+  last_ts?: number;
+}
+
+export interface PoolWeek extends PoolFigures {
+  /** The person's part of the 7-day window, in points; null while it is not known. */
+  plan_pct: number | null;
+  plan_pct_approx?: boolean;
+  plan5_pct?: number | null;
+  plan5_pct_approx?: boolean;
+  plan_manual_pct?: number | null;
+}
+
+export interface PoolAccount {
+  id: string;
+  name: string;
+  email: string;
+  mine: boolean;
+  usage: PoolFigures;
+  week: PoolWeek;
+  manual?: { tokens?: number; requests?: number; cost_usd?: number } | null;
+}
+
+export interface PoolSession {
+  session_id: string;
+  key_name: string | null;
+  title?: string;
+  label?: string;
+  status?: 'active' | 'idle' | 'ended';
+  first_ts: number;
+  last_ts: number;
+  requests: number;
+  prompts?: number | null;
+  in_tokens: number | null;
+  out_tokens: number | null;
+  cache_read: number | null;
+  cache_write: number | null;
+  total_tokens?: number;
+  cost_usd: number;
+  mine?: boolean;
+}
+
+export interface PoolOverview {
+  me: {
+    id: string;
+    name: string;
+    role: string;
+    privileged: boolean;
+    keys: number;
+    usage: PoolFigures;
+    manual?: { cost_usd?: number } | null;
+  };
+  plan: {
+    five_hour?: PoolWindow | null;
+    seven_day?: PoolWindow | null;
+    extra?: (PoolWindow & { id: string; label: string })[];
+    week_pct: number | null;
+    week_api_usd: number;
+    week_from?: number | null;
+    week_to?: number | null;
+    outside?: { seven_day?: number; five_hour?: number };
+    unassigned_plan?: { seven_day?: number | null; five_hour?: number | null };
+  };
+  accounts: PoolAccount[];
+  my_sessions: PoolSession[];
+  my_hidden?: { count: number; cost_usd: number };
+  gateway: { configured: boolean };
 }

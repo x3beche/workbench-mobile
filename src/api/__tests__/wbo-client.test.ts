@@ -63,7 +63,7 @@ describe('the side prefs through the client', () => {
   });
 
   it('fills in what an answer leaves out', () => {
-    expect(sideOf(null)).toEqual({ pins: { claude: [], opencode: [] }, folds: { claude: null, opencode: null } });
+    expect(sideOf(null)).toEqual({ pins: { claude: [], opencode: [] }, folds: { claude: null, opencode: null, rooms: null } });
     expect(sideOf({ pins: { claude: ['a', 3 as unknown as string] } as never }).pins.claude).toEqual(['a']);
   });
 });

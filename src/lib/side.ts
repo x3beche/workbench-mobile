@@ -7,19 +7,21 @@
  * opened by hand, it is open while a session in it is live or open. Pinned
  * sessions come first, in the order they were pinned, and stay in sight while
  * the group is folded; an open group shows the pinned ones, the newest
- * FOLD_FIRST and the open one, with "Show N more".
+ * FOLD_FIRST and the open one, with "Show N more". The rooms fold too (from
+ * 1.6.2), open until folded; a server that does not keep their fold yet
+ * (it answers 422) has it kept on the phone and sent once it does.
  */
-import type { SideGroup, SidePrefs } from '../api/types';
+import type { FoldGroup, SideGroup, SidePrefs } from '../api/types';
 
 export const FOLD_FIRST = 5;
 
 export const SIDE_EMPTY: SidePrefs = {
   pins: { claude: [], opencode: [] },
-  folds: { claude: null, opencode: null },
+  folds: { claude: null, opencode: null, rooms: null },
 };
 
 /** Open or folded: the person's choice, else the default (`auto`: a session in it is live or open, or a search is on). */
-export function isOpen(prefs: SidePrefs, g: SideGroup, auto: boolean): boolean {
+export function isOpen(prefs: SidePrefs, g: FoldGroup, auto: boolean): boolean {
   return prefs.folds[g] ?? auto;
 }
 
@@ -63,6 +65,19 @@ export function withPin(prefs: SidePrefs, g: SideGroup, id: string, pinned: bool
   return { ...prefs, pins: { ...prefs.pins, [g]: pinned ? [id, ...list] : list } };
 }
 
-export function withFold(prefs: SidePrefs, g: SideGroup, open: boolean | null): SidePrefs {
+export function withFold(prefs: SidePrefs, g: FoldGroup, open: boolean | null): SidePrefs {
   return { ...prefs, folds: { ...prefs.folds, [g]: open } };
+}
+
+/** The rooms' fold as the phone keeps it: the choice, and whether the server still has to be told. */
+export interface RoomsFold {
+  open: boolean | null;
+  pending: boolean;
+}
+
+/** The server's prefs with the rooms' fold kept here when the server has none (an older server, or not told yet). */
+export function withRoomsFold(prefs: SidePrefs, local: RoomsFold | null): SidePrefs {
+  if (!local || local.open === null) return prefs;
+  if (prefs.folds.rooms !== null && !local.pending) return prefs;
+  return withFold(prefs, 'rooms', local.open);
 }

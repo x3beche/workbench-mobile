@@ -157,3 +157,19 @@ export async function appLang(): Promise<'auto' | 'en' | 'tr'> {
 export async function setAppLang(lang: 'auto' | 'en' | 'tr'): Promise<void> {
   await writeJson(APP_LANG, lang);
 }
+
+const ROOMS_FOLD = 'workbench.roomsFold';
+
+/** The rooms' fold kept on the phone for an account (side.ts RoomsFold), until its server keeps it. */
+export async function roomsFold(scope: string): Promise<{ open: boolean | null; pending: boolean } | null> {
+  const all = await readJson<Record<string, { open?: unknown; pending?: unknown }>>(ROOMS_FOLD, {});
+  const x = all[scope];
+  if (!x || typeof x !== 'object') return null;
+  return { open: typeof x.open === 'boolean' ? x.open : null, pending: x.pending === true };
+}
+
+export async function setRoomsFold(scope: string, v: { open: boolean | null; pending: boolean }): Promise<void> {
+  const all = await readJson<Record<string, unknown>>(ROOMS_FOLD, {});
+  all[scope] = v;
+  await writeJson(ROOMS_FOLD, all);
+}

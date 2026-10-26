@@ -4,7 +4,9 @@
  * Ada's OpenCode runs - one ready under wb-opencode with enough messages to
  * be read ten turns at a time, thinking, tool calls, a picture sent from
  * Workbench and a question OpenCode waits on; one working under an old
- * wb-opencode with a permission asked ("update wb-opencode"); one ended
+ * wb-opencode with a permission asked ("Update wb-opencode"); one under
+ * wb-opencode 0.1.0, which forwards no forms, whose question is drawn from
+ * the tool's own call (one answered on the computer, one waiting); one ended
  * without wb-opencode (the composer is a note); a few more of the last day
  * and an old pinned one, for the drawer's fold and "Show N more".
  *
@@ -33,7 +35,9 @@ function bridge(over) {
     model: 'deepseek/deepseek-v4-flash',
     seen: secs(),
     started: secs() - 3600,
+    latest: '0.2.0',
     outdated: false,
+    answers: true,
     ...over,
   };
 }
@@ -273,6 +277,7 @@ const SESSIONS = [
         id: 'wbo-b2-workstation',
         host: 'workstation',
         version: '0.2.0',
+        latest: '0.2.1',
         outdated: true,
         cwd: '~/fw/ota',
       }),
@@ -340,6 +345,99 @@ const SESSIONS = [
     ],
   },
   {
+    row: row('ses_pwr00000f1', 'Power budget estimate', {
+      status: 'busy',
+      computer: 'lab-pc',
+      directory: '~/projects/power',
+      updated: ms() - 30_000,
+      bridge: bridge({
+        id: 'wbo-b3-lab-pc',
+        host: 'lab-pc',
+        version: '0.1.0',
+        opencode: '2.0.18',
+        cwd: '~/projects/power',
+        outdated: true,
+        answers: false,
+      }),
+      may_send: true,
+      why: '',
+    }),
+    msgs: [
+      {
+        id: 'msg_p1',
+        role: 'user',
+        time: ms() - 600_000,
+        done: ms() - 600_000,
+        parts: [
+          { id: 't0', type: 'text', text: 'Estimate the battery life of the sensor node and ask me what you need.' },
+        ],
+      },
+      {
+        id: 'msg_p2',
+        role: 'assistant',
+        model: 'deepseek/deepseek-v4-flash',
+        time: ms() - 598_000,
+        done: null,
+        parts: [
+          {
+            id: 'call_qa01',
+            type: 'tool',
+            tool: 'question',
+            status: 'completed',
+            input: JSON.stringify({
+              questions: [
+                {
+                  header: 'Battery',
+                  question: 'Which cell does the node run on?',
+                  options: [
+                    { label: 'CR2032', description: '225 mAh coin cell' },
+                    { label: '2xAA', description: 'about 2500 mAh' },
+                  ],
+                },
+              ],
+            }),
+            output:
+              'User has answered your questions: "Which cell does the node run on?"="2xAA". ' +
+              "You can now continue with the user's answers in mind.",
+            start: ms() - 590_000,
+            end: ms() - 420_000,
+          },
+          { id: 't1', type: 'text', text: 'Two AA cells, about 2500 mAh. Now the duty cycle.' },
+          {
+            id: 'call_qa02',
+            type: 'tool',
+            tool: 'question',
+            status: 'running',
+            input: JSON.stringify({
+              questions: [
+                {
+                  header: 'Radio',
+                  question: 'How often does the node report?',
+                  options: [
+                    { label: 'Every minute', description: 'about 8 mA for 40 ms each time' },
+                    { label: 'Every 10 minutes', description: 'the default in firmware 1.3' },
+                  ],
+                },
+                {
+                  header: 'Extras',
+                  question: 'What else stays powered?',
+                  options: [
+                    { label: 'LED', description: 'status LED, 2 mA' },
+                    { label: 'Sensor heater', description: 'BME688 gas heater' },
+                  ],
+                  multiple: true,
+                },
+              ],
+            }),
+            start: ms() - 400_000,
+          },
+        ],
+      },
+    ],
+    sends: [],
+    asks: [],
+  },
+  {
     row: row('ses_lid00000c3', 'Enclosure lid review', { status: 'ended', updated: ms() - 18 * 3600_000 }),
     msgs: [
       {
@@ -375,7 +473,7 @@ const SESSIONS = [
   },
 ];
 
-const side = { pins: { claude: [], opencode: ['ses_pinold00e1'] }, folds: { claude: null, opencode: null } };
+const side = { pins: { claude: [], opencode: ['ses_pinold00e1'] }, folds: { claude: null, opencode: null, rooms: null } };
 
 const bySid = (sid) => SESSIONS.find((x) => x.row.session_id === sid);
 const tell = (sid, what) => publish('bus', { k: 'wbo', p: { sid, what }, t: Date.now() });

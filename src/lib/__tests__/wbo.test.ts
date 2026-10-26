@@ -10,6 +10,7 @@ import {
   groupDot,
   isReady,
   lastModel,
+  localWhy,
   looseAsks,
   NO_CHOICE,
   pendingSends,
@@ -19,7 +20,10 @@ import {
   setOther,
   shownAnswer,
   shownWbo,
+  toolAnswers,
+  toolAsk,
   toStep,
+  updateWord,
   wboDot,
   wboWhy,
   wboWord,
@@ -363,5 +367,88 @@ describe('what OpenCode asks', () => {
     expect(looseAsks(asks, [], 10_000).map((a) => a.id)).toEqual(['frm_aaaaaaaa']);
     expect(looseAsks(asks, [msg('m', 'assistant', { parts: [{ id: 'call_x', type: 'tool' }] })], 10_000)).toEqual([]);
     expect(putAsk(detail({ bridge: null, status: 'ended' }), ask()).status).toBe('ended');
+  });
+
+  it('draws a question tool call with no ask of it as the card, from its input; what was chosen from its output', () => {
+    const qs = [
+      {
+        header: 'Evet / Hayır',
+        question: 'Devam edeyim mi?',
+        options: [
+          { label: 'Evet', description: 'devam et' },
+          { label: 'Hayır', description: 'dur' },
+        ],
+      },
+      {
+        header: 'Extras',
+        question: 'Which files too?',
+        options: [{ label: 'logs' }, { label: 'cache' }],
+        multiple: true,
+      },
+    ];
+    const part = {
+      id: 'call_q9',
+      type: 'tool' as const,
+      tool: 'question',
+      status: 'running',
+      input: JSON.stringify({ questions: qs }),
+    };
+    const turns = buildTurns([msg('m1', 'assistant', { parts: [part] })]);
+    const items = turns[0].kind === 'assistant' ? turns[0].items : [];
+    expect(items.map((x) => x.t)).toEqual(['ask']);
+    const a = items[0].t === 'ask' ? items[0].ask : ask();
+    expect(a).toMatchObject({ id: 'tool-call_q9', local: true, status: 'pending', part: 'call_q9' });
+    expect(a.fields?.map((f) => [f.key, f.type, f.title, f.description, f.options.length])).toEqual([
+      ['q0', 'string', 'Evet / Hayır', 'Devam edeyim mi?', 2],
+      ['q1', 'multiselect', 'Extras', 'Which files too?', 2],
+    ]);
+    expect(a.fields?.[0].options[0]).toEqual({ value: 'Evet', label: 'Evet', description: 'devam et' });
+    expect(askState(a, en)).toBe('waiting for an answer');
+    expect(askState(a, tr)).toBe('cevap bekleniyor');
+    // the ask the bridge tells takes its place, answerable
+    const real = ask({ part: 'call_q9' });
+    const withReal = buildTurns([msg('m1', 'assistant', { parts: [part] })], [real]);
+    expect(withReal[0].kind === 'assistant' && withReal[0].items).toEqual([
+      { t: 'ask', key: 'ask' + real.id, ask: real },
+    ]);
+
+    const said =
+      'User has answered your questions: "Devam edeyim mi?"="Evet", "Which files too?"="logs, cache". ' +
+      "You can now continue with the user's answers in mind.";
+    const done = toolAsk({ ...part, status: 'completed', output: said, start: 1000, end: 5000 });
+    expect(done).toMatchObject({
+      status: 'answered',
+      answer: { q0: 'Evet', q1: 'logs, cache' },
+      raw: undefined,
+      settled_at: 5,
+    });
+    expect(shownAnswer(done, done.fields![1])).toBe('logs, cache');
+    expect(askState(done, en)).toBe('answered');
+    expect(
+      toolAnswers(
+        done.fields!,
+        'User has answered your questions: "Devam edeyim mi?"="Unanswered". You can now continue.',
+      ),
+    ).toEqual({});
+    expect(toolAsk({ ...part, status: 'completed', output: 'something else' })).toMatchObject({
+      answer: {},
+      raw: 'something else',
+    });
+    const gone = toolAsk({ ...part, status: 'error', error: 'aborted' });
+    expect([gone.status, askState(gone, en)]).toEqual(['cancelled', 'no longer asked']);
+    // still being written: no questions yet, still a card
+    expect(toolAsk({ ...part, input: '{"questions": [' }).fields).toEqual([]);
+  });
+
+  it('says why a drawn card is not answered here, and the header asks for a newer wb-opencode', () => {
+    const old = session({ bridge: { ...bridge, version: '0.1.0', latest: '0.2.0', outdated: true, answers: false } });
+    expect(localWhy(old, en)).toBe('Update wb-opencode on that computer to answer here (run its installer again)');
+    expect(localWhy(session({ bridge: { ...bridge, answers: true } }), tr)).toBe('Bilgisayarda cevaplayın');
+    expect(localWhy(session({ bridge: null }), en)).toBe('Answer it on the computer');
+    expect(updateWord(old, en)).toBe('Update wb-opencode 0.1.0 → 0.2.0');
+    expect(updateWord({ bridge: { ...old.bridge!, connected: false } }, tr)).toBe(
+      "wb-opencode'u güncelleyin 0.1.0 → 0.2.0",
+    );
+    expect(updateWord(session(), en)).toBeNull();
   });
 });

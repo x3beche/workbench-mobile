@@ -93,6 +93,10 @@ const mockClient = {
   side: jest.fn(async () => {
     throw new Error('Not Found');
   }),
+  // Settings > Claude pool (1.6.2): not set up here - no row; ccpool.test.tsx covers it.
+  ccpoolOverview: jest.fn(async () => {
+    throw new Error('Not Found');
+  }),
   getChat: jest.fn(async (id: string) => full(CHATS.find((c) => c.id === id) ?? listed(id, 'Gone', 1))),
   live: jest.fn(async () => undefined),
   createChat: jest.fn(async (provider?: string, model?: string) => {

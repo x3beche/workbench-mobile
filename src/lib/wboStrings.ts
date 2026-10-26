@@ -20,8 +20,14 @@ export interface WboStrings extends WbcStrings {
   thought: string;
   ranTools: (n: number, failed: number) => string;
   onlyLatest: string;
-  updateWbo: string;
   updateWboLong: string;
+  /** The header's pill, with "0.1.0 → 0.2.0" after it. */
+  updateWboTitle: string;
+  // a question drawn from the tool's own call, not answerable here
+  updateToAnswer: string;
+  answerOnComputer: string;
+  waitingAnAnswer: string;
+  answered: string;
   // what OpenCode asks
   asks: string;
   asksToRun: (x: string) => string;
@@ -62,8 +68,12 @@ const en: WboStrings = {
   thought: 'Thought it through',
   ranTools: (n, failed) => `Ran ${n} tools${failed ? `, ${failed} failed` : ''}`,
   onlyLatest: 'Only the latest messages are shown.',
-  updateWbo: 'update wb-opencode',
   updateWboLong: 'A newer wb-opencode is out: run its installer again on that computer.',
+  updateWboTitle: 'Update wb-opencode',
+  updateToAnswer: 'Update wb-opencode on that computer to answer here (run its installer again)',
+  answerOnComputer: 'Answer it on the computer',
+  waitingAnAnswer: 'waiting for an answer',
+  answered: 'answered',
   nothingYet: 'Nothing here yet: the conversation appears as OpenCode on that computer writes it.',
   expired: 'not delivered: no wb-opencode took it within an hour',
   why: {
@@ -108,8 +118,13 @@ const tr: WboStrings = {
   thought: 'Düşünme',
   ranTools: (n, failed) => `${n} araç çalıştı${failed ? `, ${failed} tanesi başarısız` : ''}`,
   onlyLatest: 'Yalnızca son mesajlar gösteriliyor.',
-  updateWbo: "wb-opencode'u güncelleyin",
   updateWboLong: 'Daha yeni bir wb-opencode var: o bilgisayarda kurulum komutunu yeniden çalıştırın.',
+  updateWboTitle: "wb-opencode'u güncelleyin",
+  updateToAnswer:
+    "Buradan cevaplamak için o bilgisayarda wb-opencode'u güncelleyin (kurulum komutunu yeniden çalıştırın)",
+  answerOnComputer: 'Bilgisayarda cevaplayın',
+  waitingAnAnswer: 'cevap bekleniyor',
+  answered: 'yanıtlandı',
   nothingYet: 'Burada henüz bir şey yok: o bilgisayardaki OpenCode yazdıkça konuşma burada görünür.',
   expired: 'iletilmedi: bir saat içinde hiçbir wb-opencode almadı',
   why: {

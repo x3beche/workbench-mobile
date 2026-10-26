@@ -3,6 +3,7 @@ import * as React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { Chat, Room, User } from '../../api/types';
+import { SIDE_EMPTY } from '../../lib/side';
 import { DrawerPanel } from '../DrawerPanel';
 
 jest.mock(
@@ -70,12 +71,15 @@ async function panel(over: Partial<React.ComponentProps<typeof DrawerPanel>> = {
 (canRender ? describe : describe.skip)('the rooms in the drawer', () => {
   it('leads the list with all three, above the conversations', async () => {
     await panel();
-    expect(screen.getByText('Rooms')).toBeTruthy();
+    expect(screen.getByText('Rooms · 3')).toBeTruthy();
     expect(screen.getByText('3D Drawing')).toBeTruthy();
     expect(screen.getByText('PCB Design')).toBeTruthy();
     expect(screen.getByText('Firmware')).toBeTruthy();
     // In the order they are drawn: the rooms' heading before the first conversation.
-    expect(screen.getAllByText(/^(Rooms|Rail sag)$/).map((t) => t.props.children)).toEqual(['Rooms', 'Rail sag']);
+    expect(screen.getAllByText(/^(Rooms · 3|Rail sag)$/).map((t) => t.props.children)).toEqual([
+      'Rooms · 3',
+      'Rail sag',
+    ]);
   });
 
   it('reads each room with who wrote last and what they said', async () => {
@@ -112,13 +116,25 @@ async function panel(over: Partial<React.ComponentProps<typeof DrawerPanel>> = {
   it('leaves the rooms out of a search', async () => {
     await panel();
     await fireEvent.changeText(screen.getByTestId('drawer-search'), 'rail');
-    expect(screen.queryByText('Rooms')).toBeNull();
+    expect(screen.queryByText(/^Rooms/)).toBeNull();
+  });
+
+  it('folds by its header, open until folded; folded, what is unread is on the header', async () => {
+    const props = await panel({ onFold: jest.fn() });
+    fireEvent.press(screen.getByTestId('drawer-rooms-fold'));
+    expect(props.onFold).toHaveBeenCalledWith('rooms', false);
+  });
+
+  it('folded, hides the rooms and puts what is unread on the header', async () => {
+    await panel({ side: { ...SIDE_EMPTY, folds: { ...SIDE_EMPTY.folds, rooms: false } } });
+    expect(screen.queryByTestId('room-cad')).toBeNull();
+    expect(screen.getByTestId('drawer-rooms-dot')).toHaveProp('accessibilityLabel', 'unread');
   });
 
   it('has no rooms on an older server that sends none', async () => {
     await panel({ rooms: null });
     expect(screen.queryByTestId('drawer-rooms')).toBeNull();
-    expect(screen.queryByText('Rooms')).toBeNull();
+    expect(screen.queryByText(/^Rooms/)).toBeNull();
   });
 });
 

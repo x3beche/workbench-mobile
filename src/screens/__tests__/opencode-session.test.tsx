@@ -278,7 +278,41 @@ async function show(d: WboDetail, t = en) {
     expect(screen.queryByTestId('wbo-composer')).toBeNull();
     expect(screen.getByTestId('wbo-why')).toHaveTextContent('Only Bo can write to this session; you can read it.');
     expect(screen.queryByTestId('ask-answer')).toBeNull();
-    expect(screen.getByText('update wb-opencode')).toBeTruthy();
+    expect(screen.getByText('Update wb-opencode')).toBeTruthy();
+  });
+
+  it('draws a question an old wb-opencode did not forward as its card, not answerable, and asks for the update', async () => {
+    const d = detail({ asks: [] });
+    d.bridge = { ...d.bridge!, connected: false, version: '0.1.0', latest: '0.2.0', outdated: true, answers: false };
+    d.messages[1].parts[3] = {
+      id: 'call_q',
+      type: 'tool',
+      tool: 'question',
+      status: 'running',
+      input: JSON.stringify({
+        questions: [
+          {
+            header: 'Fix',
+            question: 'Which fix?',
+            options: [
+              { label: 'LDO', description: 'swap the regulator' },
+              { label: 'Cap', description: 'more bulk capacitance' },
+            ],
+          },
+        ],
+      }),
+    };
+    await show(d);
+    expect(screen.getByTestId('wbo-outdated')).toHaveTextContent('Update wb-opencode 0.1.0 → 0.2.0');
+    expect(screen.getByText('Which fix?')).toBeTruthy();
+    expect(screen.getByTestId('ask-ro-q0-LDO')).toHaveTextContent('LDOswap the regulator');
+    expect(screen.queryByTestId('ask-opt-q0-LDO')).toBeNull();
+    expect(screen.queryByTestId('ask-answer')).toBeNull();
+    expect(screen.getByTestId('ask-state')).toHaveTextContent('waiting for an answer');
+    expect(screen.getByTestId('ask-note')).toHaveTextContent(
+      'Update wb-opencode on that computer to answer here (run its installer again)',
+    );
+    expect(screen.queryByText('question')).toBeNull();
   });
 });
 
@@ -325,7 +359,7 @@ async function show(d: WboDetail, t = en) {
 
   it('folds by the header, keeping the pinned in sight, as the person chose', async () => {
     const onFold = jest.fn();
-    const side = { ...withPin(SIDE_EMPTY, 'opencode', 'ses_row00006', true), folds: { claude: null, opencode: false } };
+    const side = { ...withPin(SIDE_EMPTY, 'opencode', 'ses_row00006', true), folds: { claude: null, opencode: false, rooms: null } };
     await render(draw(side, { onFold }));
     expect(screen.getByText('Run 6')).toBeTruthy();
     expect(screen.queryByText('Run 0')).toBeNull();

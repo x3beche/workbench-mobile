@@ -141,7 +141,8 @@ export function buildTurns(msgs: WboMsg[], asks: WboAsk[] = []): Turn[] {
         tn.items.push({ t: 'text', key, text: p.text ?? '', live: lastPart });
         if (lastPart) tn.writing = true;
       } else if (p.type === 'tool') {
-        const a = byPart.get(p.id);
+        // OpenCode's question tool is always the card: the ask the bridge told, else one drawn from the call itself
+        const a = byPart.get(p.id) ?? (p.tool === 'question' ? toolAsk(p) : undefined);
         if (!a || a.kind === 'permission') {
           const prev = tn.items[tn.items.length - 1];
           if (prev?.t === 'steps') prev.steps.push(toStep(p));
@@ -153,6 +154,89 @@ export function buildTurns(msgs: WboMsg[], asks: WboAsk[] = []): Turn[] {
     if (m.error) tn.items.push({ t: 'error', key: m.id + 'err', text: m.error });
   }
   return out;
+}
+
+/** What the question tool's output says was chosen, by field: its text is
+ *  `User has answered your questions: "<question>"="<a, b>", ... You can now continue ...` ("Unanswered" for none). */
+export function toolAnswers(fields: WboField[], out: string): Record<string, unknown> {
+  const ans: Record<string, unknown> = {};
+  fields.forEach((f, i) => {
+    const head = `"${f.description}"="`;
+    const at = out.indexOf(head);
+    if (at < 0) return;
+    const from = at + head.length;
+    const next = i + 1 < fields.length ? out.indexOf(`", "${fields[i + 1].description}"="`, from) : -1;
+    const end = next >= 0 ? next : out.lastIndexOf('". You can now continue');
+    const v = end >= from ? out.slice(from, end) : '';
+    if (v && v !== 'Unanswered') ans[f.key] = v;
+  });
+  return ans;
+}
+
+/**
+ * The question tool's call as a card when no ask of it is known (a
+ * wb-opencode before 0.2.0 does not forward OpenCode's forms, or the form is
+ * not here yet): its questions from the input ({questions: [{header,
+ * question, options: [{label, description}], multiple, custom}]} - the form
+ * OpenCode makes of it has field q<i> each), and once the call has ended,
+ * what was chosen from its output.
+ */
+export function toolAsk(p: WboPart): WboAsk {
+  let qs: unknown[] = [];
+  try {
+    const a = JSON.parse(p.input || '{}');
+    if (Array.isArray(a?.questions)) qs = a.questions;
+  } catch {
+    // still being written
+  }
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  const fields: WboField[] = qs
+    .filter((q): q is Record<string, unknown> => !!q && typeof q === 'object')
+    .map((q, i) => ({
+      key: 'q' + i,
+      type: q.multiple === true || q.multiSelect === true ? 'multiselect' : 'string',
+      title: str(q.header),
+      description: str(q.question),
+      custom: q.custom !== false,
+      required: false,
+      options: (Array.isArray(q.options) ? q.options : [])
+        .map((o: { label?: unknown; description?: unknown } | null) => ({
+          value: str(o?.label),
+          label: str(o?.label),
+          description: str(o?.description),
+        }))
+        .filter((o) => o.label),
+    }));
+  const done = p.status === 'completed';
+  const failed = p.status === 'error';
+  const answer = done ? toolAnswers(fields, p.output ?? '') : null;
+  // Times in seconds, as an ask's.
+  const sec = (ms?: number) => (ms ? ms / 1000 : null);
+  return {
+    id: 'tool-' + p.id,
+    kind: 'form',
+    fields,
+    part: p.id,
+    local: true,
+    at: sec(p.start),
+    settled_at: sec(p.end),
+    status: done ? 'answered' : failed ? 'cancelled' : 'pending',
+    answer,
+    error: failed ? (p.error ?? null) : null,
+    raw: done && !Object.keys(answer ?? {}).length ? (p.output ?? '') : undefined,
+  };
+}
+
+/** Why a card drawn from the tool's call is not answered here: an older wb-opencode, or nothing to hand the answer to. */
+export function localWhy(s: Pick<WboSession, 'bridge'> | null | undefined, t: WboStrings): string {
+  return s?.bridge && s.bridge.answers === false ? t.updateToAnswer : t.answerOnComputer;
+}
+
+/** The header's "Update wb-opencode 0.1.0 → 0.2.0", while that computer's is older than the server's; else null. */
+export function updateWord(s: Pick<WboSession, 'bridge'> | null | undefined, t: WboStrings): string | null {
+  const b = s?.bridge;
+  if (!b?.outdated) return null;
+  return b.version && b.latest ? `${t.updateWboTitle} ${b.version} → ${b.latest}` : t.updateWboTitle;
 }
 
 /** The ids of the messages that came from Workbench (OpenCode's id of each line delivered). */
@@ -400,12 +484,12 @@ export function optionsOf(f: WboField, yes = 'Yes', no = 'No'): WboField['option
 export function askState(a: WboAsk, t: WboStrings): string {
   switch (a.status) {
     case 'pending':
-      return t.waitingAnswer;
+      return a.local ? t.waitingAnAnswer : t.waitingAnswer;
     case 'answering':
       return t.sendingAnswer;
     case 'answered':
     case 'replied':
-      return a.via === 'chat' ? t.answeredChat : t.answeredComputer;
+      return a.via === 'chat' ? t.answeredChat : a.local ? t.answered : t.answeredComputer;
     default:
       return t.noLonger;
   }

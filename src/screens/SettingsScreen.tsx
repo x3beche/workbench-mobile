@@ -5,6 +5,8 @@
  *   Accounts     every account kept on the phone, the open one marked; a tap
  *                opens another, Add account adds one, each signs out alone
  *   Agent & LLM  one's Orchestrator: its model, Start and Stop (AgentSheet)
+ *   Claude pool  the server's Claude subscription as the web shows it to this
+ *                person (CcpoolScreen), where the pool is set up and theirs to see
  *   Language     the app's words: Auto, English, Türkçe
  *   Theme        the web app's themes, or the phone's light or dark
  *   Voice        the voice language and when its words appear
@@ -20,16 +22,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { VoiceLang } from '../api/client';
 import { displayServer } from '../api/server';
-import type { OrchStatus } from '../api/types';
+import type { OrchStatus, PoolOverview } from '../api/types';
 import { accountStrings, localized } from '../components/accountStrings';
 import { Avatar } from '../components/Avatar';
 import { Choice } from '../components/Choice';
-import { Check, ChevronRight, LogOut, Menu, Network, Plus } from '../components/icons';
+import { Check, ChevronRight, KeyRound, LogOut, Menu, Network, Plus } from '../components/icons';
 import { Dialog } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
 import { Glyph, IconButton } from '../components/ui';
 import { UpdateSection } from '../components/UpdateSection';
 import { modelName } from '../components/MessageItem';
+import { meters, poolShown } from '../lib/ccpool';
+import { ccpoolStrings } from '../lib/ccpoolStrings';
 import { stateWord, statusDot } from '../lib/orchestrator';
 import type { OrchStrings } from '../lib/orchStrings';
 import type { SettingsStrings } from '../lib/settingsStrings';
@@ -60,6 +64,7 @@ export function SettingsScreen({
   onAgent,
   wide = false,
   onMenu,
+  onPool,
 }: {
   t: SettingsStrings;
   ot: OrchStrings;
@@ -76,6 +81,8 @@ export function SettingsScreen({
   onAgent?: () => void;
   wide?: boolean;
   onMenu?: () => void;
+  /** Settings > Claude pool opened, with what was read for its row. */
+  onPool?: (d: PoolOverview) => void;
 }) {
   const { user, client, signOut, account, accounts, switchTo, remove, addAnother, clientFor } = useSession();
   const [asking, setAsking] = useState<Account | null>(null);
@@ -87,6 +94,26 @@ export function SettingsScreen({
     recheck?.(SETTINGS_RECHECK_MS);
   }, [recheck]);
   const version = Constants.expoConfig?.version;
+  // The Claude pool's row: only where the pool is set up and this person may see it (an error, a 403: no row).
+  const [pool, setPool] = useState<PoolOverview | null>(null);
+  useEffect(() => {
+    let live = true;
+    if (client && onPool)
+      client.ccpoolOverview().then(
+        (d) => live && setPool(poolShown(d) ? d : null),
+        () => live && setPool(null),
+      );
+    return () => {
+      live = false;
+    };
+  }, [client, onPool]);
+  const pt = ccpoolStrings(ui);
+  const poolLine = pool
+    ? meters(pool.plan, pt, ui)
+        .slice(0, 2)
+        .map((m) => `${m.label} ${m.text}`)
+        .join(' · ') || pt.about
+    : '';
 
   const block = (title: string, children: React.ReactNode, about?: string, testID?: string) => (
     <View style={[s.section, wide && s.sectionWide]} testID={testID}>
@@ -202,6 +229,29 @@ export function SettingsScreen({
               ot.agentLlmAbout,
             )
           : null}
+        {pool && onPool
+          ? block(
+              pt.title,
+              <Pressable
+                onPress={() => onPool(pool)}
+                accessibilityRole="button"
+                style={({ pressed }) => [s.row, pressed && s.pressed]}
+                testID="action-ccpool"
+              >
+                <View style={s.ico}>
+                  <Glyph icon={KeyRound} size={20} color={colors.ink} />
+                </View>
+                <View style={s.flex}>
+                  <Text style={s.name}>{pt.title}</Text>
+                  <Text style={s.dim} numberOfLines={1}>
+                    {poolLine}
+                  </Text>
+                </View>
+                <Glyph icon={ChevronRight} size={18} color={colors.inkDim} />
+              </Pressable>,
+              pt.about,
+            )
+          : null}
         {block(
           t.language,
           <Choice
@@ -248,7 +298,12 @@ export function SettingsScreen({
             <Text style={s.label}>{a.voiceLanguage}</Text>
             <Choice label={a.voiceLanguage} options={localized(VOICE_LANGS, a)} value={lang} onChange={onLang} />
             <Text style={s.label}>{a.wordsAppear}</Text>
-            <Choice label={a.wordsAppear} options={localized(VOICE_MODES, a)} value={voiceMode} onChange={onVoiceMode} />
+            <Choice
+              label={a.wordsAppear}
+              options={localized(VOICE_MODES, a)}
+              value={voiceMode}
+              onChange={onVoiceMode}
+            />
           </View>,
         )}
         {block(
@@ -350,7 +405,13 @@ const s = StyleSheet.create({
   title: { flex: 1, paddingHorizontal: 4, fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.inkBright },
   body: { paddingBottom: space.xl },
   bodyWide: { flexDirection: 'row', flexWrap: 'wrap' },
-  section: { paddingHorizontal: gutter, paddingVertical: space.lg, gap: 8, borderBottomWidth: 1, borderBottomColor: colors.line },
+  section: {
+    paddingHorizontal: gutter,
+    paddingVertical: space.lg,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
+  },
   sectionWide: { width: '50%', borderRightWidth: 1, borderRightColor: colors.line },
   h: { fontFamily: fonts.sansSemi, fontSize: type.body, color: colors.ink },
   about: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim, marginTop: -4 },
@@ -368,7 +429,15 @@ const s = StyleSheet.create({
   pressed: { backgroundColor: colors.hover },
   stateLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   theme: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 8 },
-  swatch: { flexDirection: 'row', width: 56, height: 20, borderRadius: 4, overflow: 'hidden', borderWidth: 1, borderColor: colors.line },
+  swatch: {
+    flexDirection: 'row',
+    width: 56,
+    height: 20,
+    borderRadius: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
   chip: { flex: 1 },
   checkPad: { width: 18 },
 });

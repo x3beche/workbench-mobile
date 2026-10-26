@@ -3,13 +3,14 @@
  * web app's Chat list draws one (rooms/claude-sessions.ts, opencode-sessions.ts):
  * its header is a button - a chevron, the name and the count, and while
  * folded a live dot when a session in it is live - that folds and opens it;
- * the choice is the person's, kept on the server (lib/side.ts). Its rows: a
- * mark with the session's live dot, its name (a pin before it when pinned)
- * and when, and what it does with the computer. A long press opens Open and
+ * the choice is the person's, kept on the server (lib/side.ts). Its rows are
+ * the conversations' own (DrawerRow): a mark with the session's live dot,
+ * its name (a pin before it when pinned) and when, and what it does with the
+ * computer under it. A long press opens Open and
  * Pin / Unpin. Open, it shows the pinned, the newest five and the open one,
  * with "Show N more"; folded, only the pinned.
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { SideGroup, SidePrefs } from '../api/types';
@@ -17,7 +18,8 @@ import type { Dot } from '../lib/orchestrator';
 import { isOpen, isPinned, visibleRows } from '../lib/side';
 import { groupDot } from '../lib/wbo';
 import type { WbcStrings } from '../lib/wbcStrings';
-import { colors, fonts, gutter, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, space, type } from '../theme/tokens';
+import { DrawerRow } from './DrawerRow';
 import { ChevronRight, ExternalLink, Pin, PinOff, type LucideIcon } from './icons';
 import { ActionList, Sheet } from './Sheet';
 import { StateDot } from './StateDot';
@@ -81,44 +83,39 @@ export function SessionGroup({
   };
   return (
     <View testID={testID}>
-      <Pressable
+      <GroupHead
+        label={`${label} · ${rows.length}`}
+        open={open}
         onPress={flip}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        accessibilityLabel={`${label}, ${rows.length}`}
-        accessibilityHint={open ? t.foldList : t.unfoldList}
-        style={s.head}
-        testID={`${testID}-fold`}
-      >
-        {({ pressed }) => (
-          <>
-            <View style={[s.caret, open && s.caretOpen]}>
-              <Glyph icon={ChevronRight} size={14} color={pressed ? colors.ink : colors.inkDim} />
+        hint={open ? t.foldList : t.unfoldList}
+        right={
+          liveDot ? (
+            <View testID={`${testID}-dot`}>
+              <StateDot s={liveDot} size={7} />
             </View>
-            <Text style={[s.headText, pressed && s.headPressed]}>
-              {label} · {rows.length}
-            </Text>
-            {liveDot ? (
-              <View testID={`${testID}-dot`}>
-                <StateDot s={liveDot} size={7} />
-              </View>
-            ) : null}
-          </>
-        )}
-      </Pressable>
-      {shown.map((r) => (
-        <Row
-          key={r.id}
-          r={r}
-          prefix={prefix}
-          icon={icon}
-          on={r.id === selected}
-          pinned={isPinned(prefs, group, r.id)}
-          pinnedLabel={t.pinned}
-          onPress={() => onOpen(r.id)}
-          onLong={() => setMenu(r)}
-        />
-      ))}
+          ) : null
+        }
+        testID={`${testID}-fold`}
+      />
+      {shown.map((r) => {
+        const pinned = isPinned(prefs, group, r.id);
+        return (
+          <DrawerRow
+            key={r.id}
+            title={r.name}
+            when={r.when}
+            sub={r.snip}
+            icon={icon}
+            dot={r.dot}
+            pinned={pinned}
+            on={r.id === selected}
+            onPress={() => onOpen(r.id)}
+            onLongPress={() => setMenu(r)}
+            label={`${r.name}${pinned ? `, ${t.pinned}` : ''}, ${r.snip}`}
+            testID={`${prefix}-${r.id}`}
+          />
+        );
+      })}
       {open && hidden > 0 ? (
         <Pressable onPress={() => setMore(true)} accessibilityRole="button" style={s.more} testID={`${testID}-more`}>
           {({ pressed }) => <Text style={[s.moreText, pressed && s.headPressed]}>{t.showMore(hidden)}</Text>}
@@ -164,62 +161,42 @@ export function SessionGroup({
   );
 }
 
-function Row({
-  r,
-  prefix,
-  icon,
-  on,
-  pinned,
-  pinnedLabel,
+/**
+ * A group's header, a button: a chevron, the name (and count), and what is
+ * worth seeing while folded at its right (a live dot, the rooms' unread).
+ */
+export function GroupHead({
+  label,
+  open,
   onPress,
-  onLong,
+  hint,
+  right,
+  testID,
 }: {
-  r: SessionRowData;
-  prefix: string;
-  icon: LucideIcon;
-  on: boolean;
-  pinned: boolean;
-  pinnedLabel: string;
+  label: string;
+  open: boolean;
   onPress: () => void;
-  onLong: () => void;
+  hint: string;
+  right?: ReactNode;
+  testID: string;
 }) {
   return (
     <Pressable
-      testID={`${prefix}-${r.id}`}
       onPress={onPress}
-      onLongPress={onLong}
-      delayLongPress={350}
       accessibilityRole="button"
-      accessibilityState={{ selected: on }}
-      accessibilityLabel={`${r.name}${pinned ? `, ${pinnedLabel}` : ''}, ${r.snip}`}
-      style={s.row}
+      accessibilityState={{ expanded: open }}
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      style={s.head}
+      testID={testID}
     >
       {({ pressed }) => (
         <>
-          <View style={s.ico}>
-            <Glyph icon={icon} size={20} color={pressed ? colors.inkDim : colors.ink} />
-            {r.dot ? (
-              <View style={s.dot} testID={`${prefix}-dot-${r.id}`}>
-                <StateDot s={r.dot} size={8} />
-              </View>
-            ) : null}
+          <View style={[s.caret, open && s.caretOpen]}>
+            <Glyph icon={ChevronRight} size={14} color={pressed ? colors.ink : colors.inkDim} />
           </View>
-          <View style={s.text}>
-            <View style={s.top}>
-              {pinned ? (
-                <View testID={`${prefix}-pin-${r.id}`}>
-                  <Glyph icon={Pin} size={12} color={colors.inkDim} />
-                </View>
-              ) : null}
-              <Text style={[s.title, on && s.titleOn, pressed && s.dim]} numberOfLines={1}>
-                {r.name}
-              </Text>
-              {r.when ? <Text style={s.when}>{r.when}</Text> : null}
-            </View>
-            <Text style={s.snip} numberOfLines={1}>
-              {r.snip}
-            </Text>
-          </View>
+          <Text style={[s.headText, pressed && s.headPressed]}>{label}</Text>
+          {right}
         </>
       )}
     </Pressable>
@@ -242,30 +219,4 @@ const s = StyleSheet.create({
   headPressed: { color: colors.ink },
   more: { minHeight: 36, justifyContent: 'center', paddingHorizontal: gutter, paddingLeft: gutter + 32 },
   moreText: { fontFamily: fonts.sansMedium, fontSize: type.tiny, color: colors.inkDim },
-  row: {
-    backgroundColor: colors.surface,
-    minHeight: touch,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingHorizontal: gutter,
-    paddingVertical: space.sm + 2,
-  },
-  ico: { width: 20, paddingTop: 2, alignItems: 'center' },
-  // The live dot on the mark's corner, ringed by the drawer's ground.
-  dot: {
-    position: 'absolute',
-    right: -4,
-    bottom: -3,
-    padding: 2,
-    borderRadius: 6,
-    backgroundColor: colors.surface,
-  },
-  text: { flex: 1, minWidth: 0, gap: 3 },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  title: { flex: 1, fontFamily: fonts.sans, fontSize: 15, color: colors.ink },
-  titleOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
-  dim: { color: colors.inkDim },
-  when: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
-  snip: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },
 });

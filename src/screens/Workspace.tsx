@@ -17,7 +17,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { ApiError, CHAT_TRASH_DAYS, isMissingRoute, type VoiceLang } from '../api/client';
-import type { Chat, ChatScope, Ideas, OrchStatus, Room, RoomId, SideGroup, SidePrefs, WbcSession, WboSession } from '../api/types';
+import type {
+  Chat,
+  ChatScope,
+  FoldGroup,
+  Ideas,
+  OrchStatus,
+  PoolOverview,
+  Room,
+  RoomId,
+  SideGroup,
+  SidePrefs,
+  WbcSession,
+  WboSession,
+} from '../api/types';
 import { AgentSheet } from '../components/AgentSheet';
 import { Appear } from '../components/Appear';
 import { Drawer } from '../components/Drawer';
@@ -38,9 +51,10 @@ import type { SwipeAction } from '../components/SwipeRow';
 import { chatToHtml, chatToMarkdown, exportName } from '../lib/exportChat';
 import { tick } from '../lib/feel';
 import { orchStrings } from '../lib/orchStrings';
+import { ccpoolStrings } from '../lib/ccpoolStrings';
 import { settingsStrings } from '../lib/settingsStrings';
 import { knownRooms } from '../lib/rooms';
-import { SIDE_EMPTY, withFold, withPin } from '../lib/side';
+import { SIDE_EMPTY, withFold, withPin, withRoomsFold, type RoomsFold } from '../lib/side';
 import { wbcStrings } from '../lib/wbcStrings';
 import { wboStrings } from '../lib/wboStrings';
 import { inFront } from '../live/hub';
@@ -56,6 +70,7 @@ import { ChatScreen, type Suggestion } from './ChatScreen';
 import { FilesScreen, type FilesHandle } from './FilesScreen';
 import { OrchestratorScreen, type OrchestratorHandle } from './OrchestratorScreen';
 import { AnalyticsScreen } from './AnalyticsScreen';
+import { CcpoolScreen } from './CcpoolScreen';
 import { ClaudeSessionScreen } from './ClaudeSessionScreen';
 import { OpencodeSessionScreen } from './OpencodeSessionScreen';
 import { RoomScreen } from './RoomScreen';
@@ -129,7 +144,9 @@ export function Workspace({
   const [ask, setAsk] = useState<
     { chat: Chat; what: 'rename' | 'delete' | 'forever' } | { chat?: undefined; what: 'empty' } | null
   >(null);
-  const [page, setPage] = useState<'chat' | 'files' | 'settings' | 'analytics'>('chat');
+  const [page, setPage] = useState<'chat' | 'files' | 'settings' | 'analytics' | 'ccpool'>('chat');
+  /** Settings > Claude pool: what Settings read for its row, drawn at once. */
+  const [poolFirst, setPoolFirst] = useState<PoolOverview | null>(null);
   /** The workspace's room open on screen, if any (3D Drawing, PCB Design, Firmware). */
   const [room, setRoom] = useState<RoomId | null>(null);
   /** The Orchestrator is open on screen (read-only, above the rooms in the drawer). */
@@ -163,9 +180,7 @@ export function Workspace({
   const wt = useMemo(() => wbcStrings(ui), [ui]);
   const ct = useMemo(() => wboStrings(ui), [ui]);
   const updateNote =
-    update.check.state === 'available'
-      ? updateStrings(uiLang(lang)).drawer(update.check.release.version)
-      : null;
+    update.check.state === 'available' ? updateStrings(uiLang(lang)).drawer(update.check.release.version) : null;
 
   const say = useCallback((text: string, bad = false) => setToast({ text, bad }), []);
   useEffect(() => {
@@ -260,14 +275,32 @@ export function Workspace({
     loadWbo();
   }, [loadWbo]);
 
+  /** The rooms' fold as kept on the phone, until the server keeps it (an older one answers 422). */
+  const roomsLocal = useRef<RoomsFold | null>(null);
+  /** The server told of the rooms' fold kept here: it keeps it from now on, else it stays here, quietly. */
+  const sendRoomsFold = useCallback(
+    (open: boolean) =>
+      client?.sideFold('rooms', open).then(
+        (got) => {
+          roomsLocal.current = { open, pending: false };
+          if (keep) prefs.setRoomsFold(keep, roomsLocal.current);
+          setSide(withRoomsFold(got, roomsLocal.current));
+        },
+        () => undefined,
+      ),
+    [client, keep],
+  );
+
   /** The groups' pins and folds; on a server without them the defaults hold (open while live, nothing pinned). */
-  const loadSide = useCallback((): Promise<void> => {
-    if (!client) return Promise.resolve();
-    return client.side().then(
-      (got) => setSide(got),
-      () => undefined,
-    );
-  }, [client]);
+  const loadSide = useCallback(async (): Promise<void> => {
+    if (!client) return;
+    roomsLocal.current = keep ? await prefs.roomsFold(keep) : null;
+    const got = await client.side().catch(() => null);
+    setSide((now) => withRoomsFold(got ?? now, roomsLocal.current));
+    // A fold of the rooms the server could not keep before: told again.
+    const local = roomsLocal.current;
+    if (got && local?.pending && local.open !== null) sendRoomsFold(local.open);
+  }, [client, keep, sendRoomsFold]);
 
   useEffect(() => {
     loadSide();
@@ -275,22 +308,28 @@ export function Workspace({
 
   /** A group folded or opened: at once here, then as the server keeps it. */
   const foldGroup = useCallback(
-    (g: SideGroup, open: boolean) => {
+    (g: FoldGroup, open: boolean) => {
       tick();
       setSide((now) => withFold(now, g, open));
+      if (g === 'rooms') {
+        roomsLocal.current = { open, pending: true };
+        if (keep) prefs.setRoomsFold(keep, roomsLocal.current);
+        sendRoomsFold(open);
+        return;
+      }
       client?.sideFold(g, open).then(
-        (got) => setSide(got),
+        (got) => setSide(withRoomsFold(got, roomsLocal.current)),
         () => undefined,
       );
     },
-    [client],
+    [client, keep, sendRoomsFold],
   );
   const pinSession = useCallback(
     (g: SideGroup, id: string, pinned: boolean) => {
       tick();
       setSide((now) => withPin(now, g, id, pinned));
       client?.sidePin(g, id, pinned).then(
-        (got) => setSide(got),
+        (got) => setSide(withRoomsFold(got, roomsLocal.current)),
         () => loadSide(),
       );
     },
@@ -563,7 +602,7 @@ export function Workspace({
         return true;
       }
       if (page !== 'chat') {
-        setPage('chat');
+        setPage(page === 'ccpool' ? 'settings' : 'chat');
         return true;
       }
       const prev = history.current.pop();
@@ -735,7 +774,7 @@ export function Workspace({
       }}
       onActions={setActions}
       onAccount={() => openPage('settings')}
-      accountOn={page === 'settings'}
+      accountOn={page === 'settings' || page === 'ccpool'}
       onAnalytics={() => openPage('analytics')}
       analyticsOn={page === 'analytics'}
       analyticsLabel={stt.analytics}
@@ -844,6 +883,20 @@ export function Workspace({
               onAgent={() => setAgentSheet(true)}
               wide={wide}
               onMenu={() => setDrawer(true)}
+              onPool={(d) => {
+                setPoolFirst(d);
+                setPage('ccpool');
+              }}
+            />
+          </Appear>
+        ) : page === 'ccpool' ? (
+          <Appear key="ccpool" duration={motion.fade}>
+            <CcpoolScreen
+              client={client}
+              t={ccpoolStrings(ui)}
+              lang={ui}
+              initial={poolFirst}
+              onClose={() => setPage('settings')}
             />
           </Appear>
         ) : page === 'analytics' ? (

@@ -1,7 +1,7 @@
 /**
  * Settings and Analytics (1.5.7), against the made-up server: Settings from
  * the account at the foot of the drawer (accounts, Agent & LLM, language,
- * the themes), Analytics from the drawer (models, spend, tools, Orchestrator,
+ * the themes, Claude pool), Analytics from the drawer (models, spend, tools, Orchestrator,
  * job pool, sandboxes), the app in Turkish, and a light theme. Run by
  * scripts/shots.sh with SHOTS=settings.
  */
@@ -84,6 +84,16 @@ async function scrollTo(page, testID) {
   await scrollTo(page, 'settings-theme');
   await shot(page, '76-settings-themes');
 
+  // Settings > Claude pool (1.6.2): the windows, the week's ring and its people, My sessions.
+  await scrollTo(page, 'action-ccpool');
+  await page.click(tid('action-ccpool'));
+  await page.waitForSelector(tid('ccpool-ring'), { timeout: 10000 });
+  await shot(page, '74b-ccpool');
+  await scrollTo(page, 'ccpool-mine');
+  await shot(page, '74c-ccpool-sessions');
+  await page.click(tid('ccpool-back'));
+  await page.waitForSelector(tid('settings-screen'));
+
   // Türkçe.
   await scrollTo(page, 'settings-language');
   const tr = await page.$$('[role="radio"]');
@@ -91,6 +101,12 @@ async function scrollTo(page, testID) {
   await page.waitForFunction(() => document.body.innerText.includes('Ayarlar'), { timeout: 5000 });
   await page.evaluate(() => document.querySelector('[data-testid="settings-screen"] [role="header"]')?.scrollIntoView());
   await shot(page, '77-settings-tr');
+  await scrollTo(page, 'action-ccpool');
+  await page.click(tid('action-ccpool'));
+  await page.waitForSelector(tid('ccpool-ring'), { timeout: 10000 });
+  await shot(page, '77b-ccpool-tr');
+  await page.click(tid('ccpool-back'));
+  await page.waitForSelector(tid('settings-screen'));
   await page.click(tid('settings-open-drawer'));
   await sleep(300);
   await page.click(tid('open-analytics'));

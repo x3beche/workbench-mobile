@@ -10,6 +10,7 @@ export { default as ArchiveRestore } from 'lucide-react-native/icons/archive-res
 export { default as ArrowDown } from 'lucide-react-native/icons/arrow-down';
 export { default as ArrowLeft } from 'lucide-react-native/icons/arrow-left';
 export { default as ArrowUp } from 'lucide-react-native/icons/arrow-up';
+export { default as ArrowUpToLine } from 'lucide-react-native/icons/arrow-up-to-line';
 export { default as AudioLines } from 'lucide-react-native/icons/audio-lines';
 export { default as Box } from 'lucide-react-native/icons/box';
 export { default as Camera } from 'lucide-react-native/icons/camera';
@@ -39,6 +40,7 @@ export { default as FolderDown } from 'lucide-react-native/icons/folder-down';
 export { default as FolderInput } from 'lucide-react-native/icons/folder-input';
 export { default as FolderOpen } from 'lucide-react-native/icons/folder-open';
 export { default as FolderPlus } from 'lucide-react-native/icons/folder-plus';
+export { default as KeyRound } from 'lucide-react-native/icons/key-round';
 export { default as Images } from 'lucide-react-native/icons/images';
 export { default as Lock } from 'lucide-react-native/icons/lock';
 export { default as LogOut } from 'lucide-react-native/icons/log-out';

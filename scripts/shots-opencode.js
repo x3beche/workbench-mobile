@@ -4,7 +4,8 @@
  * and "Show N more", a pinned one), a session opened at its newest message
  * with OpenCode's question waiting, older turns coming in at the top, the
  * question answered from the phone and OpenCode's answer streamed on S2, a
- * line sent with a picture, a permission under an old wb-opencode, a session
+ * line sent with a picture, a permission under an old wb-opencode, a
+ * question under wb-opencode 0.1.0 drawn from the tool's call, a session
  * that cannot be written to, a group folded with its pinned one in sight,
  * and the wide layout. Run by scripts/shots.sh with SHOTS=opencode.
  */
@@ -67,7 +68,7 @@ const scrollList = (page, top) =>
   const d = await text(page);
   console.log(
     'drawer: group',
-    d.includes('OpenCode sessions · 8'),
+    d.includes('OpenCode sessions · 9'),
     '| waiting',
     d.includes('waiting for your answer · ada-laptop'),
     '| show more',
@@ -76,6 +77,17 @@ const scrollList = (page, top) =>
     d.includes('Motor driver thermal'),
   );
   await page.screenshot({ path: `${OUT}/81-drawer-opencode.png` });
+
+  // The rooms fold like the session groups (1.6.2), kept with the person's other folds.
+  await page.click(tid('drawer-rooms-fold'));
+  await sleep(500);
+  await page.evaluate(() => document.querySelector('[data-testid="drawer-rooms"]').scrollIntoView({ block: 'start' }));
+  await sleep(300);
+  const sideNow = await (await fetch(`${MOCK}/api/me/side`)).json();
+  console.log('rooms folded: saved', sideNow.folds.rooms === false, '| rows hidden', !(await page.$(tid('room-cad'))));
+  await page.screenshot({ path: `${OUT}/81b-drawer-rooms-folded.png` });
+  await page.click(tid('drawer-rooms-fold'));
+  await sleep(300);
 
   await page.click(tid('wbo-ses_rail0000a1'));
   await waitText(page, 'Which change should go on the schematic?');
@@ -146,9 +158,30 @@ const scrollList = (page, top) =>
     'permission: buttons',
     t3.includes('Allow once') && t3.includes('Always allow') && t3.includes('Reject'),
     '| update tag',
-    t3.includes('update wb-opencode'),
+    t3.includes('Update wb-opencode 0.2.0 → 0.2.1'),
   );
   await page.screenshot({ path: `${OUT}/88-opencode-permission.png` });
+
+  // Under wb-opencode 0.1.0: the question tool's call drawn as its card, not answerable, and the header's update pill.
+  await page.click(tid('wbo-open-drawer'));
+  await sleep(400);
+  await page.click(tid('wbo-ses_pwr00000f1'));
+  await waitText(page, 'What else stays powered?');
+  await sleep(800);
+  const t4 = await text(page);
+  console.log(
+    'old bridge: pill',
+    t4.includes('Update wb-opencode 0.1.0 → 0.2.0'),
+    '| reason',
+    t4.includes('Update wb-opencode on that computer to answer here'),
+    '| waiting',
+    t4.includes('waiting for an answer'),
+    '| earlier answer',
+    t4.includes('2xAA'),
+    '| not tappable',
+    !(await page.$(tid('ask-answer'))) && !(await page.$('[data-testid^="ask-opt-"]')),
+  );
+  await page.screenshot({ path: `${OUT}/88b-opencode-old-question.png` });
 
   // Ended, without wb-opencode: the note.
   await page.click(tid('wbo-open-drawer'));
