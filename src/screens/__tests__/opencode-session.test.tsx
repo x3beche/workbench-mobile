@@ -278,6 +278,45 @@ async function show(d: WboDetail, t = en, detail: ChatDetail = 'normal') {
     expect(screen.getByText('deepseek/deepseek-v4 · Workbench')).toBeTruthy();
   });
 
+  it('keeps the line under a turn while OpenCode works on its next step', async () => {
+    // One turn is several of OpenCode's steps, and each one's start makes the
+    // turn live again: the line under it must stay, only its figures move on.
+    await show(
+      detail({
+        asks: [],
+        messages: [
+          {
+            id: 'msg_u1',
+            role: 'user',
+            time: NOW - 60_000,
+            done: NOW - 60_000,
+            parts: [{ id: 't0', type: 'text', text: 'Why does the rail sag?' }],
+          },
+          {
+            id: 'msg_a1',
+            role: 'assistant',
+            model: 'deepseek/deepseek-v4',
+            time: NOW - 58_000,
+            first: NOW - 54_000,
+            done: NOW - 46_000,
+            tok: [1200, 160, 800, 0],
+            parts: [{ id: 'r0', type: 'reasoning', text: 'Look at the regulator.' }],
+          },
+          {
+            id: 'msg_a2',
+            role: 'assistant',
+            model: 'deepseek/deepseek-v4',
+            time: NOW - 45_000,
+            done: null,
+            parts: [{ id: 'call_1', type: 'tool', tool: 'read', status: 'running', title: 'power.kicad_sch' }],
+          },
+        ],
+      }),
+    );
+    expect(screen.getByText('20 tok/s · 160 tok · 12.0 s')).toBeTruthy();
+    expect(screen.getByTestId('wbo-stats-msg_a1')).toBeTruthy();
+  });
+
   it('follows an answer as it streams, and stays put for a reader further up', async () => {
     await show(detail());
     const list = screen.getByTestId('wbo-list');

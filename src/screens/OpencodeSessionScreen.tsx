@@ -57,7 +57,7 @@ import { chatDetailStrings } from '../lib/chatDetail';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { clock } from '../lib/time';
 import { money } from '../lib/numbers';
-import { statRows, statsLine } from '../lib/runStats';
+import { statRows, statsLine, type RunStats } from '../lib/runStats';
 import { admit, IMAGE_RULES, isoOf, pictureType, serverWords, type Picked } from '../lib/wbc';
 import {
   applyWbo,
@@ -460,7 +460,16 @@ export function OpencodeSessionScreen({
    *  the dot that pulses - and the word would say it twice (as the web). */
   const head = s && s.status !== 'busy' ? wboWord(s, t) : '';
   /** How it came: the line under a finished answer, and the card a tap opens. */
-  const statsOf = (tn: Turn) => (tn.kind === 'assistant' ? turnOf(tn, windowOf) : null);
+  /** The stats last worked out for a turn, and its line with them: kept, so
+   *  the line under a turn does not blink away whenever it goes live again
+   *  (OpenCode works in steps, and each one's start makes the turn live). */
+  const keptStats = useRef(new Map<string, { stats: RunStats; line: string }>());
+  const statsOf = (tn: Turn) => {
+    if (tn.kind !== 'assistant') return null;
+    const now = turnOf(tn, windowOf);
+    if (now) keptStats.current.set(tn.id, { stats: now, line: statsLine(now, t.run) });
+    return now ?? keptStats.current.get(tn.id)?.stats ?? null;
+  };
   const card = stat && statsOf(stat) ? statRows(statsOf(stat)!, t.run, money) : null;
 
   /**
@@ -571,8 +580,10 @@ export function OpencodeSessionScreen({
         ) : null}
         {(compact ? rest : tn.items).map((it) => drawn(it, detail === 'detailed'))}
         {/* How it came, as the web's Chat says it under its own answers: the
-            speed, what it wrote and how long - a tap opens the card. */}
-        {!tn.live && statsOf(tn) ? (
+            speed, what it wrote and how long - a tap opens the card. Once it
+            has a line it keeps it: the turn goes live again at each of
+            OpenCode's steps, and the line must not blink with them. */}
+        {statsOf(tn) ? (
           <Pressable
             onPress={() => setStat(tn)}
             accessibilityRole="button"
