@@ -7,7 +7,6 @@ import {
   buildTurns,
   choose,
   decisionWord,
-  groupDot,
   isReady,
   lastModel,
   localWhy,
@@ -119,9 +118,6 @@ describe('words and dots', () => {
     expect(wboDot(session({ status: 'waiting' }))).toBe('retry');
     expect(wboDot(session())).toBe('idle');
     expect(wboDot(session({ bridge: null }))).toBeNull();
-    expect(groupDot([null, 'idle', 'retry'])).toBe('retry');
-    expect(groupDot(['idle', 'running'])).toBe('running');
-    expect(groupDot([null])).toBeNull();
   });
 
   it('says under a row only what it needs from the person', () => {

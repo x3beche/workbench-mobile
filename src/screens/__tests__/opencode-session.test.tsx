@@ -531,7 +531,8 @@ async function show(d: WboDetail, t = en, detail: ChatDetail = 'normal') {
     await render(draw(side, { onFold }));
     expect(screen.getByText('Run 6')).toBeTruthy();
     expect(screen.queryByText('Run 0')).toBeNull();
-    expect(screen.getByTestId('drawer-wbo-dot')).toBeTruthy();
+    // The group's heading says nothing about what is live: the rows' own dots do.
+    expect(screen.queryByTestId('drawer-wbo-dot')).toBeNull();
     expect(screen.getByTestId('wbo-pin-ses_row00006')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('drawer-wbo-fold'));
     expect(onFold).toHaveBeenCalledWith('opencode', true);

@@ -47,13 +47,6 @@ export function wboLine(s: Pick<WboSession, 'status' | 'bridge'> | null, t: WboS
   return null;
 }
 
-/** A folded group's one dot: working before waiting before ready. */
-export function groupDot(dots: (Dot | null)[]): Dot | null {
-  if (dots.includes('running')) return 'running';
-  if (dots.includes('retry')) return 'retry';
-  return dots.some(Boolean) ? 'idle' : null;
-}
-
 /** The drawer's: connected ones, the last day's, the open one and the pinned ones; a search narrows them by name and computer. */
 export function shownWbo(
   rows: WboSession[],

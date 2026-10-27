@@ -1,8 +1,8 @@
 /**
  * A session group of the drawer (Claude sessions, OpenCode sessions), as the
  * web app's Chat list draws one (rooms/claude-sessions.ts, opencode-sessions.ts):
- * its header is a button - a chevron, the name and the count, and while
- * folded a live dot when a session in it is live - that folds and opens it;
+ * its header is a button - a chevron, the name and the count - that folds
+ * and opens it;
  * the choice is the person's, kept on the server (lib/side.ts). Its rows are
  * the conversations' own (DrawerRow): a mark with the session's live dot,
  * its name (a pin before it when pinned) and when, and what it does with the
@@ -16,13 +16,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SideGroup, SidePrefs } from '../api/types';
 import type { Dot } from '../lib/orchestrator';
 import { isOpen, isPinned, visibleRows } from '../lib/side';
-import { groupDot } from '../lib/wbo';
 import type { WbcStrings } from '../lib/wbcStrings';
 import { colors, fonts, gutter, space, type } from '../theme/tokens';
 import { DrawerRow } from './DrawerRow';
 import { ChevronRight, ExternalLink, Pin, PinOff, type LucideIcon } from './icons';
 import { ActionList, Sheet } from './Sheet';
-import { StateDot } from './StateDot';
 import { Glyph } from './ui';
 
 /** One row as the group draws it. */
@@ -76,7 +74,6 @@ export function SessionGroup({
   const open = searching || isOpen(prefs, group, auto);
   const shown = visibleRows(prefs, group, rows, (r) => r.id, open, selected, searching || more);
   const hidden = rows.length - shown.length;
-  const liveDot = open ? null : groupDot(rows.map((r) => r.dot));
   const flip = () => {
     if (open) setMore(false);
     onFold(group, !open);
@@ -88,13 +85,6 @@ export function SessionGroup({
         open={open}
         onPress={flip}
         hint={open ? t.foldList : t.unfoldList}
-        right={
-          liveDot ? (
-            <View testID={`${testID}-dot`}>
-              <StateDot s={liveDot} size={7} />
-            </View>
-          ) : null
-        }
         testID={`${testID}-fold`}
       />
       {shown.map((r) => {
