@@ -411,6 +411,10 @@ export interface UsageRow {
   calls: number;
   input: number;
   output: number;
+  /** The cached kinds, and all four together - input, output, cache read and write. */
+  cache_read?: number;
+  cache_write?: number;
+  tokens?: number;
   cost_usd: number | null;
 }
 
@@ -418,7 +422,9 @@ export interface UsageRow {
 export interface LlmUsage {
   days: number;
   step: number;
-  totals: { calls: number; input: number; output: number; cost_usd: number | null; unpriced_calls: number };
+  totals: { calls: number; input: number; output: number; cache_read?: number; cache_write?: number;
+            /** All four kinds together, as the Analytics Models card counts them. */
+            tokens?: number; cost_usd: number | null; unpriced_calls: number };
   by_provider: UsageRow[];
   by_model: UsageRow[];
   by_kind: UsageRow[];

@@ -466,7 +466,8 @@ function SpendCard({ u, t, lang }: { u: LlmUsage; t: SettingsStrings; lang: 'en'
       big={u.totals.cost_usd != null ? money(u.totals.cost_usd) : '-'}
       right={`${compact(u.totals.calls)} ${t.calls}`}
       chart={<Columns data={cols} height={40} bare format={money} testID="spend-chart" />}
-      caption={u.totals.unpriced_calls ? t.unpriced(u.totals.unpriced_calls) : `${compact(u.totals.input + u.totals.output)} tok`}
+      caption={u.totals.unpriced_calls ? t.unpriced(u.totals.unpriced_calls)
+        : `${compact(u.totals.tokens ?? u.totals.input + u.totals.output)} tok`}
       more={models.length ? <Legend items={models.map((m, j) => ({ label: modelName(m.name), color: color(j) }))} /> : undefined}
       testID="analytics-spend"
     />
