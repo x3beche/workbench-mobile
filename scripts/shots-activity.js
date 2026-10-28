@@ -1,8 +1,9 @@
 /**
- * The web top bar's Activity (1.6.3), against the made-up server: the strip
- * under a conversation's top bar, its sheet (range, figures, the chart by
- * source, what the strip shows), a range of one's own, Turkish, and the sheet
- * from Analytics. Run by scripts/shots.sh with SHOTS=activity.
+ * The web top bar's Activity (1.6.3), against the made-up server: the bar
+ * turned to it (1.7.3 - the name's own place, one page of the same bar), its
+ * sheet (range, figures, the chart by source, what the strip shows), a range
+ * of one's own, Turkish, and the sheet from Analytics. Run by scripts/shots.sh
+ * with SHOTS=activity.
  */
 const puppeteer = require('puppeteer');
 
@@ -10,6 +11,12 @@ const MOCK = process.env.MOCK_URL || 'http://localhost:8091';
 const OUT = process.env.OUT || '/out';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const tid = (id) => `[data-testid="${id}"]`;
+
+/** The bar's middle is two pages: a tap on the name turns it to the activity. */
+async function turnBar(page) {
+  await page.click(tid('chat-title'));
+  await sleep(700);
+}
 
 async function shot(page, name) {
   await sleep(700);
@@ -31,6 +38,7 @@ async function shot(page, name) {
   await page.waitForSelector(tid('new-chat-screen'), { timeout: 20000 });
   await page.waitForSelector(tid('activity-strip'), { timeout: 15000 });
   await sleep(2500);
+  await turnBar(page);
   await shot(page, '48-activity-strip');
 
   await page.click(tid('activity-strip'));
@@ -74,8 +82,15 @@ async function shot(page, name) {
   await sleep(300);
   await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1 });
   await page.goto(MOCK, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector(tid('activity-strip'), { timeout: 20000 });
-  await sleep(2000);
+  // The page comes back to the view it was left on: a conversation with a header is what this shot is of.
+  await page.waitForSelector(tid('drawer-list'), { timeout: 20000 });
+  await sleep(1200);
+  if (!(await page.$(tid('chat-title')))) {
+    await page.click(tid('chat-c1'));
+    await page.waitForSelector(tid('chat-title'), { timeout: 20000 });
+    await sleep(800);
+  }
+  await turnBar(page);
   await shot(page, '49f-activity-wide');
   await browser.close();
 })().catch((e) => {

@@ -174,11 +174,16 @@ export function ActivityStrip({
   scope,
   lang,
   testID = 'activity-strip',
+  brief = false,
 }: {
   client: WorkbenchClient | null;
   scope: string;
   lang: 'en' | 'tr';
   testID?: string;
+  /** In the top bar's turn, where one page is ~200 px: only what reads at a
+   *  glance - the tokens a second being written and their chart. The rest is a
+   *  tap away, in the sheet. */
+  brief?: boolean;
 }) {
   const feed = useActivity(client, scope);
   const [open, setOpen] = useState(false);
@@ -187,7 +192,10 @@ export function ActivityStrip({
   if (!data && !now) return null;
   const live = now?.live?.tps ?? 0;
   const m = now?.machine;
-  const show = (x: ActMetric) => prefs.show.includes(x);
+  // In the bar the pair is cut down to the two that read without being read twice.
+  const reads = prefs.show.filter((x) => x === 'tps' || x === 'spark');
+  const only = brief ? (reads.length ? reads : prefs.show.slice(0, 1)) : null;
+  const show = (x: ActMetric) => (only ? only.includes(x) : prefs.show.includes(x));
   const spark = data?.n ? sparkPaths(data, 56, 16) : null;
   return (
     <>

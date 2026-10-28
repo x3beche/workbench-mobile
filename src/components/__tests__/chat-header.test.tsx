@@ -65,20 +65,20 @@ const bar = (extra: Record<string, unknown> = {}) => (
     expect(screen.getByText('close')).toBeTruthy();
   });
 
-  it("keeps the account's activity shut until the name is tapped, then opens and shuts it", async () => {
+  it("turns to the account's activity on a tap, and back again", async () => {
     await render(bar());
     await settle();
-    const strip = () => screen.getByTestId('activity-strip-wrap', { includeHiddenElements: true });
-    expect(strip().props.pointerEvents).toBe('none');
+    const page = () => screen.getByTestId('activity-page', { includeHiddenElements: true });
+    expect(page().props.pointerEvents).toBe('none');
 
     await fireEvent.press(screen.getByTestId('chat-title'));
-    expect(strip().props.pointerEvents).toBe('auto');
-    // It is the account's own strip, with what is going on now.
+    expect(page().props.pointerEvents).toBe('auto');
+    // It is the account's own strip, with what is going on now, in the bar itself.
     expect(screen.getByTestId('activity-strip')).toBeTruthy();
     expect(screen.getByText('42.4')).toBeTruthy();
 
-    await fireEvent.press(screen.getByTestId('chat-title'));
-    expect(strip().props.pointerEvents).toBe('none');
+    await fireEvent.press(screen.getByTestId('activity-back'));
+    expect(page().props.pointerEvents).toBe('none');
   });
 
   it('says nothing of the activity when there is none to tell', async () => {
