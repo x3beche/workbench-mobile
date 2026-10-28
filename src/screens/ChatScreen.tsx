@@ -18,7 +18,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -27,10 +26,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type VoiceLang } from '../api/client';
 import type { Chat, ChatEvent, ChatMessage } from '../api/types';
-import { ActivityStrip } from '../components/Activity';
 import { Appear } from '../components/Appear';
+import { ChatHeader } from '../components/ChatHeader';
 import { Composer, type ComposerHandle } from '../components/Composer';
-import { ArrowDown, ChevronDown, Copy, Ellipsis, Menu, SquarePen, TextSelect } from '../components/icons';
+import { ArrowDown, ChevronDown, Copy, Ellipsis, SquarePen, TextSelect } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Mark } from '../components/Mark';
 import { MessageItem, modelName, PendingItem, WritingItem } from '../components/MessageItem';
@@ -47,9 +46,6 @@ import { useSession } from '../state/session';
 import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
 import { uiLang } from '../update/strings';
 import type { VoiceMode } from '../voice/voice';
-
-/** Narrower than this, the Activity strip is left out (Analytics' Activity card still opens it). */
-const STRIP_MIN = 300;
 
 type Action = { kind: 'load'; chat: Chat } | { kind: 'event'; ev: ChatEvent } | { kind: 'piece'; ev: ChatEvent };
 
@@ -119,8 +115,7 @@ export function ChatScreen({
   /** The "…" in the top bar: rename, pin, archive, export, delete (once it is on the server). */
   onMore?: (chat: { id: string; title: string }) => void;
 }) {
-  const { client, user, account } = useSession();
-  const { width } = useWindowDimensions();
+  const { client, user } = useSession();
   /** The detail setting's words, in the app's language. */
   const dw = chatDetailStrings(uiLang(lang));
   const [id, setId] = useState<string | null>(initial?.id ?? null);
@@ -395,16 +390,15 @@ export function ChatScreen({
 
   return (
     <SafeAreaView style={st.safe} edges={['top', 'left', 'right', 'bottom']} testID="chat-screen">
-      <View style={[st.top, under && st.headUnder]}>
-      <View style={st.head}>
-        {!wide && onMenu ? (
-          <IconButton icon={Menu} label="Open the conversations" onPress={onMenu} testID="open-drawer" />
-        ) : (
-          <View style={st.side} />
-        )}
-        {/* As wide as the two buttons on the right, so the model sits in the middle. */}
-        {onMore ? <View style={st.side} /> : null}
-        <View style={st.mid}>
+      <ChatHeader
+        title={view.title || 'New chat'}
+        lang={lang}
+        client={client}
+        wide={wide}
+        onMenu={onMenu}
+        under={under}
+        titleTestID="chat-title"
+        sub={
           <Pressable
             testID="open-models"
             onPress={() => setModels(true)}
@@ -415,27 +409,30 @@ export function ChatScreen({
             <Text style={st.pillText} numberOfLines={1}>
               {modelName(model.model) || 'Model'}
             </Text>
-            <Glyph icon={ChevronDown} size={16} color={colors.inkDim} />
+            <Glyph icon={ChevronDown} size={13} color={colors.inkDim} />
           </Pressable>
-        </View>
-        {onMore ? (
-          <IconButton
-            icon={Ellipsis}
-            label="More: rename, pin, archive, export, delete"
-            onPress={() => id && onMore({ id, title: view.title })}
-            testID="header-more"
-            disabled={!id}
-          />
-        ) : null}
-        {onNew ? (
-          <IconButton icon={SquarePen} label="New chat" onPress={onNew} testID="header-new-chat" disabled={empty} />
-        ) : (
-          <View style={st.side} />
-        )}
-      </View>
-      {/* The web top bar's Activity, as a slim strip; left out where it would crowd a very narrow screen. */}
-      {width >= STRIP_MIN ? <ActivityStrip client={client} scope={account?.id ?? 'local'} lang={uiLang(lang)} /> : null}
-      </View>
+        }
+        // As wide as the two buttons on the right, so the name sits in the middle.
+        left={onMore ? <View style={st.side} /> : null}
+        right={
+          <>
+            {onMore ? (
+              <IconButton
+                icon={Ellipsis}
+                label="More: rename, pin, archive, export, delete"
+                onPress={() => id && onMore({ id, title: view.title })}
+                testID="header-more"
+                disabled={!id}
+              />
+            ) : null}
+            {onNew ? (
+              <IconButton icon={SquarePen} label="New chat" onPress={onNew} testID="header-new-chat" disabled={empty} />
+            ) : (
+              <View style={st.side} />
+            )}
+          </>
+        }
+      />
       <View style={st.flex}>
         <FlatList
           indicatorStyle="white"
@@ -634,30 +631,21 @@ function SelectText({ text, onClose }: { text: string; onClose: () => void }) {
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
-  top: { borderBottomWidth: 1, borderBottomColor: 'transparent' },
-  head: {
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space.xs + 2,
-  },
-  headUnder: { borderBottomColor: colors.line },
   // On a wide screen the lines and the composer keep a reading width, in the middle.
   column: { width: '100%', maxWidth: 780, alignSelf: 'center' },
   side: { width: touch, height: touch },
-  mid: { flex: 1, minWidth: 0, alignItems: 'center' },
+  // The model, small, under the chat's name: the whole of the bar's second line.
   pill: {
     maxWidth: '100%',
-    minHeight: 40,
+    minHeight: 22,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingLeft: 14,
-    paddingRight: 10,
+    gap: 3,
+    paddingHorizontal: 8,
     borderRadius: radius.round,
   },
   pillPressed: { backgroundColor: colors.hover },
-  pillText: { flexShrink: 1, fontFamily: fonts.sansMedium, fontSize: type.title, color: colors.ink },
+  pillText: { flexShrink: 1, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   listPad: { paddingTop: space.xs, paddingBottom: space.md, flexGrow: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: space.xxl },
   welcome: { flex: 1, justifyContent: 'space-between', paddingHorizontal: gutter, paddingBottom: space.sm },

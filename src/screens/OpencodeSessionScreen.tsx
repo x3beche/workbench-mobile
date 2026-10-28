@@ -40,9 +40,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError, type VoiceLang, type WorkbenchClient } from '../api/client';
 import type { WboAnswer, WboAsk, WboDetail, WboMsg, WboSend, WboSession } from '../api/types';
 import { Appear } from '../components/Appear';
+import { ChatHeader } from '../components/ChatHeader';
 import { AskCard } from '../components/AskCard';
 import { Composer } from '../components/Composer';
-import { ArrowUpToLine, Camera, Images, Menu, Paperclip, SquareCode, X } from '../components/icons';
+import { ArrowUpToLine, Camera, Images, Paperclip, SquareCode, X } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Markdown } from '../components/Markdown';
 import { CompactWork, Steps, Thinking, TypingDots } from '../components/MessageItem';
@@ -77,7 +78,7 @@ import {
 import type { WboStrings } from '../lib/wboStrings';
 import { inFront } from '../live/hub';
 import { useBus, useLive } from '../live/LiveContext';
-import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, motion, radius, space, type } from '../theme/tokens';
 import { uiLang } from '../update/strings';
 import type { VoiceMode } from '../voice/voice';
 
@@ -529,47 +530,48 @@ export function OpencodeSessionScreen({
 
   return (
     <SafeAreaView style={st.safe} edges={['top', 'left', 'right', 'bottom']} testID="wbo-screen">
-      <View style={st.head}>
-        {!wide && onMenu ? (
-          <IconButton icon={Menu} label={t.menu} onPress={onMenu} testID="wbo-open-drawer" />
-        ) : (
-          <View style={st.side} />
-        )}
-        <View style={st.mid}>
-          <Text style={st.title} numberOfLines={1} accessibilityRole="header" testID="wbo-title">
-            {s?.name || sid.slice(4, 14)}
-          </Text>
-          <View style={st.subRow}>
+      <ChatHeader
+        title={s?.name || sid.slice(4, 14)}
+        lang={lang}
+        client={client}
+        wide={wide}
+        onMenu={onMenu}
+        menuTestID="wbo-open-drawer"
+        titleTestID="wbo-title"
+        right={<IconButton icon={X} label={t.back} onPress={() => onClose?.()} testID="wbo-close" />}
+        sub={
+          <>
             {dot ? <StateDot s={dot} /> : null}
             <Text style={st.sub} numberOfLines={1} testID="wbo-state">
               {s && head ? <Text style={st.state}>{head}</Text> : null}
               {s && head ? ` · ${sub}` : sub}
             </Text>
-          </View>
-        </View>
-        <IconButton icon={X} label={t.back} onPress={() => onClose?.()} testID="wbo-close" />
-      </View>
-      {(s?.bridge?.connected && !s.bridge.remote) || update ? (
-        <View style={st.tags}>
-          {s?.bridge?.connected && !s.bridge.remote ? <Text style={st.tag}>{t.remoteOff}</Text> : null}
-          {update ? (
-            // An older wb-opencode on that computer (before 0.2.0 it cannot hand answers to OpenCode), connected or not.
-            <Pressable
-              onPress={() => setNotice(t.updateWboLong)}
-              accessibilityRole="button"
-              accessibilityLabel={update}
-              accessibilityHint={t.updateWboLong}
-              style={st.update}
-              testID="wbo-outdated"
-            >
-              <Glyph icon={ArrowUpToLine} size={13} color={colors.warn} />
-              <Text style={st.updateText} numberOfLines={1}>
-                {update}
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
+          </>
+        }
+        below={
+          (s?.bridge?.connected && !s.bridge.remote) || update ? (
+            <View style={st.tags}>
+              {s?.bridge?.connected && !s.bridge.remote ? <Text style={st.tag}>{t.remoteOff}</Text> : null}
+              {update ? (
+                // An older wb-opencode on that computer (before 0.2.0 it cannot hand answers to OpenCode), connected or not.
+                <Pressable
+                  onPress={() => setNotice(t.updateWboLong)}
+                  accessibilityRole="button"
+                  accessibilityLabel={update}
+                  accessibilityHint={t.updateWboLong}
+                  style={st.update}
+                  testID="wbo-outdated"
+                >
+                  <Glyph icon={ArrowUpToLine} size={13} color={colors.warn} />
+                  <Text style={st.updateText} numberOfLines={1}>
+                    {update}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null
+        }
+      />
       <View style={st.flex}>
         {msgs === null && !error ? (
           <View style={st.center}>
@@ -811,18 +813,6 @@ function SendRow({
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
-  head: {
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space.xs + 2,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-  },
-  side: { width: touch, height: touch },
-  mid: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: space.xs },
-  title: { maxWidth: '100%', fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.inkBright },
-  subRow: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
   state: { fontFamily: fonts.sansMedium, color: colors.ink },
   sub: { flexShrink: 1, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   tags: {

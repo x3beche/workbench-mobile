@@ -43,6 +43,59 @@ async function inSight(page, selector) {
   await sleep(350);
 }
 
+/**
+ * The drawer's list virtualizes: a row far down is not in the page at all, so
+ * nothing can be scrolled to it. Scrolls the list down until it is there, then
+ * centres it in the list - the list's own scroll only, so the page under the
+ * drawer's foot stays where it is.
+ */
+async function revealed(page, listSelector, selector) {
+  for (let i = 0; i < 30; i++) {
+    const box = await page.evaluate(
+      ([l, r]) => {
+        const list = document.querySelector(l);
+        const row = document.querySelector(r);
+        if (!list || !row) return null;
+        return { row: row.getBoundingClientRect().toJSON(), list: list.getBoundingClientRect().toJSON() };
+      },
+      [listSelector, selector],
+    );
+    if (box) {
+      const delta = box.row.top + box.row.height / 2 - (box.list.top + box.list.height / 2);
+      await page.$eval(
+        listSelector,
+        (e, d) => {
+          e.scrollTop += d;
+          e.dispatchEvent(new Event('scroll'));
+        },
+        delta,
+      );
+      await sleep(350);
+      return;
+    }
+    await page.$eval(listSelector, (e) => {
+      e.scrollTop = Math.min(e.scrollHeight, e.scrollTop + 300);
+      e.dispatchEvent(new Event('scroll'));
+    });
+    await sleep(200);
+  }
+  throw new Error(`${selector} did not come into ${listSelector}`);
+}
+
+/** A finger dragged across the top bar by dx, at the bar's own height. */
+async function dragBar(page, dx) {
+  const box = await (await page.$(tid('chat-header'))).boundingBox();
+  const y = box.y + box.height / 2;
+  const x0 = dx > 0 ? box.x + 40 : box.x + box.width - 40;
+  await page.touchscreen.touchStart(x0, y);
+  for (let i = 1; i <= 12; i++) {
+    await page.touchscreen.touchMove(x0 + (dx * i) / 12, y);
+    await sleep(16);
+  }
+  await page.touchscreen.touchEnd();
+  await sleep(800);
+}
+
 /** A finger swiping a row sideways by dx (touch events, as on a phone). */
 async function swipe(page, selector, dx) {
   await inSight(page, selector);
@@ -56,6 +109,26 @@ async function swipe(page, selector, dx) {
   }
   await page.touchscreen.touchEnd();
   await sleep(600);
+}
+
+/**
+ * Into the app at `base`, whatever the made-up server remembers of who signed
+ * in: a second browser (the wide window) has no session of its own and lands on
+ * the sign-in screen, where any password does.
+ */
+async function enter(page, base) {
+  const go = await connect(page, base, new URL(base).host);
+  await go();
+  await page.waitForFunction(
+    () => !!document.querySelector('[data-testid="new-chat-screen"],[data-testid="login-email"]'),
+    { timeout: 25000 },
+  );
+  if (await page.$(tid('login-email'))) {
+    await page.type(tid('login-email'), 'ada@example.com');
+    await page.type(tid('login-password'), 'mock');
+    await page.click(tid('login-submit'));
+    await page.waitForSelector(tid('new-chat-screen'), { timeout: 25000 });
+  }
 }
 
 async function newPage(browser) {
@@ -106,10 +179,8 @@ async function connect(page, base, address) {
 
   // ---- made-up server: everything after sign-in ----
   const page = await newPage(browser);
-  const go = await connect(page, MOCK, new URL(MOCK).host);
-  await go();
   // A first start opens on a new conversation: greeting and example questions.
-  await page.waitForSelector(tid('new-chat-screen'), { timeout: 20000 });
+  await enter(page, MOCK);
   await page.waitForFunction(() => document.body.innerText.includes('watchdog'), { timeout: 10000 });
   await shot(page, '04-new-chat');
 
@@ -167,20 +238,8 @@ async function connect(page, base, address) {
   await page.waitForSelector(tid('empty-trash'), { visible: true, timeout: 5000 });
   await shot(page, '25-trash');
   await page.click(tid('chat-scope-live'));
-  // The list kept its place from another tab: the top of it is where the chats are.
-  await page.$eval(tid('drawer-list'), (e) => {
-    e.scrollTop = 0;
-    e.dispatchEvent(new Event('scroll'));
-  });
-  await page.waitForSelector(tid('chat-c1'), { timeout: 5000 });
-
-  await page.click(tid('open-account'));
-  await page.waitForSelector(tid('account-sheet'), { timeout: 5000 });
-  await (await byText(page, 'Türkçe')).click();
-  await shot(page, '09-account');
-  await (await byText(page, 'Auto')).click();
-  await page.click('[aria-label="Close"]');
-  await sleep(300);
+  // Back among the chats, which sit under the rooms and the session groups.
+  await revealed(page, tid('drawer-list'), tid('chat-c1'));
 
   // A conversation with tools run and a code block.
   await page.click(tid('chat-c1'));
@@ -192,6 +251,13 @@ async function connect(page, base, address) {
   });
   await sleep(300);
   await shot(page, '06-chat');
+
+  // A swipe to the right on the top bar pulls the account's activity out of it,
+  // and a swipe back puts it away (the same bar on rooms and both sessions).
+  await dragBar(page, 150);
+  await shot(page, '06c-chat-activity');
+  await dragBar(page, -150);
+
   // The top bar's "…": rename, pin, archive, export, delete.
   await page.click(tid('header-more'));
   await page.waitForSelector(tid('chat-actions'), { timeout: 5000 });
@@ -215,9 +281,7 @@ async function connect(page, base, address) {
   const desktop = await puppeteer.launch({ ignoreDefaultArgs: ['--hide-scrollbars'], args: ['--no-sandbox'] });
   const wide = await newPage(desktop);
   await wide.setViewport({ width: 900, height: 860, deviceScaleFactor: 1 });
-  const goWide = await connect(wide, MOCK, new URL(MOCK).host);
-  await goWide();
-  await wide.waitForSelector(tid('new-chat-screen'), { timeout: 20000 });
+  await enter(wide, MOCK);
   await sleep(400);
   await shot(wide, '20-wide-new-chat');
   await wide.click(tid('chat-c1'));
@@ -244,7 +308,11 @@ async function connect(page, base, address) {
   await page.click(tid('send'));
   await sleep(120);
   await shot(page, '07-chat-waiting');
-  await page.waitForFunction(() => document.body.innerText.includes('Checking FB2'), { timeout: 5000 });
+  // The tool it runs, as the answer being written shows it: one line, folded (Settings > Chat: compact).
+  await page.waitForFunction(
+    () => !!document.querySelector('[data-testid="writing"] [data-testid="compact-work"]'),
+    { timeout: 5000 },
+  );
   await shot(page, '07b-chat-tool-running');
   await sleep(2600); // the made-up answer stops half-way and stays open
   await shot(page, '07c-chat-streaming');
@@ -352,6 +420,15 @@ async function connect(page, base, address) {
   await page.waitForSelector(tid('file-row-t:t1'), { timeout: 5000 });
   await sleep(800);
   await shot(page, '31-files-deleted');
+
+  // ---- The account, at the drawer's foot: the Settings screen ----
+  await page.click(tid('files-open-drawer'));
+  await page.waitForSelector(tid('open-account'), { visible: true, timeout: 5000 });
+  await sleep(500);
+  await page.click(tid('open-account'));
+  await page.waitForSelector(tid('settings-screen'), { timeout: 5000 });
+  await sleep(400);
+  await shot(page, '09-account');
 
   await browser.close();
 })().catch(async (e) => {

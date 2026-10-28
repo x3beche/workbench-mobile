@@ -31,8 +31,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError, type VoiceLang, type WorkbenchClient } from '../api/client';
 import type { RoomId, RoomLine, User } from '../api/types';
 import { Appear } from '../components/Appear';
+import { ChatHeader } from '../components/ChatHeader';
 import { Composer } from '../components/Composer';
-import { Menu, X } from '../components/icons';
+import { X } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { MessageItem } from '../components/MessageItem';
 import { NewBelow } from '../components/NewBelow';
@@ -43,7 +44,7 @@ import { asChatMessage, ROOM_ICON, ROOM_LABEL } from '../lib/rooms';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { useBus, useLive } from '../live/LiveContext';
 import * as prefs from '../storage/prefs';
-import { colors, fonts, gutter, motion, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, motion, space, type } from '../theme/tokens';
 import { uiLang } from '../update/strings';
 import type { VoiceMode } from '../voice/voice';
 
@@ -226,20 +227,17 @@ export function RoomScreen({
 
   return (
     <SafeAreaView style={st.safe} edges={['top', 'left', 'right', 'bottom']} testID={`room-screen-${room}`}>
-      <View style={st.head}>
-        {!wide && onMenu ? (
-          <IconButton icon={Menu} label="Open the conversations" onPress={onMenu} testID="room-open-drawer" />
-        ) : (
-          <View style={st.side} />
-        )}
-        <View style={st.mid}>
-          <Glyph icon={Icon} size={18} color={colors.inkDim} />
-          <Text style={st.title} numberOfLines={1} accessibilityRole="header">
-            {ROOM_LABEL[room]}
-          </Text>
-        </View>
-        <IconButton icon={X} label="Close the room" onPress={() => onClose?.()} testID="room-close" />
-      </View>
+      <ChatHeader
+        title={ROOM_LABEL[room]}
+        icon={<Glyph icon={Icon} size={17} color={colors.inkDim} />}
+        lang={lang}
+        client={client}
+        wide={wide}
+        onMenu={onMenu}
+        menuTestID="room-open-drawer"
+        titleTestID="room-title"
+        right={<IconButton icon={X} label="Close the room" onPress={() => onClose?.()} testID="room-close" />}
+      />
       <View style={st.flex}>
         {lines === null && !error ? (
           <View style={st.center}>
@@ -330,17 +328,6 @@ function sameLines(now: RoomLine[] | null, got: RoomLine[]): boolean {
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
-  head: {
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space.xs + 2,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-  },
-  side: { width: touch, height: touch },
-  mid: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  title: { flexShrink: 1, fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.inkBright },
   column: { width: '100%', maxWidth: 780, alignSelf: 'center' },
   // Upside down, the top is the bottom: the air under the newest line, before the composer.
   pad: { paddingTop: space.xl, paddingBottom: space.md, flexGrow: 1 },

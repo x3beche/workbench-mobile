@@ -3,7 +3,7 @@
     "name": "Workbench",
     "slug": "workbench-mobile",
     "scheme": "workbench",
-    "version": "1.6.9",
+    "version": "1.7.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",

@@ -38,6 +38,20 @@ async function signIn(page) {
   await page.waitForSelector(tid('new-chat-screen'), { timeout: 20000 });
 }
 
+/** A finger dragged across the top bar by dx: a swipe to the right pulls the account's activity out. */
+async function dragBar(page, dx) {
+  const box = await (await page.$('[data-testid="chat-header"]')).boundingBox();
+  const y = box.y + box.height / 2;
+  const x0 = dx > 0 ? box.x + 40 : box.x + box.width - 40;
+  await page.touchscreen.touchStart(x0, y);
+  for (let i = 1; i <= 12; i++) {
+    await page.touchscreen.touchMove(x0 + (dx * i) / 12, y);
+    await sleep(16);
+  }
+  await page.touchscreen.touchEnd();
+  await sleep(800);
+}
+
 (async () => {
   // A picture to send, as a phone's gallery would give it.
   const board = Buffer.from(await (await fetch(`${MOCK}/api/wbc/sessions/a1b2c3d4-rail/images/rp1/1`)).arrayBuffer());
@@ -66,6 +80,11 @@ async function signIn(page) {
     '| read by a tool', t1.includes('read by a tool'), '| a picture gone', t1.includes('pictures no longer kept'),
     '| step 8 not yet', !t1.includes('Step 8:'), '| composer', !!(await page.$(tid('wbc-composer'))));
   await page.screenshot({ path: `${OUT}/91-claude-session.png` });
+
+  // The bar swiped to the right: the account's activity, the same bar as the Chat's.
+  await dragBar(page, 150);
+  await page.screenshot({ path: `${OUT}/91d-claude-activity.png` });
+  await dragBar(page, -150);
 
   // Claude Code's suggestion in the empty box; Use puts it in, and the box is emptied again.
   const ph = await page.$eval(tid('composer-input'), (el) => el.getAttribute('placeholder'));

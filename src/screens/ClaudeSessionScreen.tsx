@@ -41,8 +41,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError, type VoiceLang, type WorkbenchClient } from '../api/client';
 import type { User, WbcDetail, WbcMessage, WbcSession, WbcTurn } from '../api/types';
 import { Appear } from '../components/Appear';
+import { ChatHeader } from '../components/ChatHeader';
 import { Composer } from '../components/Composer';
-import { Camera, Images, Menu, Paperclip, SquareTerminal, X } from '../components/icons';
+import { Camera, Images, Paperclip, SquareTerminal, X } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Markdown } from '../components/Markdown';
 import { NewBelow } from '../components/NewBelow';
@@ -73,7 +74,7 @@ import {
 import type { WbcStrings } from '../lib/wbcStrings';
 import { inFront } from '../live/hub';
 import { useBus, useLive } from '../live/LiveContext';
-import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, motion, radius, space, type } from '../theme/tokens';
 import type { VoiceMode } from '../voice/voice';
 
 /** While a session is active (or wb-claude holds it), it is read this often: the gateway tells nobody of a new turn. */
@@ -395,42 +396,43 @@ export function ClaudeSessionScreen({
 
   return (
     <SafeAreaView style={st.safe} edges={['top', 'left', 'right', 'bottom']} testID="wbc-screen">
-      <View style={st.head}>
-        {!wide && onMenu ? (
-          <IconButton icon={Menu} label={t.menu} onPress={onMenu} testID="wbc-open-drawer" />
-        ) : (
-          <View style={st.side} />
-        )}
-        <View style={st.mid}>
-          <Text style={st.title} numberOfLines={1} accessibilityRole="header" testID="wbc-title">
-            {s?.name || sid.slice(0, 8)}
-          </Text>
-          <View style={st.subRow}>
+      <ChatHeader
+        title={s?.name || sid.slice(0, 8)}
+        lang={lang}
+        client={client}
+        wide={wide}
+        onMenu={onMenu}
+        menuTestID="wbc-open-drawer"
+        titleTestID="wbc-title"
+        right={<IconButton icon={X} label={t.back} onPress={() => onClose?.()} testID="wbc-close" />}
+        sub={
+          <>
             {dot ? <StateDot s={dot} /> : null}
             {/* One line: what Claude does now in ink, then where, cut at the end. */}
             <Text style={st.sub} numberOfLines={1} testID="wbc-state">
               {s ? <Text style={st.state}>{stateWord(s, t)}</Text> : null}
               {s ? ` · ${sub}` : sub}
             </Text>
-          </View>
-        </View>
-        <IconButton icon={X} label={t.back} onPress={() => onClose?.()} testID="wbc-close" />
-      </View>
-      {s?.bridge?.connected && (!s.bridge.remote || s.bridge.outdated) ? (
-        <View style={st.tags}>
-          {!s.bridge.remote ? <Text style={st.tag}>{t.remoteOff}</Text> : null}
-          {s.bridge.outdated ? (
-            <Pressable
-              onPress={() => setNotice(t.updateWbcLong)}
-              accessibilityRole="button"
-              accessibilityHint={t.updateWbcLong}
-              testID="wbc-outdated"
-            >
-              <Text style={st.tag}>{t.updateWbc}</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
+          </>
+        }
+        below={
+          s?.bridge?.connected && (!s.bridge.remote || s.bridge.outdated) ? (
+            <View style={st.tags}>
+              {!s.bridge.remote ? <Text style={st.tag}>{t.remoteOff}</Text> : null}
+              {s.bridge.outdated ? (
+                <Pressable
+                  onPress={() => setNotice(t.updateWbcLong)}
+                  accessibilityRole="button"
+                  accessibilityHint={t.updateWbcLong}
+                  testID="wbc-outdated"
+                >
+                  <Text style={st.tag}>{t.updateWbc}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null
+        }
+      />
       <View style={st.flex}>
         {turns === null && !error ? (
           <View style={st.center}>
@@ -690,18 +692,6 @@ function PendingRow({
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
-  head: {
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: space.xs + 2,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-  },
-  side: { width: touch, height: touch },
-  mid: { flex: 1, minWidth: 0, alignItems: 'center', paddingVertical: space.xs },
-  title: { maxWidth: '100%', fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.inkBright },
-  subRow: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
   state: { fontFamily: fonts.sansMedium, color: colors.ink },
   sub: { flexShrink: 1, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   tags: {

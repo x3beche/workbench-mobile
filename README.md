@@ -12,12 +12,13 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/04-new-chat.png" width="200" alt="A new conversation: greeting and example questions">
   <img src="docs/screenshots/05-drawer.png" width="200" alt="The drawer: search, New chat, conversations by day, the account">
   <img src="docs/screenshots/06-chat.png" width="200" alt="A conversation with the tools it ran and a code block">
+  <img src="docs/screenshots/06c-chat-activity.png" width="200" alt="The bar swiped to the right: the account's activity">
   <img src="docs/screenshots/07c-chat-streaming.png" width="200" alt="An answer being written">
 </p>
 <p>
   <img src="docs/screenshots/07-chat-waiting.png" width="200" alt="Waiting for the first words">
   <img src="docs/screenshots/08-model-picker.png" width="200" alt="Choosing the model">
-  <img src="docs/screenshots/09-account.png" width="200" alt="Account, from the drawer">
+  <img src="docs/screenshots/09-account.png" width="200" alt="Settings, from the account at the drawer's foot">
   <img src="docs/screenshots/14-chat-actions.png" width="200" alt="Rename, archive or delete a conversation">
 </p>
 <p>
@@ -276,6 +277,16 @@ Then you sign in with the same e-mail address and password as on the web.
   conversation last open - `lastChat` - which still comes back under it). An
   id the server no longer has shows itself as empty and its X closes it; the
   app is never stuck on one.
+- **One bar, and the activity under it** (1.7.0): the Chat, a room, an
+  OpenCode session and a Claude one are read under the same top bar - the
+  drawer button on the left, the conversation's name in the middle with what
+  it is doing under it (in the Chat, the model), its own buttons on the right
+  (closing the session, or the chat's more and new). Swiping the bar to the
+  right pulls the account's live Activity strip down out of it - tokens a
+  second, the range's tokens, prompts, jobs, CPU and memory - and a swipe to
+  the left, or a tap on the name, puts it away; it is shut until then, so the
+  conversation keeps the screen. The drawer's own swipe to the right is held
+  off for it (`components/drawerGestures.ts`).
 - **Folds and pins** (from 1.6.1): the Claude and OpenCode groups fold and
   open by their header (a chevron; folded, the count and a live dot), and a
   long press on a session offers Open and Pin / Unpin. Pinned sessions come

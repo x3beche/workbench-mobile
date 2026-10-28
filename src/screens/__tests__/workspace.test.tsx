@@ -160,8 +160,8 @@ const mockClient = {
   filesTrash: jest.fn(async () => ({ days: 30, files: [] })),
   stop: jest.fn(async () => ({ stopped: true })),
 };
-jest.mock('../../state/session', () => ({
-  useSession: () => ({
+jest.mock('../../state/session', () => {
+  const session = () => ({
     client: mockClient,
     server: 'https://wb.example.com',
     user: { id: 'u1', name: 'Ada Demir', email: 'ada@example.com' },
@@ -174,8 +174,9 @@ jest.mock('../../state/session', () => ({
     remove: mockRemove,
     addAnother: mockAdd,
     clientFor: () => mockClient,
-  }),
-}));
+  });
+  return { useSession: session, useMaybeSession: session };
+});
 const mockAccounts = [
   { id: 'a1', server: 'https://wb.example.com', user: { id: 'u1', name: 'Ada Demir', email: 'ada@example.com' } },
   { id: 'a2', server: 'https://other.example', user: { id: 'u9', name: 'Bo', email: 'bo@other.example' } },

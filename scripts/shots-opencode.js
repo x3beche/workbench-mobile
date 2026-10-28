@@ -48,6 +48,20 @@ const scrollList = (page, top) =>
     el.dispatchEvent(new Event('scroll'));
   }, top);
 
+/** A finger dragged across the top bar by dx: a swipe to the right pulls the account's activity out. */
+async function dragBar(page, dx) {
+  const box = await (await page.$('[data-testid="chat-header"]')).boundingBox();
+  const y = box.y + box.height / 2;
+  const x0 = dx > 0 ? box.x + 40 : box.x + box.width - 40;
+  await page.touchscreen.touchStart(x0, y);
+  for (let i = 1; i <= 12; i++) {
+    await page.touchscreen.touchMove(x0 + (dx * i) / 12, y);
+    await sleep(16);
+  }
+  await page.touchscreen.touchEnd();
+  await sleep(800);
+}
+
 (async () => {
   const board = Buffer.from(await (await fetch(`${MOCK}/api/wbc/sessions/a1b2c3d4-rail/images/rp1/1`)).arrayBuffer());
   fs.writeFileSync('/tmp/board.png', board);
@@ -104,6 +118,11 @@ const scrollList = (page, top) =>
     !t1.includes('Step 3:'),
   );
   await page.screenshot({ path: `${OUT}/82-opencode-ask.png` });
+
+  // The bar swiped to the right: the account's activity, the same bar as the Chat's.
+  await dragBar(page, 150);
+  await page.screenshot({ path: `${OUT}/89c-opencode-activity.png` });
+  await dragBar(page, -150);
 
   // Up: earlier turns, ten at a time.
   await scrollList(page, true);

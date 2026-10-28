@@ -56,13 +56,14 @@ const mockChat = () =>
     ],
   }) as unknown as Chat;
 
-jest.mock('../../state/session', () => ({
-  useSession: () => ({
+jest.mock('../../state/session', () => {
+  const session = () => ({
     client: { getChat: jest.fn(async () => mockChat()), live: jest.fn(async () => undefined), say: jest.fn() },
     user: { id: 'u1', name: 'Ada' },
     account: { id: 'a1' },
-  }),
-}));
+  });
+  return { useSession: session, useMaybeSession: session };
+});
 
 const open = (lang: 'en' | 'tr' = 'en') => render(<ChatScreen initial={mockChat()} lang={lang} />);
 

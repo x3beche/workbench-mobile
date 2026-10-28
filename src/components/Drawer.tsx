@@ -27,7 +27,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import { colors, motion } from '../theme/tokens';
 import { useReduceMotion } from './motion';
-import { DrawerGesture } from './SwipeRow';
+import { DrawerGesture, DrawerPull } from './drawerGestures';
 
 /** How far the finger must go sideways before the drawer follows it (and how far up or down before it never does). */
 const SLOP_X = 14;
@@ -128,11 +128,13 @@ export function Drawer({
 
   return (
     <View style={s.flex}>
-      <GestureDetector gesture={gestures.pull}>
-        <View style={s.flex} importantForAccessibility={open ? 'no-hide-descendants' : 'auto'}>
-          {children}
-        </View>
-      </GestureDetector>
+      <DrawerPull.Provider value={gestures.pull}>
+        <GestureDetector gesture={gestures.pull}>
+          <View style={s.flex} importantForAccessibility={open ? 'no-hide-descendants' : 'auto'}>
+            {children}
+          </View>
+        </GestureDetector>
+      </DrawerPull.Provider>
       <GestureDetector gesture={gestures.push}>
         <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
           <Reanimated.View style={[StyleSheet.absoluteFill, s.dim, dimStyle]} pointerEvents={open ? 'auto' : 'none'}>

@@ -30,9 +30,10 @@ const mockClient = {
   live: jest.fn(async () => undefined),
   say: jest.fn(async () => ({ queued: false })),
 };
-jest.mock('../../state/session', () => ({
-  useSession: () => ({ client: mockClient, user: { id: 'u1', name: 'Ada' } }),
-}));
+jest.mock('../../state/session', () => {
+  const session = () => ({ client: mockClient, user: { id: 'u1', name: 'Ada' } });
+  return { useSession: session, useMaybeSession: session };
+});
 
 /** A scroll event as the list reports it: 2000 px of content in a 600 px window. */
 function scrollTo(y: number) {
@@ -53,6 +54,14 @@ afterEach(() => {
 });
 
 describe('chat screen', () => {
+  it('is read under the one bar every conversation shares: the name, the model under it', async () => {
+    await render(<ChatScreen initial={chat} lang="auto" />);
+    expect(screen.getByTestId('chat-header')).toBeTruthy();
+    expect(screen.getByTestId('chat-title')).toBeTruthy();
+    expect(screen.getByText('Rail sag')).toBeTruthy();
+    expect(screen.getByTestId('open-models')).toBeTruthy();
+  });
+
   it('follows the end, offers a way back after scrolling up, and goes back to the end', async () => {
     await render(<ChatScreen initial={chat} lang="auto" />);
     const list = screen.getByTestId('chat-list');

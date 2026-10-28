@@ -9,17 +9,16 @@
  * left (DrawerGesture): a swipe on a row opens it, anywhere else shuts the
  * drawer.
  */
-import { createContext, useContext, useRef, type ReactNode } from 'react';
+import { useContext, useRef, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { GestureType } from 'react-native-gesture-handler';
 import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import { colors, fonts, type } from '../theme/tokens';
+import { DrawerGesture } from './drawerGestures';
 import type { LucideIcon } from './icons';
 import { Glyph } from './ui';
 
-/** The gesture a row's swipe takes precedence over (the drawer's swipe to shut it). */
-export const DrawerGesture = createContext<GestureType | undefined>(undefined);
+export { DrawerGesture };
 
 export interface SwipeAction {
   id: string;
