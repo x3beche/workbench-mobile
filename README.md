@@ -304,7 +304,10 @@ Then you sign in with the same e-mail address and password as on the web.
   (the live dot on it) and the time at the right, one plain line, with a
   line under it only when there is news to tell - waiting for your answer,
   starting - never for the state or the computer, which the dot and the
-  screen reader have (1.7.1).
+  screen reader have (1.7.1). A time reads as words now, as the web writes
+  it - "just now", "34 min ago", "1 h ago", the clock of yesterday, the day
+  or date before - and a conversation says what was last said under its
+  title, in one line, without the Markdown it was written in (1.7.2).
 - **Settings** (from 1.5.7; the account at the foot of the drawer opens it):
   the accounts (switch, add, sign one out), Agent & LLM, how much of an
   answer the Chat shows (**Compact**, **Normal**, **Detailed**), the app's

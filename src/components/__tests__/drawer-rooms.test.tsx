@@ -87,7 +87,8 @@ async function panel(over: Partial<React.ComponentProps<typeof DrawerPanel>> = {
     await panel();
     expect(screen.getByText('agent: Not ac499b received (lid, front panel)')).toBeTruthy();
     expect(screen.getByText('agent: The PCB task (00006b) was cancelled')).toBeTruthy();
-    expect(screen.getByText('No messages yet')).toBeTruthy();
+    // A room with nothing written in it, and a conversation with no last line, say the same.
+    expect(screen.getAllByText('No messages yet').length).toBeGreaterThan(0);
   });
 
   it('counts what the agent wrote since the room was last read here', async () => {

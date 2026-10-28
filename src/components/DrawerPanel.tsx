@@ -35,9 +35,9 @@ import type {
   WbcSession,
   WboSession,
 } from '../api/types';
-import { filterChats, groupChats, groupOf, rowTime } from '../lib/groups';
+import { chatSnippet, filterChats, groupChats, groupOf, rowTime } from '../lib/groups';
 import { ROOM_ICON, ROOM_LABEL, roomSnippet, unread as unreadOf } from '../lib/rooms';
-import { shortTime } from '../lib/time';
+import { ago } from '../lib/time';
 import { isOpen, isPinned, SIDE_EMPTY } from '../lib/side';
 import { bridgeLine, isoOf, liveDot, shownSessions, stateWord } from '../lib/wbc';
 import type { WbcStrings } from '../lib/wbcStrings';
@@ -225,7 +225,7 @@ export function DrawerPanel({
       name: x.name,
       note: bridgeLine(x.bridge, wbc.t),
       says: [stateWord(x, wbc.t), x.computer].filter(Boolean).join(' · '),
-      when: x.last_ts ? shortTime(isoOf(x.last_ts)) : '',
+      when: x.last_ts ? ago(isoOf(x.last_ts)) : '',
       dot: liveDot(x.bridge),
       live: !!x.bridge?.connected,
     }));
@@ -237,7 +237,7 @@ export function DrawerPanel({
       name: x.name,
       note: wboLine(x, wbo.t),
       says: [wboWord(x, wbo.t), x.computer].filter(Boolean).join(' · '),
-      when: x.updated ? shortTime(new Date(x.updated).toISOString()) : '',
+      when: x.updated ? ago(new Date(x.updated).toISOString()) : '',
       dot: wboDot(x),
       live: !!x.bridge?.connected,
     }));
@@ -533,7 +533,7 @@ function RoomRow({ room, on, unread, onPress }: { room: Room; on: boolean; unrea
                   <Text style={s.badgeText}>{unread > 99 ? '99+' : unread}</Text>
                 </View>
               ) : room.last ? (
-                <Text style={s.when}>{shortTime(room.last.at)}</Text>
+                <Text style={s.when}>{ago(room.last.at)}</Text>
               ) : null}
             </View>
             <Text style={s.snip} numberOfLines={2}>
@@ -577,7 +577,8 @@ function OrchRow({ label, snip, on, onPress }: { label: string; snip: string; on
   );
 }
 
-/** A conversation: its title and when, the same row as the sessions' (DrawerRow). */
+/** A conversation: its title and when, what was last said under it - the same
+ *  row as the sessions' (DrawerRow). */
 function Row({
   chat,
   on,
@@ -595,6 +596,7 @@ function Row({
     <DrawerRow
       title={chat.title}
       when={trash ? (chat.days_left == null ? '' : `${chat.days_left} d left`) : rowTime(chat, groupOf(chat))}
+      sub={trash ? undefined : chatSnippet(chat)}
       on={on}
       onPress={onPress}
       onLongPress={onLongPress}

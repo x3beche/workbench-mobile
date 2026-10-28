@@ -24,3 +24,17 @@ export function clock(iso: string | undefined): string {
   if (Number.isNaN(t.getTime())) return '';
   return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
 }
+
+/** How long ago, as the lists say it: "just now", "34 min ago", "1 h ago", and
+ *  a date for anything older (the web's `when`, rooms/commandcode.ts). Words
+ *  read at a glance where "34m" has to be worked out. */
+export function ago(iso: string | undefined, now: Date = new Date()): string {
+  if (!iso) return '';
+  const t = new Date(iso);
+  if (Number.isNaN(t.getTime())) return '';
+  const s = Math.max(0, (now.getTime() - t.getTime()) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return shortTime(iso, now);
+}

@@ -4,7 +4,8 @@
  * empty groups left out. Days are the device's own calendar days.
  */
 import type { Chat } from '../api/types';
-import { shortTime } from './time';
+import { previewText } from './markdown';
+import { ago, clock } from './time';
 
 export type GroupName = 'Pinned' | 'Today' | 'Yesterday' | 'Previous 7 days' | 'Older';
 
@@ -44,13 +45,23 @@ export function groupChats(chats: Chat[], now: Date = new Date()): ChatGroup[] {
   }));
 }
 
-/** When a conversation was last written in, as its group needs it: "12m" today, "14:05" yesterday, "Tue" this week, "6 Oct" before. */
+/** When a conversation was last written in, as its group needs it: "12 min ago"
+ *  today, "14:05" yesterday, "Tue" this week, "6 Oct" before. */
 export function rowTime(c: Chat, group: GroupName, now: Date = new Date()): string {
   const t = new Date(c.updated_at || c.created_at || 0);
   if (Number.isNaN(t.getTime())) return '';
-  if (group === 'Yesterday')
-    return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
-  return shortTime(t.toISOString(), now);
+  if (group === 'Yesterday') return clock(t.toISOString());
+  return ago(t.toISOString(), now);
+}
+
+/** The one line under a conversation's title: who wrote last and what, or that
+ *  nothing was written yet (the web's row, rooms/commandcode.ts). The words are
+ *  the line's own, without its Markdown, and the row cuts them to one line. */
+export function chatSnippet(c: Chat): string {
+  const last = c.last;
+  if (!last) return 'No messages yet';
+  const text = previewText(last.text ?? '');
+  return last.by ? `${last.by}: ${text}` : text;
 }
 
 /** The conversations whose title or last line has every word of `q` (the server searches the rest). */

@@ -1,4 +1,4 @@
-import { clock, shortTime } from '../time';
+import { ago as agoText, clock, shortTime } from '../time';
 
 // A Wednesday afternoon, in the test machine's own time zone.
 const NOW = new Date(2026, 9, 14, 15, 30, 0);
@@ -31,5 +31,27 @@ describe('clock', () => {
     expect(clock(new Date(2026, 0, 2, 9, 5).toISOString())).toBe('09:05');
     expect(clock(undefined)).toBe('');
     expect(clock('nope')).toBe('');
+  });
+});
+
+describe('ago', () => {
+  it.each([
+    [ago(10_000), 'just now'],
+    [ago(59_000), 'just now'],
+    [ago(5 * 60_000), '5 min ago'],
+    [ago(59 * 60_000), '59 min ago'],
+    [ago(34 * 60_000), '34 min ago'],
+    [ago(3 * 3600_000), '3 h ago'],
+    [ago(23 * 3600_000), '23 h ago'],
+    [at(2026, 9, 13), 'yesterday'],
+    [at(2026, 9, 12), 'Mon'],
+    [at(2026, 9, 1), '1 Oct'],
+  ])('%s -> %s', (iso, want) => {
+    expect(agoText(iso, NOW)).toBe(want);
+  });
+
+  it('is empty for nothing or nonsense', () => {
+    expect(agoText(undefined, NOW)).toBe('');
+    expect(agoText('not a date', NOW)).toBe('');
   });
 });

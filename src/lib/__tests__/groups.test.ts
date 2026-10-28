@@ -1,5 +1,5 @@
 import type { Chat } from '../../api/types';
-import { filterChats, greeting, groupChats, groupOf, initials, rowTime } from '../groups';
+import { chatSnippet, filterChats, greeting, groupChats, groupOf, initials, rowTime } from '../groups';
 
 // A Wednesday afternoon, in the test machine's own time zone.
 const NOW = new Date(2026, 9, 14, 15, 30, 0);
@@ -57,11 +57,32 @@ describe('groupChats', () => {
 });
 
 describe('rowTime', () => {
-  it('says minutes or hours today, the clock yesterday, the day this week, the date before', () => {
-    expect(rowTime(chat('a', new Date(NOW.getTime() - 12 * 60_000).toISOString()), 'Today', NOW)).toBe('12m');
+  it('says how long ago today, the clock yesterday, the day this week, the date before', () => {
+    expect(rowTime(chat('a', new Date(NOW.getTime() - 12 * 60_000).toISOString()), 'Today', NOW)).toBe(
+      '12 min ago',
+    );
+    expect(rowTime(chat('e', new Date(NOW.getTime() - 3 * 3600_000).toISOString()), 'Today', NOW)).toBe(
+      '3 h ago',
+    );
     expect(rowTime(chat('b', at(13, 9, 5)), 'Yesterday', NOW)).toBe('09:05');
     expect(rowTime(chat('c', at(12)), 'Previous 7 days', NOW)).toBe('Mon');
     expect(rowTime(chat('d', at(1)), 'Older', NOW)).toBe('1 Oct');
+  });
+});
+
+describe('chatSnippet', () => {
+  it('gives who wrote last and what, without its Markdown, and says when nothing was written', () => {
+    expect(chatSnippet(chat('a', at(14), { last: { role: 'assistant', text: '  Two\n\nwalls ' } }))).toBe(
+      'Two walls',
+    );
+    expect(
+      chatSnippet(chat('b', at(14), { last: { role: 'user', text: 'Move it left', by: 'Ada' } })),
+    ).toBe('Ada: Move it left');
+    // The list's line is the words, not the markup they were written in.
+    expect(chatSnippet(chat('c', at(14), { last: { role: 'assistant', text: '## Why\n\n`R6` is enough' } }))).toBe(
+      'Why R6 is enough',
+    );
+    expect(chatSnippet(chat('d', at(14)))).toBe('No messages yet');
   });
 });
 
