@@ -82,9 +82,11 @@ async function dragBar(page, dx) {
   const d = await text(page);
   console.log(
     'drawer: group',
-    d.includes('OpenCode sessions · 9'),
+    d.includes('OpenCode sessions'),
+    '| no count',
+    !/OpenCode sessions · \d/.test(d),
     '| waiting',
-    d.includes('waiting for your answer · ada-laptop'),
+    d.includes('waiting for your answer') && !d.includes('waiting for your answer · ada-laptop'),
     '| show more',
     /Show \d+ more/.test(d),
     '| pinned old one',

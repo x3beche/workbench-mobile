@@ -288,20 +288,23 @@ Then you sign in with the same e-mail address and password as on the web.
   conversation keeps the screen. The drawer's own swipe to the right is held
   off for it (`components/drawerGestures.ts`).
 - **Folds and pins** (from 1.6.1): the Claude and OpenCode groups fold and
-  open by their header (a chevron; folded, the count and a live dot), and a
+  open by their header (a chevron, and folded a live dot; no count - how many
+  there are is the fold's business, as on the web), and a
   long press on a session offers Open and Pin / Unpin. Pinned sessions come
   first and stay in sight while the group is folded; an open group shows the
   newest five and "Show N more". Both are the person's own on the server
   (`GET /api/me/side`, `PUT /api/me/side/pins`, `PUT /api/me/side/folds`),
   the same as the web's on every device; until a group was folded by hand
   it is open while a session in it is live or open. From 1.6.2 the Rooms
-  fold too ("Rooms · 4", open until folded; folded, a dot - amber while a
+  fold too ("Rooms", open until folded; folded, a dot - amber while a
   room's question waits, accent while a room has lines not read), kept with
   the others (`folds.rooms`); a server that does not keep it yet answers 422
   and the phone keeps it, sending it once the server does. Session rows are
   the conversations' own row: the title with the kind's small icon before it
-  (the live dot on it), what it does and the computer under it, the time at
-  the right.
+  (the live dot on it) and the time at the right, one plain line, with a
+  line under it only when there is news to tell - waiting for your answer,
+  starting - never for the state or the computer, which the dot and the
+  screen reader have (1.7.1).
 - **Settings** (from 1.5.7; the account at the foot of the drawer opens it):
   the accounts (switch, add, sign one out), Agent & LLM, how much of an
   answer the Chat shows (**Compact**, **Normal**, **Detailed**), the app's

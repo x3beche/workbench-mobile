@@ -35,6 +35,18 @@ export function bridgeWord(b: WbcBridge | null, t: WbcStrings): string {
   return t.atPrompt;
 }
 
+/** What a session's row says under its name, when it says anything at all: only
+ *  what needs the person - a session waiting for an answer, one starting. At
+ *  the prompt, or working, the dot on the mark already says it, and a line
+ *  under every row is the clutter a chat list does not have (the web's
+ *  bridgeLine, claude-sessions.ts). */
+export function bridgeLine(b: WbcBridge | null | undefined, t: WbcStrings): string | null {
+  if (!b?.connected) return null;
+  if (b.state === 'waiting') return t.waitingComputer;
+  if (b.state === 'starting') return t.starting;
+  return null;
+}
+
 /** The live dot (StateDot): green at the prompt, pulsing while Claude works, amber while it waits; none unconnected. */
 export function liveDot(b: WbcBridge | null | undefined): Dot | null {
   if (!b?.connected) return null;

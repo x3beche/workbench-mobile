@@ -39,9 +39,9 @@ import { filterChats, groupChats, groupOf, rowTime } from '../lib/groups';
 import { ROOM_ICON, ROOM_LABEL, roomSnippet, unread as unreadOf } from '../lib/rooms';
 import { shortTime } from '../lib/time';
 import { isOpen, isPinned, SIDE_EMPTY } from '../lib/side';
-import { isoOf, liveDot, shownSessions, stateWord } from '../lib/wbc';
+import { bridgeLine, isoOf, liveDot, shownSessions, stateWord } from '../lib/wbc';
 import type { WbcStrings } from '../lib/wbcStrings';
-import { shownWbo, wboDot, wboLine } from '../lib/wbo';
+import { shownWbo, wboDot, wboLine, wboWord } from '../lib/wbo';
 import type { WboStrings } from '../lib/wboStrings';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
 import { Avatar } from './Avatar';
@@ -223,7 +223,8 @@ export function DrawerPanel({
     return [...rows, ...more].map((x) => ({
       id: x.session_id,
       name: x.name,
-      snip: [stateWord(x, wbc.t), x.computer].filter(Boolean).join(' · '),
+      note: bridgeLine(x.bridge, wbc.t),
+      says: [stateWord(x, wbc.t), x.computer].filter(Boolean).join(' · '),
       when: x.last_ts ? shortTime(isoOf(x.last_ts)) : '',
       dot: liveDot(x.bridge),
       live: !!x.bridge?.connected,
@@ -234,7 +235,8 @@ export function DrawerPanel({
     return shownWbo(wbo.rows, q, openWbo, (id) => isPinned(side, 'opencode', id)).map((x) => ({
       id: x.session_id,
       name: x.name,
-      snip: [wboLine(x, wbo.t), x.computer].filter(Boolean).join(' · '),
+      note: wboLine(x, wbo.t),
+      says: [wboWord(x, wbo.t), x.computer].filter(Boolean).join(' · '),
       when: x.updated ? shortTime(new Date(x.updated).toISOString()) : '',
       dot: wboDot(x),
       live: !!x.bridge?.connected,
@@ -336,7 +338,7 @@ export function DrawerPanel({
             {!q.trim() && ((onRoom && rooms?.length) || (orchestrator && onOrchestrator)) ? (
               <View testID="drawer-rooms">
                 <GroupHead
-                  label={`Rooms · ${(onRoom ? (rooms?.length ?? 0) : 0) + (orchestrator && onOrchestrator ? 1 : 0)}`}
+                  label="Rooms"
                   open={roomsOpen}
                   onPress={() => fold('rooms', !roomsOpen)}
                   hint={roomsOpen ? 'Folds the rooms' : 'Opens the rooms'}

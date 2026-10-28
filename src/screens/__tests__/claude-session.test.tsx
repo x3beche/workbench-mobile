@@ -336,9 +336,13 @@ const scrollOf = (y: number) => ({
         onWbc={onWbc}
       />,
     );
-    expect(screen.getByText('Claude sessions · 2')).toBeTruthy();
-    expect(screen.getByText('at the prompt · ada-laptop')).toBeTruthy();
-    expect(screen.getByText('ended · ws')).toBeTruthy();
+    expect(screen.getByText('Claude sessions')).toBeTruthy();
+    // One plain line each: the state and the computer are the screen reader's,
+    // not a second line under every row.
+    expect(screen.getByLabelText(/^Rail sag, at the prompt · ada-laptop$/)).toBeTruthy();
+    expect(screen.getByLabelText(/^OTA, ended · ws$/)).toBeTruthy();
+    expect(screen.queryByText('at the prompt · ada-laptop')).toBeNull();
+    expect(screen.queryByText('ended · ws')).toBeNull();
     expect(screen.queryByText('Old one')).toBeNull();
     expect(screen.getByTestId('wbc-dot-s1')).toBeTruthy();
     expect(screen.queryByTestId('wbc-dot-s2')).toBeNull();

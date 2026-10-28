@@ -1,12 +1,12 @@
 /**
  * A session group of the drawer (Claude sessions, OpenCode sessions), as the
  * web app's Chat list draws one (rooms/claude-sessions.ts, opencode-sessions.ts):
- * its header is a button - a chevron, the name and the count - that folds
- * and opens it;
+ * its header is a button - a chevron and the name, and no count (how many there
+ * are is the fold's business, not the list's) - that folds and opens it;
  * the choice is the person's, kept on the server (lib/side.ts). Its rows are
  * the conversations' own (DrawerRow): a mark with the session's live dot,
- * its name (a pin before it when pinned) and when, and what it does with the
- * computer under it. A long press opens Open and
+ * its name (a pin before it when pinned) and when, one line, with what it needs
+ * from the person under it when it needs anything. A long press opens Open and
  * Pin / Unpin. Open, it shows the pinned, the newest five and the open one,
  * with "Show N more"; folded, only the pinned.
  */
@@ -27,8 +27,10 @@ import { Glyph } from './ui';
 export interface SessionRowData {
   id: string;
   name: string;
-  /** What it does now, with the computer. */
-  snip: string;
+  /** What the row says under its name, when there is news: waiting for you, starting. */
+  note: string | null;
+  /** What it says to a screen reader instead of that line: the state, and the computer it runs on. */
+  says: string;
   /** When it was last used, as the drawer writes times. */
   when: string;
   dot: Dot | null;
@@ -81,7 +83,7 @@ export function SessionGroup({
   return (
     <View testID={testID}>
       <GroupHead
-        label={`${label} · ${rows.length}`}
+        label={label}
         open={open}
         onPress={flip}
         hint={open ? t.foldList : t.unfoldList}
@@ -94,14 +96,14 @@ export function SessionGroup({
             key={r.id}
             title={r.name}
             when={r.when}
-            sub={r.snip}
+            sub={r.note ?? undefined}
             icon={icon}
             dot={r.dot}
             pinned={pinned}
             on={r.id === selected}
             onPress={() => onOpen(r.id)}
             onLongPress={() => setMenu(r)}
-            label={`${r.name}${pinned ? `, ${t.pinned}` : ''}, ${r.snip}`}
+            label={`${r.name}${pinned ? `, ${t.pinned}` : ''}, ${r.says}`}
             testID={`${prefix}-${r.id}`}
           />
         );

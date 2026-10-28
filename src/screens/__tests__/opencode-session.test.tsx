@@ -417,7 +417,7 @@ async function show(d: WboDetail, t = en) {
 
   it('opens a live group with the newest five and "Show N more"', async () => {
     await render(draw());
-    expect(screen.getByText('OpenCode sessions · 7')).toBeTruthy();
+    expect(screen.getByText('OpenCode sessions')).toBeTruthy();
     expect(screen.getByText('Run 4')).toBeTruthy();
     expect(screen.queryByText('Run 5')).toBeNull();
     expect(screen.getByTestId('wbo-dot-ses_row00000')).toBeTruthy();
@@ -434,10 +434,13 @@ async function show(d: WboDetail, t = en) {
         },
       }),
     );
-    // Working is the dot's own news, and the row keeps the computer under it.
+    // A working one is the dot's own news: no line under it at all, and the
+    // computer is told to a screen reader instead.
+    expect(screen.getByLabelText(/^Rail sag, working · ada-laptop$/)).toBeTruthy();
     expect(screen.queryByText('working · ada-laptop')).toBeNull();
-    expect(screen.getByText('ada-laptop')).toBeTruthy(); // the busy one keeps the computer alone
-    expect(screen.getByText('waiting for your answer · ada-laptop')).toBeTruthy();
+    expect(screen.queryByText('ada-laptop')).toBeNull();
+    // The waiting one has something to say, and says only that.
+    expect(screen.getByText('waiting for your answer')).toBeTruthy();
   });
 
   it('folds by the header, keeping the pinned in sight, as the person chose', async () => {

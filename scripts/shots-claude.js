@@ -68,8 +68,8 @@ async function dragBar(page, dx) {
   await page.waitForSelector(tid('drawer-wbc'), { timeout: 10000 });
   await sleep(500);
   const d = await text(page);
-  console.log('drawer: group', d.includes('Claude sessions · 3'), '| at the prompt', d.includes('at the prompt · ada-laptop'),
-    '| working', d.includes('working · workstation'), '| ended', d.includes('ended · ada-laptop'));
+  console.log('drawer: group', d.includes('Claude sessions'), '| no count', !/Claude sessions · \d/.test(d),
+    '| one plain line each', !d.includes('at the prompt · ada-laptop') && !d.includes('working · workstation'));
   await page.screenshot({ path: `${OUT}/90-drawer-claude-sessions.png` });
 
   await page.click(tid('wbc-a1b2c3d4-rail'));

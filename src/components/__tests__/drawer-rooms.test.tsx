@@ -71,13 +71,14 @@ async function panel(over: Partial<React.ComponentProps<typeof DrawerPanel>> = {
 (canRender ? describe : describe.skip)('the rooms in the drawer', () => {
   it('leads the list with all three, above the conversations', async () => {
     await panel();
-    expect(screen.getByText('Rooms · 3')).toBeTruthy();
+    // No count beside the heading: how many rooms there are is the fold's business.
+    expect(screen.getByText('Rooms')).toBeTruthy();
     expect(screen.getByText('3D Drawing')).toBeTruthy();
     expect(screen.getByText('PCB Design')).toBeTruthy();
     expect(screen.getByText('Firmware')).toBeTruthy();
     // In the order they are drawn: the rooms' heading before the first conversation.
-    expect(screen.getAllByText(/^(Rooms · 3|Rail sag)$/).map((t) => t.props.children)).toEqual([
-      'Rooms · 3',
+    expect(screen.getAllByText(/^(Rooms|Rail sag)$/).map((t) => t.props.children)).toEqual([
+      'Rooms',
       'Rail sag',
     ]);
   });
