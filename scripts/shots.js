@@ -36,8 +36,16 @@ async function byText(page, text) {
   return h.asElement();
 }
 
+/** The drawer's list holds rooms and both session groups above the chats, so a
+ *  row can start out below the fold: brought into sight first. */
+async function inSight(page, selector) {
+  await page.$eval(selector, (e) => e.scrollIntoView({ block: 'center' }));
+  await sleep(350);
+}
+
 /** A finger swiping a row sideways by dx (touch events, as on a phone). */
 async function swipe(page, selector, dx) {
+  await inSight(page, selector);
   const box = await (await page.$(selector)).boundingBox();
   const y = box.y + box.height / 2;
   const x0 = dx < 0 ? box.x + box.width - 30 : box.x + 30;
@@ -132,19 +140,21 @@ async function connect(page, base, address) {
   await page.waitForSelector(tid('chat-c1'), { visible: true, timeout: 10000 });
   await shot(page, '05-drawer');
 
-  // A long press on a conversation: rename, archive, delete.
-  const row = await page.$(tid('chat-c2'));
-  const box = await row.boundingBox();
-  await page.mouse.move(box.x + 60, box.y + box.height / 2);
-  await page.mouse.down();
-  await sleep(700);
-  await page.mouse.up();
+  // A conversation's actions - rename, pin, archive, export, delete - from the
+  // top bar's "…". (A long press on a drawer row opens the same sheet, but a
+  // browser cannot hold a row still; the phone's own shots are of the sheet.)
+  await page.click(tid('chat-c1'));
+  await page.waitForFunction(() => document.body.innerText.includes('BLM18PG221SN1'), { timeout: 10000 });
+  await sleep(500);
+  await page.click(tid('header-more'));
   await page.waitForSelector(tid('chat-actions'), { timeout: 5000 });
   await shot(page, '14-chat-actions');
   await page.click('[aria-label="Close"]');
   await sleep(300);
 
-  // A swipe to the left on a row shows Archive and Delete.
+  // Back in the drawer: a swipe to the left on a row shows Archive and Delete.
+  await page.click(tid('open-drawer'));
+  await page.waitForSelector(tid('chat-c1'), { visible: true, timeout: 10000 });
   await swipe(page, tid('chat-c2'), -170);
   await shot(page, '22-drawer-swipe');
   await swipe(page, tid('chat-c2'), 170);
@@ -157,7 +167,12 @@ async function connect(page, base, address) {
   await page.waitForSelector(tid('empty-trash'), { visible: true, timeout: 5000 });
   await shot(page, '25-trash');
   await page.click(tid('chat-scope-live'));
-  await page.waitForSelector(tid('chat-c1'), { visible: true, timeout: 5000 });
+  // The list kept its place from another tab: the top of it is where the chats are.
+  await page.$eval(tid('drawer-list'), (e) => {
+    e.scrollTop = 0;
+    e.dispatchEvent(new Event('scroll'));
+  });
+  await page.waitForSelector(tid('chat-c1'), { timeout: 5000 });
 
   await page.click(tid('open-account'));
   await page.waitForSelector(tid('account-sheet'), { timeout: 5000 });
@@ -183,8 +198,9 @@ async function connect(page, base, address) {
   await shot(page, '23-header-menu');
   await page.click('[aria-label="Close"]');
   await sleep(300);
-  // A tool step opened, and the code block copied.
-  await page.click(tid('step-s2'));
+  // The work behind its one line, opened (the tool rows, with what they found),
+  // and the code block copied.
+  await page.click(tid('compact-work'));
   await page.$eval(tid('chat-list'), (e) => {
     e.scrollTop = e.scrollHeight;
     e.dispatchEvent(new Event('scroll'));

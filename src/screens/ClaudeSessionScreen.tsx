@@ -45,18 +45,15 @@ import { Composer } from '../components/Composer';
 import { Camera, Images, Menu, Paperclip, SquareTerminal, X } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Markdown } from '../components/Markdown';
-import { modelName } from '../components/MessageItem';
 import { NewBelow } from '../components/NewBelow';
 import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
 import { ErrorText, Glyph, IconButton, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
-import { clock } from '../lib/time';
 import {
   admit,
   IMAGE_RULES,
-  isoOf,
   layTurns,
   liveDot,
   MARK,
@@ -378,8 +375,6 @@ export function ClaudeSessionScreen({
     for (const m of pending) rows.push({ kind: 'msg', m });
     return rows.reverse();
   }, [turns, pending]);
-  const mine = !!s && (s.mine || (!!user && s.owner.id === user.id));
-  const person = mine ? null : s?.owner.name || null;
   const dot = liveDot(s?.bridge);
   const sub = [t.claudeCode, s?.computer, s?.bridge?.connected ? s.bridge.cwd : ''].filter(Boolean).join(' · ');
 
@@ -391,7 +386,6 @@ export function ClaudeSessionScreen({
         sid={sid}
         client={client}
         mark={mark}
-        person={person}
         t={t}
         onZoom={setZoom}
       />
@@ -620,7 +614,6 @@ function TurnRow({
   sid,
   client,
   mark,
-  person,
   t,
   onZoom,
 }: {
@@ -629,34 +622,23 @@ function TurnRow({
   sid: string;
   client: WorkbenchClient | null;
   mark: string;
-  /** Whose prompts these are, when not one's own (the owner and the admins read). */
-  person: string | null;
   t: WbcStrings;
   onZoom: (uri: string) => void;
 }) {
   const paths = (turn.images ?? []).map((p) => client?.wbcTurnImagePath(sid, p.req, p.n) ?? '');
-  const at = clock(isoOf(turn.at));
   if (turn.role === 'user') {
     const words = unmark(turn.text, mark);
     return (
       <View style={[st.msgRow, st.user]} testID="wbc-turn-user">
-        {turn.remote || person ? (
-          <View style={st.userHead}>
-            {person ? <Text style={st.headText}>{person}</Text> : null}
-            {turn.remote ? (
-              <Text style={st.tag} testID="wbc-remote">
-                {t.fromWorkbench}
-              </Text>
-            ) : null}
-            <Text style={st.headText}>{at}</Text>
-          </View>
+        {turn.remote ? (
+          <Text style={st.tag} testID="wbc-remote">
+            {t.fromWorkbench}
+          </Text>
         ) : null}
         {words ? (
-          <View style={st.bubble}>
-            <Text style={[st.userText, wrapAnywhere]} selectable>
-              {words}
-            </Text>
-          </View>
+          <Text style={[st.userText, wrapAnywhere]} selectable>
+            {words}
+          </Text>
         ) : null}
         {paths.length ? <Pics paths={paths} client={client} t={t} onZoom={onZoom} right /> : null}
       </View>
@@ -664,13 +646,6 @@ function TurnRow({
   }
   return (
     <View style={[st.msgRow, same && st.sameRow]} testID="wbc-turn-answer">
-      {!same ? (
-        <Text style={st.headText} numberOfLines={1}>
-          <Text style={st.headName}>{t.claude}</Text>
-          {turn.model ? ` · ${modelName(turn.model)}` : ''}
-          {at ? `  ${at}` : ''}
-        </Text>
-      ) : null}
       <Markdown text={turn.text} />
       {turn.cut ? <Text style={st.headText}>{t.cut}</Text> : null}
       {paths.length ? <Pics paths={paths} client={client} small t={t} onZoom={onZoom} note={t.readByTool} /> : null}
@@ -696,17 +671,10 @@ function PendingRow({
   return (
     <Appear fill={false} from="below" duration={motion.fade}>
       <View style={[st.msgRow, st.user]} testID={`wbc-pending-${m.id}`}>
-        <View style={st.userHead}>
-          <Text style={[st.status, tone === 'ok' && st.ok, tone === 'danger' && st.danger]} testID="wbc-status">
-            {statusWord(m, t)}
-          </Text>
-          {m.at ? <Text style={st.headText}>{clock(isoOf(m.at))}</Text> : null}
-        </View>
-        {m.text ? (
-          <View style={[st.bubble, st.pendingBubble]}>
-            <Text style={[st.userText, wrapAnywhere]}>{m.text}</Text>
-          </View>
-        ) : null}
+        <Text style={[st.status, tone === 'ok' && st.ok, tone === 'danger' && st.danger]} testID="wbc-status">
+          {statusWord(m, t)}
+        </Text>
+        {m.text ? <Text style={[st.userText, wrapAnywhere]}>{m.text}</Text> : null}
         {m.images?.length ? (
           m.images_gone ? (
             <Text style={st.headText}>{t.picturesGone}</Text>
@@ -772,19 +740,16 @@ const st = StyleSheet.create({
   msgRow: { gap: 8, paddingHorizontal: gutter, paddingVertical: space.md },
   sameRow: { paddingTop: 0 },
   user: { alignItems: 'flex-end', gap: 4, paddingVertical: space.sm },
-  userHead: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
   headText: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
-  headName: { fontFamily: fonts.sansMedium, color: colors.inkDim },
-  bubble: {
-    maxWidth: '85%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: colors.surface2,
-    borderRadius: radius.bubble,
-    borderBottomRightRadius: 6,
+  // The person's own words, on the right and plainly: no bubble, no name over it.
+  userText: {
+    maxWidth: '92%',
+    textAlign: 'right',
+    fontFamily: fonts.sans,
+    fontSize: type.body,
+    lineHeight: type.bodyLine,
+    color: colors.inkBright,
   },
-  pendingBubble: { opacity: 0.8 },
-  userText: { fontFamily: fonts.sans, fontSize: type.body, lineHeight: type.bodyLine, color: colors.ink },
   status: { flexShrink: 1, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim, textAlign: 'right' },
   ok: { color: colors.ok },
   danger: { color: colors.danger },

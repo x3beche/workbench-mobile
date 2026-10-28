@@ -1,13 +1,12 @@
 /**
- * One line of a conversation. The person's lines are rounded bubbles on the
- * right; answers run the full width without one, under the model's name,
- * with the tools they ran as compact rows where they ran. A long press opens
- * the line's actions (Copy, Select text).
- *
- * How much of an answer's work is shown is the Chat's detail (Settings >
- * Chat; lib/chatDetail.ts): compact puts the thinking and the tool calls
- * behind one line under an answer, normal folds the thinking and gives each
- * tool call its row, and detailed opens both.
+ * One line of a conversation, written plainly - the app's own reading of a
+ * conversation, the same as the web's: the person's line as their own words,
+ * an answer as its words, and everything it did to get there (the thinking and
+ * the tool calls) folded into one line above it, opened by a tap. No bubble, no
+ * name over the line, no model and no figures under it: those are the web's
+ * detailed view, and on a phone they are noise (Settings > Chat still sets it
+ * for the web, where there is room for it). A long press opens the line's
+ * actions (Copy, Select text).
  */
 import { memo, useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -16,9 +15,8 @@ import type { ChatDetail, ChatMessage, Step } from '../api/types';
 import type { Writing } from '../lib/answer';
 import { activityWords, chatDetailStrings, type ChatDetailStrings } from '../lib/chatDetail';
 import { useSmoothText } from '../lib/drain';
-import { chunks, stepDetail, stepLabel, stepState } from '../lib/steps';
-import { clock } from '../lib/time';
-import { colors, fonts, gutter, motion, radius, space, type } from '../theme/tokens';
+import { stepDetail, stepLabel, stepState } from '../lib/steps';
+import { colors, fonts, gutter, motion, space, type } from '../theme/tokens';
 import { Appear } from './Appear';
 import { Check, ChevronDown, ChevronRight, CircleAlert, Square } from './icons';
 import { Markdown } from './Markdown';
@@ -156,21 +154,6 @@ export function Steps({
   );
 }
 
-/** The answer's text with its tools where they ran. */
-function Body({ text, steps, detail }: { text: string; steps?: Step[]; detail?: ChatDetail }) {
-  return (
-    <>
-      {chunks(text, steps).map((c, i) =>
-        c.kind === 'text' ? (
-          <Markdown key={`t${i}`} text={c.text} />
-        ) : (
-          <Steps key={`s${i}:${detail}`} steps={c.steps} detail={detail} />
-        ),
-      )}
-    </>
-  );
-}
-
 /**
  * Everything an answer did - the thinking and the tool rows - behind one line
  * under the answer, opened by a tap (Settings > Chat: compact). The line says
@@ -213,21 +196,11 @@ export function CompactWork({
   );
 }
 
-function Head({ model, at }: { model?: string; at?: string }) {
-  return (
-    <Text style={s.head} numberOfLines={1}>
-      <Text style={s.headName}>{modelName(model) || 'Answer'}</Text>
-      {at ? `  ${clock(at)}` : ''}
-    </Text>
-  );
-}
-
 export const MessageItem = memo(function MessageItem({
   m,
   mine,
   animate,
   onMenu,
-  detail = 'normal',
   dw,
 }: {
   m: ChatMessage;
@@ -235,21 +208,17 @@ export const MessageItem = memo(function MessageItem({
   /** It came while the conversation was open: it fades in. */
   animate?: boolean;
   onMenu?: (m: ChatMessage) => void;
-  /** How much of the answer's work to show (Settings > Chat; lib/chatDetail.ts). */
-  detail?: ChatDetail;
   /** The detail setting's words; English when the caller does not say. */
   dw?: ChatDetailStrings;
 }) {
   const words = dw ?? chatDetailStrings('en');
   const body =
     m.role === 'user' ? (
-      <View style={[s.msg, s.user]}>
-        {!mine ? <Text style={[s.head, s.headRight]}>{m.by?.name || 'Someone'}</Text> : null}
+      <View style={[s.msg, s.user]} testID="msg-user">
         <Pressable
           onLongPress={onMenu ? () => onMenu(m) : undefined}
           delayLongPress={350}
           accessibilityHint="Long press to copy"
-          style={s.bubble}
         >
           <Text style={[s.userText, wrapAnywhere]}>{m.content}</Text>
         </Pressable>
@@ -260,40 +229,21 @@ export const MessageItem = memo(function MessageItem({
         delayLongPress={350}
         accessibilityHint="Long press to copy"
         style={s.msg}
+        testID="msg-answer"
       >
-        <Head model={m.model} at={m.at} />
-        {detail === 'compact' ? (
-          <>
-            {m.thinking || m.steps?.length ? (
-              <CompactWork
-                tools={m.steps?.length ?? 0}
-                thinking={m.thinking?.length ?? 0}
-                ms={m.thinking_ms}
-                dw={words}
-              >
-                {m.thinking ? (
-                  <Thinking key="think:opened" text={m.thinking} open words={words.thinking} />
-                ) : null}
-                {m.steps?.length ? (
-                  <Steps key="steps:opened" steps={m.steps} detail="detailed" ran={words.ran} />
-                ) : null}
-              </CompactWork>
-            ) : null}
-            <Markdown text={m.content || ''} />
-          </>
-        ) : (
-          <>
-            {m.thinking ? (
-              <Thinking
-                key={`think:${detail}`}
-                text={m.thinking}
-                open={detail === 'detailed'}
-                words={words.thinking}
-              />
-            ) : null}
-            <Body text={m.content || ''} steps={m.steps} detail={detail} />
-          </>
-        )}
+        {/* Everything it did to get there, behind one line; a tap opens it. */}
+        {m.thinking || m.steps?.length ? (
+          <CompactWork
+            tools={m.steps?.length ?? 0}
+            thinking={m.thinking?.length ?? 0}
+            ms={m.thinking_ms}
+            dw={words}
+          >
+            {m.thinking ? <Thinking key="think:opened" text={m.thinking} open words={words.thinking} /> : null}
+            {m.steps?.length ? <Steps key="steps:opened" steps={m.steps} detail="detailed" ran={words.ran} /> : null}
+          </CompactWork>
+        ) : null}
+        <Markdown text={m.content || ''} />
         {m.error ? <Text style={s.error}>{m.error}</Text> : null}
         {m.stopped ? <Text style={s.note}>Stopped</Text> : null}
         {m.interrupted ? <Text style={s.note}>Interrupted: the server restarted while this was written.</Text> : null}
@@ -312,9 +262,7 @@ export function PendingItem({ text }: { text: string }) {
   return (
     <Appear fill={false} from="below" duration={motion.fade}>
       <View style={[s.msg, s.user]} testID="pending-line">
-        <View style={[s.bubble, s.pending]}>
-          <Text style={[s.userText, wrapAnywhere]}>{text}</Text>
-        </View>
+        <Text style={[s.userText, wrapAnywhere]}>{text}</Text>
       </View>
     </Appear>
   );
@@ -354,63 +302,24 @@ export function TypingDots() {
 }
 
 /** The answer being written, as far as it got: laid out as the finished answer will be, so nothing jumps when it lands. */
-export function WritingItem({
-  w,
-  model,
-  detail = 'normal',
-  dw,
-}: {
-  w: Writing;
-  model?: string;
-  /** How much of the answer's work to show (Settings > Chat; lib/chatDetail.ts). */
-  detail?: ChatDetail;
-  dw?: ChatDetailStrings;
-}) {
+export function WritingItem({ w, dw }: { w: Writing; dw?: ChatDetailStrings }) {
   const reduce = useReduceMotion();
   const words = dw ?? chatDetailStrings('en');
   const waiting = !w.text && !w.thinking && !w.steps.length && !w.error;
   // The words arrive in the server's pieces; they are let out smoothly.
   const text = useSmoothText(w.text, !reduce);
-  const work = (open: boolean) => (
-    <>
-      {w.thinking ? (
-        <Thinking
-          key={`think:${open ? 'open' : detail}`}
-          text={w.thinking}
-          live={!w.text}
-          open={open}
-          words={words.thinking}
-        />
-      ) : null}
-      {w.steps.length ? (
-        <Steps
-          key={`steps:${open ? 'detailed' : detail}`}
-          steps={w.steps}
-          detail={open ? 'detailed' : detail}
-          ran={words.ran}
-        />
-      ) : null}
-    </>
-  );
   return (
     <View style={s.msg} accessibilityLiveRegion="polite" testID="writing">
-      <Head model={model} />
-      {detail === 'compact' ? (
-        <>
-          {w.thinking || w.steps.length ? (
-            <CompactWork tools={w.steps.length} thinking={w.thinking.length} dw={words}>
-              {work(true)}
-            </CompactWork>
+      {/* What it is doing, as on a finished answer: one line, opened by a tap. */}
+      {w.thinking || w.steps.length ? (
+        <CompactWork tools={w.steps.length} thinking={w.thinking.length} dw={words}>
+          {w.thinking ? (
+            <Thinking key="think:opened" text={w.thinking} live={!w.text} open words={words.thinking} />
           ) : null}
-          {w.text ? <Body text={text} /> : waiting ? <TypingDots /> : null}
-        </>
-      ) : (
-        <>
-          {waiting ? <TypingDots /> : null}
-          {work(detail === 'detailed')}
-          <Body text={text} detail={detail} />
-        </>
-      )}
+          {w.steps.length ? <Steps key="steps:opened" steps={w.steps} detail="detailed" ran={words.ran} /> : null}
+        </CompactWork>
+      ) : null}
+      {w.text ? <Markdown text={text} /> : waiting ? <TypingDots /> : null}
       {w.error ? <Text style={s.error}>{w.error}</Text> : null}
     </View>
   );
@@ -418,20 +327,16 @@ export function WritingItem({
 
 const s = StyleSheet.create({
   msg: { gap: 10, paddingHorizontal: gutter, paddingVertical: space.md },
-  user: { alignItems: 'flex-end', gap: 4, paddingVertical: space.sm },
-  bubble: {
-    maxWidth: '85%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: colors.surface2,
-    borderRadius: radius.bubble,
-    borderBottomRightRadius: 6,
+  // The person's own words, on the right and plainly: no bubble, no name over it.
+  user: { alignItems: 'flex-end', gap: 4, paddingVertical: space.xs },
+  userText: {
+    maxWidth: '92%',
+    textAlign: 'right',
+    fontFamily: fonts.sans,
+    fontSize: type.body,
+    lineHeight: type.bodyLine,
+    color: colors.inkBright,
   },
-  pending: { opacity: 0.7 },
-  userText: { fontFamily: fonts.sans, fontSize: type.body, lineHeight: type.bodyLine, color: colors.ink },
-  head: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
-  headRight: { textAlign: 'right' },
-  headName: { fontFamily: fonts.sansMedium, color: colors.inkDim },
   thinkWrap: { gap: 6 },
   think: {
     fontFamily: fonts.sansItalic,

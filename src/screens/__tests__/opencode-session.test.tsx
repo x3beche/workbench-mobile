@@ -9,7 +9,7 @@ import { FlatList } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { WorkbenchClient } from '../../api/client';
-import type { BusEvent, ChatDetail, WboDetail, WboSession } from '../../api/types';
+import type { BusEvent, WboDetail, WboSession } from '../../api/types';
 import { DrawerPanel } from '../../components/DrawerPanel';
 import { BusPace, type LiveHub } from '../../live/hub';
 import { LiveContext } from '../../live/LiveContext';
@@ -186,7 +186,7 @@ function fakeClient(d: WboDetail) {
   };
 }
 
-async function show(d: WboDetail, t = en, detail: ChatDetail = 'normal') {
+async function show(d: WboDetail, t = en) {
   const client = fakeClient(d);
   const live = fakeHub();
   await render(
@@ -194,10 +194,8 @@ async function show(d: WboDetail, t = en, detail: ChatDetail = 'normal') {
       <OpencodeSessionScreen
         sid={SID}
         client={client as unknown as WorkbenchClient}
-        user={null}
         t={t}
         lang="en"
-        detail={detail}
       />
     </LiveContext.Provider>,
   );
@@ -206,19 +204,22 @@ async function show(d: WboDetail, t = en, detail: ChatDetail = 'normal') {
 }
 
 (canRender ? describe : describe.skip)('an OpenCode session', () => {
-  it('draws the conversation in the Chat look, with the state and the model', async () => {
+  it('draws the conversation plainly, with the state', async () => {
     await show(detail());
     expect(screen.getByTestId('wbo-title')).toHaveTextContent('Rail sag');
     expect(screen.getByText('Why does the rail sag?')).toBeTruthy();
-    expect(screen.getByText('Thought it through')).toBeTruthy();
-    expect(screen.getByText('read · power.kicad_sch')).toBeTruthy();
-    expect(screen.getAllByText('deepseek-v4').length).toBeGreaterThan(0);
-    expect(screen.getByText('On the computer')).toBeTruthy();
+    // What the answer did is behind one line, not a row per tool call.
+    expect(screen.getByText('1 tool call · thinking 22 chars')).toBeTruthy();
+    expect(screen.queryByText('read · power.kicad_sch')).toBeNull();
+    // No model over the answer, no name over the person's line, no figures under it.
+    expect(screen.queryByText('deepseek-v4')).toBeNull();
+    expect(screen.queryByText('On the computer')).toBeNull();
+    expect(screen.queryByText(/tok\/s/)).toBeNull();
     expect(screen.getByTestId('wbo-composer')).toBeTruthy();
   });
 
-  it("puts an answer's work behind one line in compact, and opens it (Settings > Chat)", async () => {
-    await show(detail(), en, 'compact');
+  it("puts an answer's work behind one line, and opens it", async () => {
+    await show(detail());
     // The line says what was done: one tool read, and how much it thought.
     expect(screen.getByText('1 tool call · thinking 22 chars')).toBeTruthy();
     // Nothing of the work is out until the line is opened.
@@ -230,91 +231,6 @@ async function show(d: WboDetail, t = en, detail: ChatDetail = 'normal') {
     await fireEvent.press(screen.getByTestId('compact-work'));
     expect(screen.getByText('Look at the regulator.')).toBeTruthy();
     expect(screen.getByText('read · power.kicad_sch')).toBeTruthy();
-  });
-
-  it('opens the thinking and what every tool call read in detailed (Settings > Chat)', async () => {
-    await show(detail(), en, 'detailed');
-    expect(screen.getByText('Look at the regulator.')).toBeTruthy();
-    // The tool's row is open: what it gave back is out too.
-    expect(screen.getByText('U3 LDO')).toBeTruthy();
-    expect(screen.queryByTestId('compact-work')).toBeNull();
-  });
-
-  it('says how an answer came under it, and opens its card from a tap', async () => {
-    await show(
-      detail({
-        asks: [],
-        messages: [
-          {
-            id: 'msg_u1',
-            role: 'user',
-            time: NOW - 60_000,
-            done: NOW - 60_000,
-            parts: [{ id: 't0', type: 'text', text: 'Why does the rail sag?' }],
-          },
-          {
-            id: 'msg_a1',
-            role: 'assistant',
-            model: 'deepseek/deepseek-v4',
-            provider: 'workbench',
-            time: NOW - 58_000,
-            first: NOW - 54_000,
-            done: NOW - 46_000,
-            tok: [1200, 160, 800, 0],
-            parts: [{ id: 't0', type: 'text', text: 'The **LDO** drops out.' }],
-          },
-        ],
-      }),
-    );
-    // 160 tokens over the 8 s it wrote, 12 s from the line to its end.
-    expect(screen.getByText('20 tok/s · 160 tok · 12.0 s')).toBeTruthy();
-    await act(async () => {
-      fireEvent.press(screen.getByTestId('wbo-stats-msg_a1'));
-    });
-    expect(screen.getByText('Time to first token')).toBeTruthy();
-    expect(screen.getByText('20 tok/s')).toBeTruthy(); // the card's own speed row
-    expect(screen.getByText('2,000')).toBeTruthy(); // its prompt, the cache read inside it
-    expect(screen.getByText('800 · 40%')).toBeTruthy();
-    expect(screen.getByText('deepseek/deepseek-v4 · Workbench')).toBeTruthy();
-  });
-
-  it('keeps the line under a turn while OpenCode works on its next step', async () => {
-    // One turn is several of OpenCode's steps, and each one's start makes the
-    // turn live again: the line under it must stay, only its figures move on.
-    await show(
-      detail({
-        asks: [],
-        messages: [
-          {
-            id: 'msg_u1',
-            role: 'user',
-            time: NOW - 60_000,
-            done: NOW - 60_000,
-            parts: [{ id: 't0', type: 'text', text: 'Why does the rail sag?' }],
-          },
-          {
-            id: 'msg_a1',
-            role: 'assistant',
-            model: 'deepseek/deepseek-v4',
-            time: NOW - 58_000,
-            first: NOW - 54_000,
-            done: NOW - 46_000,
-            tok: [1200, 160, 800, 0],
-            parts: [{ id: 'r0', type: 'reasoning', text: 'Look at the regulator.' }],
-          },
-          {
-            id: 'msg_a2',
-            role: 'assistant',
-            model: 'deepseek/deepseek-v4',
-            time: NOW - 45_000,
-            done: null,
-            parts: [{ id: 'call_1', type: 'tool', tool: 'read', status: 'running', title: 'power.kicad_sch' }],
-          },
-        ],
-      }),
-    );
-    expect(screen.getByText('20 tok/s · 160 tok · 12.0 s')).toBeTruthy();
-    expect(screen.getByTestId('wbo-stats-msg_a1')).toBeTruthy();
   });
 
   it('follows an answer as it streams, and stays put for a reader further up', async () => {
@@ -421,7 +337,6 @@ async function show(d: WboDetail, t = en, detail: ChatDetail = 'normal') {
       f!.onRecord({ type: 'delta', session: 'ses_other0001', message: 'msg_a2', part: 't0', delta: 'NOT', o: 10 });
     });
     expect(screen.getByText('Live words')).toBeTruthy();
-    expect(screen.getByText(/writing…/)).toBeTruthy();
   });
 
   it('puts the note in place of the box when it cannot be written to, and says update', async () => {

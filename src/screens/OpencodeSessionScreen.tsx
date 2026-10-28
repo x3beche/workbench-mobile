@@ -1,12 +1,11 @@
 /**
  * One of one's own OpenCode sessions (backend/wbopencode.py), as the web
  * app's Chat opens it (frontend/src/app/rooms/opencode-sessions.ts), in this
- * app's own conversation look: the person's lines as bubbles on the right
- * ("from Workbench" on the ones sent from here, with their pictures; "On the
- * computer" when typed there by someone else's view), OpenCode's answer as
- * an answer of the Chat - under the model's name, its thinking in the
- * Chat's folded block, its words in Markdown, its tool calls as the Chat's
- * step rows - and what OpenCode asks as a card answered from here.
+ * app's own plain look: the person's own words on the right ("from
+ * Workbench" on the ones sent from here, with their pictures), OpenCode's
+ * answer as the Chat's answer - everything it did to get there (its thinking
+ * and its tool rows) behind one line above it, opened by a tap, its words in
+ * Markdown - and what OpenCode asks as a card answered from here.
  *
  * - It opens at the newest message; older turns come in ten at a time as
  *   the reader nears the top, as a room's lines (the server sends the last
@@ -30,7 +29,6 @@ import {
   Image,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -40,14 +38,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type VoiceLang, type WorkbenchClient } from '../api/client';
-import type { ChatDetail, User, WboAnswer, WboAsk, WboDetail, WboMsg, WboSend, WboSession } from '../api/types';
+import type { WboAnswer, WboAsk, WboDetail, WboMsg, WboSend, WboSession } from '../api/types';
 import { Appear } from '../components/Appear';
 import { AskCard } from '../components/AskCard';
 import { Composer } from '../components/Composer';
 import { ArrowUpToLine, Camera, Images, Menu, Paperclip, SquareCode, X } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Markdown } from '../components/Markdown';
-import { CompactWork, modelName, Steps, Thinking, TypingDots } from '../components/MessageItem';
+import { CompactWork, Steps, Thinking, TypingDots } from '../components/MessageItem';
 import { NewBelow } from '../components/NewBelow';
 import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
@@ -55,10 +53,7 @@ import { ErrorText, Glyph, IconButton, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
 import { chatDetailStrings } from '../lib/chatDetail';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
-import { clock } from '../lib/time';
-import { money } from '../lib/numbers';
-import { statRows, statsLine, type RunStats } from '../lib/runStats';
-import { admit, IMAGE_RULES, isoOf, pictureType, serverWords, type Picked } from '../lib/wbc';
+import { admit, IMAGE_RULES, pictureType, serverWords, type Picked } from '../lib/wbc';
 import {
   applyWbo,
   buildTurns,
@@ -71,7 +66,6 @@ import {
   sendTone,
   sendWord,
   TURNS_PAGE,
-  turnStats as turnOf,
   updateWord,
   wboDot,
   wboWhy,
@@ -106,11 +100,9 @@ type AnswerTurn = Extract<Turn, { kind: 'assistant' }>;
 export function OpencodeSessionScreen({
   sid,
   client,
-  user,
   initial = null,
   t,
   lang,
-  detail = 'normal',
   voiceMode = 'record',
   wide = false,
   onMenu,
@@ -119,13 +111,10 @@ export function OpencodeSessionScreen({
 }: {
   sid: string;
   client: WorkbenchClient | null;
-  user: User | null;
   /** What the drawer's list knows of it, until it is read. */
   initial?: WboSession | null;
   t: WboStrings;
   lang: VoiceLang;
-  /** How much of an answer's work to show (Settings > Chat; lib/chatDetail.ts). */
-  detail?: ChatDetail;
   voiceMode?: VoiceMode;
   wide?: boolean;
   onMenu?: () => void;
@@ -152,29 +141,6 @@ export function OpencodeSessionScreen({
   const [picError, setPicError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [zoom, setZoom] = useState<string | null>(null);
-  /** The answer whose stats card is open (a tap on its line). */
-  const [stat, setStat] = useState<AnswerTurn | null>(null);
-  /** The windows the app's own models have: OpenCode can be pointed at the
-   *  gateway, and then "Context used" is a figure it can tell. A run through
-   *  someone else's provider has no such row at all. */
-  const [windows, setWindows] = useState<Record<string, number>>({});
-  useEffect(() => {
-    if (!client) return;
-    let gone = false;
-    client.models('commandcode').then(
-      (rows) => {
-        if (gone) return;
-        const next: Record<string, number> = {};
-        for (const m of rows) if (m.context) next[m.id] = m.context;
-        setWindows(next);
-      },
-      () => undefined,
-    );
-    return () => {
-      gone = true;
-    };
-  }, [client]);
-  const windowOf = useCallback((model?: string | null) => (model ? (windows[model] ?? null) : null), [windows]);
   const [s2Live, setS2Live] = useState(false);
   const list = useRef<FlatList<Item>>(null);
   /** Who is reading the bottom of the thread, told by their finger alone (lib/stickBottom.ts). */
@@ -447,8 +413,6 @@ export function OpencodeSessionScreen({
 
   /** The detail setting's words, in the app's language. */
   const dw = chatDetailStrings(uiLang(lang));
-  const mine = !!s && (s.mine || (!!user && s.owner.id === user.id));
-  const person = mine ? user?.name || t.you : s?.owner.name || t.itsPerson;
   const dot = wboDot(s);
   const sub = [t.opencode, s?.computer, s?.directory].filter(Boolean).join(' · ');
   const canAnswer = (a: WboAsk) => a.status === 'pending' && !a.local && !!s?.may_send;
@@ -459,19 +423,6 @@ export function OpencodeSessionScreen({
   /** The header's word: the dot says it alone while OpenCode works - it is
    *  the dot that pulses - and the word would say it twice (as the web). */
   const head = s && s.status !== 'busy' ? wboWord(s, t) : '';
-  /** How it came: the line under a finished answer, and the card a tap opens. */
-  /** The stats last worked out for a turn, and its line with them: kept, so
-   *  the line under a turn does not blink away whenever it goes live again
-   *  (OpenCode works in steps, and each one's start makes the turn live). */
-  const keptStats = useRef(new Map<string, { stats: RunStats; line: string }>());
-  const statsOf = (tn: Turn) => {
-    if (tn.kind !== 'assistant') return null;
-    const now = turnOf(tn, windowOf);
-    if (now) keptStats.current.set(tn.id, { stats: now, line: statsLine(now, t.run) });
-    return now ?? keptStats.current.get(tn.id)?.stats ?? null;
-  };
-  const card = stat && statsOf(stat) ? statRows(statsOf(stat)!, t.run, money) : null;
-
   /**
    * An answer's thinking and tool rows apart from its words, with what the one
    * line they are written as while the Chat is compact says (Settings > Chat;
@@ -552,7 +503,6 @@ export function OpencodeSessionScreen({
           m={tn.msg}
           sent={sent}
           fromHere={remote.has(tn.msg.id)}
-          person={person}
           same={item.same}
           sid={sid}
           client={client}
@@ -562,42 +512,17 @@ export function OpencodeSessionScreen({
       );
     }
     const { work, rest, tools, thought, ms } = split(tn);
-    const compact = detail === 'compact';
     return (
       <View style={st.msgRow} testID="wbo-answer">
-        <Text style={st.headText} numberOfLines={1}>
-          <Text style={st.headName}>{modelName(tn.model ?? undefined) || t.opencode}</Text>
-          {tn.live ? <Text style={st.live}>{`  ${tn.writing ? t.writing : t.thinking}`}</Text> : null}
-          {tn.time ? `  ${clock(new Date(tn.time).toISOString())}` : ''}
-        </Text>
         {tn.live && !tn.items.length ? <TypingDots /> : null}
-        {/* Compact (Settings > Chat): its thinking and tool rows on one line,
-            the answer and what it asks where they belong. */}
-        {compact && work.length ? (
+        {/* What it did to get there - its thinking and its tool rows - on one
+            line, opened by a tap; then the answer and what it asks. */}
+        {work.length ? (
           <CompactWork tools={tools} thinking={thought} ms={ms} dw={dw}>
             {work.map((it) => drawn(it, true))}
           </CompactWork>
         ) : null}
-        {(compact ? rest : tn.items).map((it) => drawn(it, detail === 'detailed'))}
-        {/* How it came, as the web's Chat says it under its own answers: the
-            speed, what it wrote and how long - a tap opens the card. Once it
-            has a line it keeps it: the turn goes live again at each of
-            OpenCode's steps, and the line must not blink with them. */}
-        {statsOf(tn) ? (
-          <Pressable
-            onPress={() => setStat(tn)}
-            accessibilityRole="button"
-            accessibilityLabel={`${t.run.details}: ${statsLine(statsOf(tn)!, t.run)}`}
-            accessibilityHint={t.run.details}
-            hitSlop={10}
-            style={st.statsTap}
-            testID={`wbo-stats-${tn.id}`}
-          >
-            {({ pressed }) => (
-              <Text style={[st.statsText, pressed && st.statsPressed]}>{statsLine(statsOf(tn)!, t.run)}</Text>
-            )}
-          </Pressable>
-        ) : null}
+        {rest.map((it) => drawn(it, false))}
       </View>
     );
   };
@@ -778,21 +703,6 @@ export function OpencodeSessionScreen({
       {zoom ? (
         <PictureViewer uri={zoom} label={t.showWhole} closeLabel={t.close} onClose={() => setZoom(null)} />
       ) : null}
-      {stat && card ? (
-        // The card under an answer, as the web's opens from it: what it spent, how long it took, the model.
-        <Sheet onClose={() => setStat(null)} title={t.run.details} testID="wbo-stats-sheet">
-          <ScrollView style={st.statList} contentContainerStyle={st.statListIn} indicatorStyle="white">
-            {card.map((r) => (
-              <View key={r.k} style={st.statRow}>
-                <Text style={st.statK}>{r.k}</Text>
-                <Text style={st.statV} selectable>
-                  {r.v}
-                </Text>
-              </View>
-            ))}
-          </ScrollView>
-        </Sheet>
-      ) : null}
     </SafeAreaView>
   );
 }
@@ -833,7 +743,6 @@ function UserRow({
   m,
   sent,
   fromHere,
-  person,
   same,
   sid,
   client,
@@ -843,32 +752,24 @@ function UserRow({
   m: WboMsg;
   sent: WboSend | null;
   fromHere: boolean;
-  person: string;
   same: boolean;
   sid: string;
   client: WorkbenchClient | null;
   t: WboStrings;
   onZoom: (uri: string) => void;
 }) {
-  const at = m.time ? clock(new Date(m.time).toISOString()) : '';
   return (
     <View style={[st.msgRow, st.user, same && st.sameRow]} testID="wbo-user">
-      <View style={st.userHead}>
-        <Text style={st.headText}>{fromHere ? person : t.onComputer}</Text>
-        {fromHere ? (
-          <Text style={st.tag} testID="wbo-remote">
-            {t.fromWorkbench}
-          </Text>
-        ) : null}
-        {at ? <Text style={st.headText}>{at}</Text> : null}
-      </View>
+      {fromHere ? (
+        <Text style={st.headText} testID="wbo-remote">
+          {t.fromWorkbench}
+        </Text>
+      ) : null}
       {m.parts.map((p) =>
         p.type === 'text' ? (
-          <View key={p.id} style={st.bubble}>
-            <Text style={[st.userText, wrapAnywhere]} selectable>
-              {p.text}
-            </Text>
-          </View>
+          <Text key={p.id} style={[st.userText, wrapAnywhere]} selectable>
+            {p.text}
+          </Text>
         ) : sent?.images?.length ? null : (
           <Text key={p.id} style={[st.tag, st.mono]} numberOfLines={1}>
             {p.text}
@@ -897,17 +798,10 @@ function SendRow({
   return (
     <Appear fill={false} from="below" duration={motion.fade}>
       <View style={[st.msgRow, st.user]} testID={`wbo-pending-${m.id}`}>
-        <View style={st.userHead}>
-          <Text style={[st.status, tone === 'ok' && st.ok, tone === 'danger' && st.danger]} testID="wbo-status">
-            {sendWord(m, t, (x) => serverWords(x, t))}
-          </Text>
-          {m.at ? <Text style={st.headText}>{clock(isoOf(m.at))}</Text> : null}
-        </View>
-        {m.text ? (
-          <View style={[st.bubble, st.pendingBubble]}>
-            <Text style={[st.userText, wrapAnywhere]}>{m.text}</Text>
-          </View>
-        ) : null}
+        <Text style={[st.status, tone === 'ok' && st.ok, tone === 'danger' && st.danger]} testID="wbo-status">
+          {sendWord(m, t, (x) => serverWords(x, t))}
+        </Text>
+        {m.text ? <Text style={[st.userText, wrapAnywhere]}>{m.text}</Text> : null}
         <Pics m={m} sid={sid} client={client} t={t} onZoom={onZoom} />
       </View>
     </Appear>
@@ -981,34 +875,21 @@ const st = StyleSheet.create({
   },
   msgRow: { gap: 10, paddingHorizontal: gutter, paddingVertical: space.md },
   sameRow: { paddingTop: 0 },
+  // The person's own words, on the right and plainly: no bubble, no name over it.
   user: { alignItems: 'flex-end', gap: 4, paddingVertical: space.sm },
-  userHead: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' },
   headText: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
-  headName: { fontFamily: fonts.sansMedium, color: colors.inkDim },
-  live: { fontFamily: fonts.sansItalic, color: colors.inkDim },
-  bubble: {
-    maxWidth: '85%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: colors.surface2,
-    borderRadius: radius.bubble,
-    borderBottomRightRadius: 6,
+  userText: {
+    maxWidth: '92%',
+    textAlign: 'right',
+    fontFamily: fonts.sans,
+    fontSize: type.body,
+    lineHeight: type.bodyLine,
+    color: colors.inkBright,
   },
-  pendingBubble: { opacity: 0.8 },
-  userText: { fontFamily: fonts.sans, fontSize: type.body, lineHeight: type.bodyLine, color: colors.ink },
   status: { flexShrink: 1, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim, textAlign: 'right' },
   ok: { color: colors.ok },
   danger: { color: colors.danger },
   error: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 20, color: colors.danger },
-  // The line under an answer: how it came, a tap opening the card.
-  statsTap: { alignSelf: 'flex-start', marginTop: 2, paddingVertical: 2 },
-  statsText: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
-  statsPressed: { color: colors.ink },
-  statList: { maxHeight: 520 },
-  statListIn: { paddingHorizontal: gutter, paddingTop: space.xs, paddingBottom: space.sm },
-  statRow: { flexDirection: 'row', alignItems: 'baseline', gap: 12, paddingVertical: 6 },
-  statK: { flexShrink: 0, minWidth: 118, fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
-  statV: { flex: 1, fontFamily: fonts.sansMedium, fontSize: type.small, color: colors.ink, textAlign: 'right' },
   picsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' },
   right: { textAlign: 'right' },
   msg: { paddingHorizontal: gutter, paddingVertical: space.xs },

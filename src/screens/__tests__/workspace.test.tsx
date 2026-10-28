@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { BackHandler } from 'react-native';
 
-import type { Chat, ChatScope, Ideas } from '../../api/types';
+import type { Chat, ChatScope, Ideas, Room } from '../../api/types';
 import { ApiError } from '../../api/client';
 import * as share from '../../lib/share';
 import { STARTERS, suggestionsFrom, Workspace } from '../Workspace';
@@ -77,7 +77,9 @@ const mockClient = {
   ),
   ideas: jest.fn(async (): Promise<Ideas | null> => IDEAS),
   // The workspace's rooms (1.3.0): none here, as from an older server - the drawer test covers them.
-  rooms: jest.fn(async () => []),
+  rooms: jest.fn(async (): Promise<Room[]> => []),
+  // A room's thread, for the room the app opens into below.
+  roomHistory: jest.fn(async () => []),
   // The Orchestrator (1.5.4): none here, as from an older server - the drawer and lib tests cover it.
   orchestrator: jest.fn(async () => {
     throw new Error('Not Found');
@@ -290,6 +292,25 @@ describe('workspace', () => {
     await start();
     expect(await screen.findByText('Answer in Enclosure walls')).toBeTruthy();
     expect(mockClient.getChat).toHaveBeenCalledWith('c2');
+  });
+
+  it('opens straight into the room it was left in, and writes down the one it is left in', async () => {
+    // The PCB room was the last thing open: the app comes back to it, not to the chat.
+    await AsyncStorage.setItem('workbench.lastView', JSON.stringify({ a1: { kind: 'room', id: 'pcb' } }));
+    mockClient.rooms.mockResolvedValueOnce([
+      { room: 'firmware', count: 0, waiting: 0, urgent: 0, last: null, agent_at: [] },
+    ]);
+    await start();
+    expect(await screen.findByTestId('room-screen-pcb')).toBeTruthy();
+
+    // Out of it, and into another room: that one is what the next start opens.
+    await act(async () => {
+      back();
+    });
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    await fireEvent.press(await screen.findByTestId('room-firmware'));
+    expect(await screen.findByTestId('room-screen-firmware')).toBeTruthy();
+    expect(await AsyncStorage.getItem('workbench.lastView')).toContain('"firmware"');
   });
 
   it('makes a new conversation on the server with the first line, with the chosen model', async () => {

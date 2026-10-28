@@ -490,6 +490,43 @@ export function Workspace({
     if (keep && ready) prefs.setLastChat(keep, openId);
   }, [keep, openId, ready]);
 
+  // What was open when the app was last left: the room, the session or the page
+  // opens again on its own (the conversation it stood on is restored above, by
+  // lastChat). An id the server no longer has shows itself as empty and is closed
+  // by the X, so the app is never stuck on it.
+  useEffect(() => {
+    if (!keep || !ready) return;
+    let live = true;
+    prefs.lastView(keep).then((v) => {
+      if (!live || !v) return;
+      if (v.kind === 'room') setRoom(v.id as RoomId);
+      else if (v.kind === 'wbo') setWboOpen(v.id);
+      else if (v.kind === 'wbc') setWbcOpen(v.id);
+      else if (v.kind === 'files') setPage('files');
+      else if (v.kind === 'settings') setPage('settings');
+      else if (v.kind === 'analytics') setPage('analytics');
+      else if (v.kind === 'ccpool') setPage('ccpool');
+    });
+    return () => {
+      live = false;
+    };
+  }, [keep, ready]);
+
+  // ... and it is written down as it changes, so the next start has it.
+  useEffect(() => {
+    if (!keep || !ready) return;
+    const view: prefs.LastView = room
+      ? { kind: 'room', id: room }
+      : wboOpen
+        ? { kind: 'wbo', id: wboOpen }
+        : wbcOpen
+          ? { kind: 'wbc', id: wbcOpen }
+          : page === 'chat'
+            ? { kind: 'chat', id: openId }
+            : { kind: page };
+    prefs.setLastView(keep, view);
+  }, [keep, ready, room, wboOpen, wbcOpen, page, openId]);
+
   const show = useCallback(
     (chat: Chat | null, remember = true) => {
       if (remember && (openId || open.chat)) {
@@ -852,11 +889,9 @@ export function Workspace({
             <OpencodeSessionScreen
               sid={wboOpen}
               client={client}
-              user={user}
               initial={wboRows?.find((x) => x.session_id === wboOpen) ?? null}
               t={ct}
               lang={lang}
-              detail={side.chat.detail}
               voiceMode={voiceMode}
               wide={wide}
               onMenu={() => setDrawer(true)}
@@ -938,7 +973,6 @@ export function Workspace({
               suggestions={suggestions}
               wide={wide}
               lang={lang}
-              detail={side.chat.detail}
               voiceMode={voiceMode}
               onMenu={() => setDrawer(true)}
               onNew={newChat}

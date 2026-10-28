@@ -26,7 +26,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type VoiceLang } from '../api/client';
-import type { Chat, ChatDetail, ChatEvent, ChatMessage } from '../api/types';
+import type { Chat, ChatEvent, ChatMessage } from '../api/types';
 import { ActivityStrip } from '../components/Activity';
 import { Appear } from '../components/Appear';
 import { Composer, type ComposerHandle } from '../components/Composer';
@@ -90,7 +90,6 @@ export function ChatScreen({
   suggestions = [],
   wide = false,
   lang,
-  detail = 'normal',
   voiceMode = 'record',
   onMenu,
   onNew,
@@ -107,8 +106,6 @@ export function ChatScreen({
   /** The drawer is a column beside it: no button for it. */
   wide?: boolean;
   lang: VoiceLang;
-  /** How much of an answer's work an answer shows (Settings > Chat; lib/chatDetail.ts). */
-  detail?: ChatDetail;
   /** When dictated words appear: while speaking or after recording. */
   voiceMode?: VoiceMode;
   onMenu?: () => void;
@@ -452,7 +449,6 @@ export function ChatScreen({
               mine={!item.by?.id || (!!user && item.by.id === user.id)}
               animate={!!seen.current && !seen.current.has(item.id)}
               onMenu={setMenu}
-              detail={detail}
               dw={dw}
             />
           )}
@@ -521,7 +517,7 @@ export function ChatScreen({
               {pending ? <PendingItem text={pending} /> : null}
               {view.writing ? (
                 <Appear fill={false} duration={motion.fade}>
-                  <WritingItem w={view.writing} model={model.model} detail={detail} dw={dw} />
+                  <WritingItem w={view.writing} dw={dw} />
                 </Appear>
               ) : null}
             </>

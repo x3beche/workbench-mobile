@@ -122,6 +122,48 @@ export async function setLastChat(server: string, id: string | null): Promise<vo
   await writeJson(LAST_CHAT, all);
 }
 
+const LAST_VIEW = 'workbench.lastView';
+
+/**
+ * What was open on `key` (the account) when the app was last left: a
+ * conversation, one of the workspace's rooms, an OpenCode or a Claude session,
+ * or one of the app's own pages. The app opens straight into it again, so
+ * leaving it in the CAD room and coming back to it does not lose the session
+ * that was being read.
+ */
+export type LastView =
+  | { kind: 'chat'; id: string | null }
+  | { kind: 'room'; id: string }
+  | { kind: 'wbo'; id: string }
+  | { kind: 'wbc'; id: string }
+  | { kind: 'files' }
+  | { kind: 'settings' }
+  | { kind: 'analytics' }
+  | { kind: 'ccpool' };
+
+export async function lastView(key: string): Promise<LastView | null> {
+  const all = await readJson<Record<string, LastView>>(LAST_VIEW, {});
+  const got = all[key];
+  if (!got || typeof got !== 'object') return null;
+  const id = (got as { id?: unknown }).id;
+  const kind = (got as { kind?: unknown }).kind;
+  if (kind === 'chat') return { kind: 'chat', id: typeof id === 'string' ? id : null };
+  if (kind === 'room' || kind === 'wbo' || kind === 'wbc') {
+    return typeof id === 'string' && id ? { kind, id } : null;
+  }
+  if (kind === 'files') return { kind: 'files' };
+  if (kind === 'settings') return { kind: 'settings' };
+  if (kind === 'analytics') return { kind: 'analytics' };
+  if (kind === 'ccpool') return { kind: 'ccpool' };
+  return null;
+}
+
+export async function setLastView(key: string, view: LastView): Promise<void> {
+  const all = await readJson<Record<string, LastView>>(LAST_VIEW, {});
+  all[key] = view;
+  await writeJson(LAST_VIEW, all);
+}
+
 const ROOM_SEEN = 'workbench.roomSeen';
 
 /** When each room was last read here, on `server`, keyed by the room's own name. */

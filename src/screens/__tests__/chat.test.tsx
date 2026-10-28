@@ -141,17 +141,18 @@ describe('lines', () => {
     mockClient.getChat.mockResolvedValue(chat);
   });
 
-  it('shows the tools an answer ran where they ran, each opening to what it found', async () => {
+  it('puts the tools an answer ran behind one line, each opening to what it found', async () => {
     await render(<ChatScreen initial={withAnswer} lang="auto" />);
+    // Folded: neither the rows nor what they found is out.
+    expect(screen.queryByText('Reading Sensor board')).toBeNull();
+    await fireEvent.press(screen.getByTestId('compact-work'));
     expect(screen.getByText('Reading Sensor board')).toBeTruthy();
     expect(screen.getByText('Looking up FB2')).toBeTruthy();
-    expect(screen.queryByText('42 parts')).toBeNull();
-    await fireEvent.press(screen.getByTestId('step-s1'));
+    // Opened, each row is out with what it found.
     expect(screen.getByText('42 parts')).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('step-s2'));
     expect(screen.getByText('offline')).toBeTruthy();
-    // The model's name, short, above the answer.
-    expect(screen.getByText('claude-sonnet-4.5')).toBeTruthy();
+    // The model's name is the web's detailed view: it is not over the answer here.
+    expect(screen.queryByText('claude-sonnet-4.5')).toBeNull();
   });
 
   it('copies a code block, and a whole line from its long-press menu', async () => {

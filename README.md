@@ -259,17 +259,23 @@ Then you sign in with the same e-mail address and password as on the web.
   "Answer it on the computer". When the real ask arrives it takes its place;
   once answered on the computer the card shows the choice, read from the
   tool's output.
-- **How much of an answer shows** (from 1.6.6): Settings > Chat's three
-  stops, as the web app keeps them (its `chat-detail.ts`; here
-  `lib/chatDetail.ts`). **Compact** puts everything an answer did - its
-  thinking and the tools it ran - behind one line under it ("4 tool calls ·
-  thought 8.9 s"), opened by a tap; **Normal**, the default, folds the
-  thinking and gives each tool call a row of its own; **Detailed** opens the
-  thinking and what every tool call read and returned. The same in the
-  Chat's answers and in an OpenCode session's, being written or finished.
-  Kept per person on the server (`chat.detail` in `GET /api/me/side`,
-  `PUT /api/me/side/chat`), so the phone and a browser draw the same; a
-  server that does not know it answers normal. English and Turkish.
+- **Sade satırlar** (1.6.9): the app draws a conversation the way the web's
+  simple view does, and everything an answer did - its thinking and the tools
+  it ran - sits behind one line above it ("4 tool calls · thought 8.9 s"),
+  opened by a tap. No model name over an answer, no figures under it, no
+  bubble and no name over a person's own line: the person's words are their
+  own, on the right. The same in the Chat, in a room's thread, in an OpenCode
+  session and in a Claude one, being written or finished. Settings > Chat's
+  three stops (`lib/chatDetail.ts`) still set what the web draws - there is
+  room for it there - and the phone, with less of it, draws the simple view at
+  every stop. The line's words are the app's own language.
+- **It opens where it was left** (1.6.9): the room, the OpenCode or Claude
+  session, the conversation or the page (Files, Settings, Analytics) open on
+  that account when the app was last left is what the app opens into, instead
+  of a new conversation (`prefs.lastView`, kept on the phone per account, beside the
+  conversation last open - `lastChat` - which still comes back under it). An
+  id the server no longer has shows itself as empty and its X closes it; the
+  app is never stuck on one.
 - **Folds and pins** (from 1.6.1): the Claude and OpenCode groups fold and
   open by their header (a chevron; folded, the count and a live dot), and a
   long press on a session offers Open and Pin / Unpin. Pinned sessions come
