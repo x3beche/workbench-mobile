@@ -372,10 +372,15 @@ describe('what OpenCode asks', () => {
   it('puts an open ask at the end when no message held has its tool call', () => {
     const asks = [
       ask({ part: 'call_x' }),
-      ask({ id: 'frm_bbbbbbbb', part: 'call_y', status: 'answered', settled_at: 1 }),
+      ask({ id: 'frm_bbbbbbbb', part: 'call_y', status: 'answered', settled_at: 5 }),
     ];
-    expect(looseAsks(asks, [], 10_000).map((a) => a.id)).toEqual(['frm_aaaaaaaa']);
-    expect(looseAsks(asks, [msg('m', 'assistant', { parts: [{ id: 'call_x', type: 'tool' }] })], 10_000)).toEqual([]);
+    // an answered card stays while it is the last thing in the room (nothing written after it) ...
+    expect(looseAsks(asks, []).map((a) => a.id)).toEqual(['frm_aaaaaaaa', 'frm_bbbbbbbb']);
+    // ... and the next message retires it, wherever the answer sat
+    expect(looseAsks(asks, [msg('m', 'assistant', { time: 9000, done: 9500 })]).map((a) => a.id)).toEqual(['frm_aaaaaaaa']);
+    expect(looseAsks(asks, [msg('m', 'assistant')]).map((a) => a.id)).toEqual(['frm_aaaaaaaa', 'frm_bbbbbbbb']);
+    // the ask whose call the message holds is no longer loose; the other one still is
+    expect(looseAsks(asks, [msg('m', 'assistant', { parts: [{ id: 'call_x', type: 'tool' }] })]).map((a) => a.id)).toEqual(['frm_bbbbbbbb']);
     expect(putAsk(detail({ bridge: null, status: 'ended' }), ask()).status).toBe('ended');
   });
 

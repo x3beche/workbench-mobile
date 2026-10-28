@@ -281,14 +281,19 @@ export function pendingSends(sends: WboSend[], msgs: WboMsg[], now = Date.now() 
   );
 }
 
-/** What OpenCode asks whose tool call is in no message held: the open ones and those settled in the last hour. */
-export function looseAsks(asks: WboAsk[], msgs: WboMsg[], now = Date.now() / 1000): WboAsk[] {
+/** What OpenCode asks whose tool call is in no message held: the open ones, and the one just answered - and
+ *  that one only while it is still the last thing in the conversation. A card that outlived the answer it
+ *  carries reads like a question still waiting; once OpenCode writes past it, the transcript holds the
+ *  record and the card goes. (A timed span was wrong the other way: an hour of "answered" sitting under a
+ *  conversation that had long moved on.) */
+export function looseAsks(asks: WboAsk[], msgs: WboMsg[]): WboAsk[] {
   const parts = new Set(msgs.flatMap((m) => m.parts.map((p) => p.id)));
-  const hour = now - 3600;
+  // a message's own time is milliseconds; an ask's are seconds
+  const newest = msgs.reduce((t, m) => Math.max(t, (m.time ?? 0) / 1000, (m.done ?? 0) / 1000), 0);
   return asks.filter(
     (a) =>
       (!a.part || !parts.has(a.part)) &&
-      (a.status === 'pending' || a.status === 'answering' || (a.settled_at ?? 0) > hour),
+      (a.status === 'pending' || a.status === 'answering' || (a.settled_at ?? a.at ?? 0) > newest),
   );
 }
 
