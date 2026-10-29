@@ -400,7 +400,11 @@ export function DrawerPanel({
                   style={s.tab}
                 >
                   {({ pressed }) => (
-                    <Text style={[s.tabText, on && s.tabOn, pressed && !on && s.tabPressed]} numberOfLines={1}>
+                    <Text
+                      style={[s.tabText, on && s.tabOn, pressed && !on && s.tabPressed]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {t.label}
                     </Text>
                   )}
@@ -829,8 +833,9 @@ const s = StyleSheet.create({
     minHeight: 36,
     paddingHorizontal: gutter,
   },
-  tabs: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  tab: { paddingVertical: 8 },
+  // A narrow phone: the tabs give way (a label ends in an ellipsis), Select never does.
+  tabs: { flex: 1, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  tab: { minWidth: 0, flexShrink: 1, paddingVertical: 8 },
   tabText: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.inkDim },
   tabOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
   tabPressed: { color: colors.ink },
