@@ -52,11 +52,69 @@ const WEB = {
 const TEXT_LINE = 1.45;
 const FIG_LINE = 1.28;
 /**
- * The room the widest figure row asks for - "9,212" + "this week" + "33 tools"
- * with the gaps between them, measured in the platform's own faces (Roboto and
- * Roboto Mono, not the web's IBM Plex) at the card's own scale of 1.
+ * How wide each character is in the platform's sans face (Roboto), in ems, at
+ * 400 and at 600 - read off the font itself, glyph by glyph, for every letter
+ * the card's words and figures can have in English and Turkish. The monospace
+ * face needs no table: each of its glyphs, at any weight, is 0.6em.
  */
-const FIG_ROW = 142.3;
+const GLYPHS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ,./%·çğıöşüÇĞİÖŞÜ–-';
+const SANS: Record<400 | 600, number[]> = {
+  400: [
+    544, 562, 523, 564, 530, 348, 562, 551, 243, 239, 507, 243, 877, 552, 570, 562, 568, 339, 516, 327, 551, 484, 751,
+    496, 473, 496, 652, 623, 651, 656, 568, 553, 681, 713, 272, 552, 627, 539, 873, 713, 688, 631, 688, 616, 594, 597,
+    648, 637, 887, 627, 601, 599, 562, 562, 562, 562, 562, 562, 562, 562, 562, 562, 248, 197, 264, 413, 732, 261, 523,
+    550, 248, 570, 493, 551, 651, 765, 278, 688, 667, 648, 656, 276,
+  ],
+  600: [
+    537, 563, 521, 563, 538, 355, 569, 558, 260, 255, 528, 260, 869, 559, 566, 563, 565, 360, 514, 336, 558, 501, 738,
+    506, 497, 506, 667, 635, 654, 651, 564, 550, 682, 708, 288, 557, 634, 541, 875, 708, 689, 642, 689, 635, 610, 615,
+    657, 649, 878, 633, 615, 605, 571, 571, 571, 571, 571, 571, 571, 571, 571, 571, 249, 235, 284, 380, 738, 292, 521,
+    550, 267, 566, 493, 558, 654, 765, 278, 689, 667, 657, 636, 367,
+  ],
+};
+
+/** A line's width in ems: the sans face by its table (an unknown letter counted wide), the monospace one at 0.6 each. */
+function ems(text: string, face: 'sans' | 'mono', weight: 400 | 600 = 400): number {
+  if (face === 'mono') return [...text].length * 0.6;
+  let w = 0;
+  for (const ch of text) {
+    const at = GLYPHS.indexOf(ch);
+    w += at < 0 ? 0.7 : SANS[weight][at] / 1000;
+  }
+  return w;
+}
+
+/** What one half writes: its head and its figures row, the text the drawing is sized to. */
+interface HalfText {
+  title: string;
+  /** The head's right: a word in the sans face, or the monospace "88/298". */
+  headRight?: { text: string; mono: boolean };
+  big: string;
+  unit: string;
+  value: string;
+  word: string;
+}
+
+/**
+ * The room a half's widest line asks for at the card's scale of 1: the head
+ * (icon, name, what it says at the right, chevron, and the gaps between them
+ * and the spring) and the figures row (the big figure, its word, the spring
+ * and the small figure with its word), in the web's sizes.
+ */
+function widest(halves: HalfText[]): number {
+  let most = 0;
+  for (const x of halves) {
+    const right = x.headRight ? ems(x.headRight.text, x.headRight.mono ? 'mono' : 'sans') * (x.headRight.mono ? WEB.aside : WEB.head) : 0;
+    const head = WEB.icon + ems(x.title, 'sans', 600) * WEB.head + right + WEB.chev + (x.headRight ? 4 : 3) * WEB.headGap;
+    const fig =
+      ems(x.big, 'mono') * WEB.fig +
+      ems(x.unit, 'sans') * WEB.aside +
+      (ems(x.value, 'mono') + 0.6 + ems(x.word, 'mono')) * WEB.aside +
+      3 * WEB.gap;
+    most = Math.max(most, head, fig);
+  }
+  return most;
+}
 
 /** The theme's colours are strings; the widget's own type wants a `#` or an `rgba()`. */
 const paint = (colour: string) => colour as ColorProp;
@@ -111,17 +169,19 @@ interface Metrics {
   figGap: number;
 }
 
-function metrics(w: number, h: number): Metrics {
+function metrics(w: number, h: number, room: number): Metrics {
   const pad = 6; // the web's `.ccl-wrap` margin round the card, now the plate's
   // A half's room inside the plate and the card's own borders.
   const half = (w - 2 * pad - 2) / 2;
   /**
-   * The card is the web's, enlarged only as far as its widest line still fits:
-   * a little under 1 at the width the web card itself has (where the web clips
-   * that line and this does not), 1 at 344dp, 1.15 in a 5x2 cell of 390 - so a
-   * bigger frame gets a bigger card rather than the web's 11px in a wide hole.
+   * The card is the web's, enlarged only as far as its widest line - `room`,
+   * worked out from the words and figures it is about to write - still fits:
+   * for "9212 this week 33 tools" a little under 1 at the width the web card
+   * itself has (where the web clips that line and this does not), 1 at 344dp,
+   * 1.15 in a 5x2 cell of 390 - so a bigger frame gets a bigger card rather than
+   * the web's 11px in a wide hole, and a longer figure a slightly smaller one.
    */
-  const k = Math.max(0.75, Math.min(1.4, (half - 4) / (FIG_ROW + 2 * WEB.pad)));
+  const k = Math.max(0.75, Math.min(1.4, (half - 4) / (room + 2 * WEB.pad)));
   const of = (v: number) => Math.round(v * k * 10) / 10;
   const cardPad = Math.round(WEB.pad * k * 10) / 10;
   const gap = Math.round(WEB.gap * k * 10) / 10;
@@ -377,7 +437,26 @@ export function StatsWidget({
   h: number;
   t: SettingsStrings;
 }) {
-  const m = metrics(w, h);
+  // The text each half writes, worked out once: the drawing below writes it and
+  // `widest` sizes the card to it.
+  const models: HalfText = {
+    title: t.models,
+    headRight: { text: t.period.month, mono: false },
+    big: snap ? figure(snap.models.tokens) : '',
+    unit: 'tok',
+    value: snap ? count(snap.models.calls) : '',
+    word: t.calls,
+  };
+  const tools: HalfText = {
+    title: t.tools,
+    // The web head's "88/298" - the tools that are on, out of all of them.
+    headRight: snap?.tools.total ? { text: `${snap.tools.on}/${count(snap.tools.total)}`, mono: true } : undefined,
+    big: snap ? (snap.tools.week >= 1e4 ? figure(snap.tools.week) : String(snap.tools.week)) : '',
+    unit: t.period.week,
+    value: snap ? count(snap.tools.kinds) : '',
+    word: t.toolWord(snap?.tools.kinds ?? 0),
+  };
+  const m = metrics(w, h, widest(snap ? [models, tools] : [{ ...models, big: '', unit: '', value: '', word: '' }]));
   // One sentence for a screen reader: the widget itself is a picture to it.
   const label = snap
     ? `${t.models}, ${t.period.month}: ${compact(snap.models.tokens)} tok, ${count(snap.models.calls)} ${t.calls}. ${t.tools}, ${t.period.week}: ${count(snap.tools.week)}, ${t.toolCount(snap.tools.kinds)}.`
@@ -426,7 +505,7 @@ export function StatsWidget({
       <FlexWidget style={card}>
         <Half
           icon={glyph(MODELS_ICON, colors.inkDim)}
-          title={t.models}
+          title={models.title}
           headRight={
             <TextWidget
               text={t.period.month}
@@ -434,9 +513,9 @@ export function StatsWidget({
               style={{ fontSize: m.headFont, lineHeight: m.headLine, color: paint(colors.inkDim) }}
             />
           }
-          big={figure(snap.models.tokens)}
-          unit="tok"
-          figRight={<Figure value={count(snap.models.calls)} word={t.calls} m={m} line={m.figLine} />}
+          big={models.big}
+          unit={models.unit}
+          figRight={<Figure value={models.value} word={models.word} m={m} line={m.figLine} />}
           days={snap.models.days}
           palette={SERIES}
           width={m.innerLeft}
@@ -446,16 +525,15 @@ export function StatsWidget({
 
         <Half
           icon={glyph(WRENCH_ICON, colors.inkDim)}
-          title={t.tools}
+          title={tools.title}
           headRight={
-            // The web head's "88/298" - the tools that are on, out of all of them.
             snap.tools.total ? (
               <Figure value={String(snap.tools.on)} word={`/${count(snap.tools.total)}`} m={m} line={m.smallLine} tight />
             ) : null
           }
-          big={snap.tools.week >= 1e4 ? figure(snap.tools.week) : String(snap.tools.week)}
-          unit={t.period.week}
-          figRight={<Figure value={count(snap.tools.kinds)} word={t.toolWord(snap.tools.kinds)} m={m} line={m.figLine} />}
+          big={tools.big}
+          unit={tools.unit}
+          figRight={<Figure value={tools.value} word={tools.word} m={m} line={m.figLine} />}
           days={snap.tools.days}
           palette={TOOL_COLORS}
           width={m.innerRight}

@@ -103,11 +103,16 @@ Then you sign in with the same e-mail address and password as on the web.
   guessed: an 11px head over 15px figures and 10.5px asides, 9px padding on
   a phone, gaps of 4, the plate at radius 14 and the card at 5. Those are the
   web's numbers at the width the web card has, and one factor - the room its
-  widest line, "9,212 this week 33 tools", leaves - multiplies all of them at
-  once (1.9.2). A little under 1 at 320, the width the web card itself has,
-  where the web clips that line and the widget does not; 1 at 344 and 1.15 in
-  a 5x2 cell of 390, so a bigger frame gets a bigger card instead of 11px left
-  small in it. Only the chart takes the height the cell has left, so a cell of
+  widest line leaves - multiplies all of them at once (1.9.2). That line is
+  worked out from the very words and figures the widget is about to write
+  (1.9.3), glyph by glyph from Roboto's and Roboto Mono's own advances, in
+  English or Turkish: "9212 this week 33 tools" gives a little under 1 at
+  320, the width the web card itself has, where the web clips that line and
+  the widget does not, 1 at 344 and 1.15 in a 5x2 cell of 390, so a bigger
+  frame gets a bigger card instead of 11px left small in it; a week past
+  10,000 ("10.00k", "99.99k"), "999.9M" tokens, "12,350" calls or "100
+  tools" make it a step smaller instead of running off the edge. The figures
+  are written as the web writes them - k and B with two decimals, M with one. Only the chart takes the height the cell has left, so a cell of
   320x110 and one of 390x200 both read and neither leaves a band of nothing;
   a narrower cell shrinks the type to fit rather than spilling. It
   says the web card's own words, piece for piece - the figures with their
