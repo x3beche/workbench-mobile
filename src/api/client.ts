@@ -103,6 +103,9 @@ export function errorMessage(status: number, body: string): string {
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
+/** What a request answered, as much of a Response as reading it needs (fetch's, or XMLHttpRequest's in sendFile). */
+type Answer = Pick<Response, 'ok' | 'status' | 'text'>;
+
 export interface ClientDeps {
   fetch?: FetchLike;
   createXhr?: () => XhrLike;
@@ -241,7 +244,7 @@ export class WorkbenchClient {
     return { data: await this.read<T>(res, path), headers: res.headers ?? null };
   }
 
-  private async read<T>(res: Response, path: string): Promise<T> {
+  private async read<T>(res: Answer, path: string): Promise<T> {
     const text = await res.text();
     if (!res.ok) {
       // The live streams' token is not the session: its trouble never signs anyone out (the session's own 401 does).
@@ -696,11 +699,8 @@ export class WorkbenchClient {
       // React Native's FormData takes a {uri, name, type} part for a file on disk.
       else form.append('images', { uri: p.uri, name: p.name, type: p.type } as unknown as Blob);
     }
-    const res = await this.send(
-      path,
-      { method: 'POST', body: form, headers: { Accept: 'application/json', [CSRF_HEADER]: '1' } },
-      UPLOAD_TIMEOUT_MS,
-    );
+    const res = await this.sendForm(path, form, pictures.some(p => !('blob' in p)),
+      { Accept: 'application/json', [CSRF_HEADER]: '1' }, UPLOAD_TIMEOUT_MS);
     return this.read<T>(res, path);
   }
 
@@ -875,12 +875,8 @@ export class WorkbenchClient {
     form.append('context', JSON.stringify({ room: 'files' }));
     form.append('note', '');
     form.append('folder', folder);
-    const res = await this.send(
-      '/api/files',
-      { method: 'POST', body: form, headers: { [CSRF_HEADER]: '1' } },
-      UPLOAD_TIMEOUT_MS,
-      signal,
-    );
+    const res = await this.sendForm('/api/files', form, parts.some(p => !('blob' in p)),
+      { [CSRF_HEADER]: '1' }, UPLOAD_TIMEOUT_MS, signal);
     return this.read<StoredFile[]>(res, '/api/files');
   }
 
@@ -967,6 +963,44 @@ export class WorkbenchClient {
   }
 
   /** A raw request with the session, the timeout and the app's own errors - for answers that are not JSON. */
+  /**
+   * A form with a file on the phone in it ({uri, name, type} parts), sent with
+   * XMLHttpRequest: Expo's fetch (installed as the global one) does not take
+   * such parts - it fails before anything is sent ("could not be reached") -
+   * while React Native's own networking, under XMLHttpRequest, streams the file.
+   */
+  private sendFile(path: string, form: FormData, headers: Record<string, string>, timeoutMs: number,
+                   signal?: AbortSignal): Promise<Answer> {
+    return new Promise((resolve, reject) => {
+      const xhr = (this.deps.createXhr ? this.deps.createXhr() : new XMLHttpRequest()) as unknown as XhrLike;
+      let done = false;
+      const fail = (why: string) => { if (!done) { done = true; clearTimeout(timer); reject(new ApiError(0, why)); } };
+      const timer = setTimeout(() => { xhr.abort(); fail('The server took too long to answer.'); }, timeoutMs);
+      const stop = () => { xhr.abort(); fail('Stopped.'); };
+      if (signal) { if (signal.aborted) { stop(); return; } signal.addEventListener('abort', stop); }
+      xhr.open('POST', this.url(path));
+      xhr.withCredentials = true;
+      for (const [k, v] of Object.entries({ ...headers, ...this.auth() })) xhr.setRequestHeader(k, v);
+      xhr.onerror = () => fail('The server could not be reached.');
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState !== 4 || done || xhr.status === 0) return;
+        done = true;
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', stop);
+        const status = xhr.status, body = xhr.responseText ?? '';
+        resolve({ ok: status >= 200 && status < 300, status, text: async () => body });
+      };
+      (xhr as unknown as { send(b: unknown): void }).send(form);
+    });
+  }
+
+  /** A form, by XMLHttpRequest when it holds a file on the phone (sendFile), else by fetch. */
+  private sendForm(path: string, form: FormData, hasFile: boolean, headers: Record<string, string>,
+                   timeoutMs: number, signal?: AbortSignal): Promise<Answer> {
+    if (hasFile && !this.deps.fetch) return this.sendFile(path, form, headers, timeoutMs, signal);
+    return this.send(path, { method: 'POST', body: form, headers }, timeoutMs, signal);
+  }
+
   private async send(path: string, init: RequestInit, timeoutMs = TIMEOUT_MS, signal?: AbortSignal): Promise<Response> {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), timeoutMs);
@@ -1009,21 +1043,13 @@ export class WorkbenchClient {
     else form.append('audio', { uri: file.uri, name: file.name, type: file.type } as unknown as Blob);
     form.append('lang', lang);
     form.append('purpose', purpose);
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), UPLOAD_TIMEOUT_MS);
-    let res: Response;
+    let res: Answer;
     try {
-      res = await this.fetchImpl(this.url('/api/voice/transcribe'), {
-        method: 'POST',
-        headers: { Accept: 'application/json', [CSRF_HEADER]: '1', ...this.auth() },
-        body: form,
-        credentials: 'include',
-        signal: ctl.signal,
-      });
-    } catch {
-      throw new ApiError(0, ctl.signal.aborted ? 'Transcribing took too long.' : 'The server could not be reached.');
-    } finally {
-      clearTimeout(timer);
+      res = await this.sendForm('/api/voice/transcribe', form, !('blob' in file),
+        { Accept: 'application/json', [CSRF_HEADER]: '1' }, UPLOAD_TIMEOUT_MS);
+    } catch (e) {
+      const m = e instanceof ApiError ? e.message : '';
+      throw new ApiError(0, m === 'The server took too long to answer.' ? 'Transcribing took too long.' : 'The server could not be reached.');
     }
     if (res.status === 404) {
       throw new ApiError(404, 'This server cannot transcribe voice yet (no /api/voice/transcribe).');

@@ -310,3 +310,40 @@ describe('WorkbenchClient.transcribe', () => {
     });
   });
 });
+
+describe('a form with a file on the phone', () => {
+  // Expo's fetch (the global one) refuses {uri, name, type} parts before sending
+  // anything; such forms go by XMLHttpRequest, which React Native streams from disk.
+  it('sends pictures by XMLHttpRequest with the session and reads the answer', async () => {
+    const xhr = new FakeXhr();
+    const c = new WorkbenchClient(BASE, { createXhr: () => xhr, session: 'sess-1' });
+    const p = c.wbcSend('s1', 'look', [{ uri: 'file:///cache/a.jpg', name: 'a.jpg', type: 'image/jpeg' }]);
+    expect(xhr.method).toBe('POST');
+    expect(xhr.url).toBe(`${BASE}/api/wbc/sessions/s1/messages`);
+    expect(xhr.headers[CSRF_HEADER]).toBe('1');
+    expect(xhr.headers['Content-Type']).toBeUndefined();
+    expect(Object.values(xhr.headers)).toContain('sess-1');
+    expect(xhr.body).toBeInstanceOf(FormData);
+    xhr.status = 202;
+    xhr.responseText = '{"id":"m1","status":"queued"}';
+    xhr.readyState = 4;
+    xhr.onreadystatechange?.call(xhr, {});
+    await expect(p).resolves.toMatchObject({ id: 'm1', status: 'queued' });
+  });
+
+  it('says the server could not be reached when the request fails, and passes a 413 on', async () => {
+    const xhr = new FakeXhr();
+    const c = new WorkbenchClient(BASE, { createXhr: () => xhr });
+    const p = c.wboSend('o1', '', [{ uri: 'file:///cache/b.png', name: 'b.png', type: 'image/png' }]);
+    xhr.onerror?.call(xhr, {});
+    await expect(p).rejects.toMatchObject({ status: 0, message: 'The server could not be reached.' });
+    const xhr2 = new FakeXhr();
+    const c2 = new WorkbenchClient(BASE, { createXhr: () => xhr2 });
+    const p2 = c2.wboSend('o1', '', [{ uri: 'file:///cache/b.png', name: 'b.png', type: 'image/png' }]);
+    xhr2.status = 413;
+    xhr2.responseText = '{"detail":"a picture is at most 5 MB"}';
+    xhr2.readyState = 4;
+    xhr2.onreadystatechange?.call(xhr2, {});
+    await expect(p2).rejects.toMatchObject({ status: 413 });
+  });
+});
