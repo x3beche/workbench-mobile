@@ -1,10 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
-import { BackHandler } from 'react-native';
+import { BackHandler, StyleSheet } from 'react-native';
 
 import type { Chat, ChatScope, Ideas, Room } from '../../api/types';
 import { ApiError } from '../../api/client';
 import * as share from '../../lib/share';
+import { motion } from '../../theme/tokens';
 import { STARTERS, suggestionsFrom, Workspace } from '../Workspace';
 
 jest.mock(
@@ -252,6 +253,23 @@ describe('workspace', () => {
     // (The open panel is modal to screen readers, so the dimmed side is hidden from them.)
     await fireEvent.press(screen.getByTestId('drawer-scrim', { includeHiddenElements: true }));
     expect(drawerOpen()).toBe(false);
+  });
+
+  it('takes the shut drawer out of the layout, so a keyboard cannot land in it', async () => {
+    await start();
+    const overlay = () => screen.getByTestId('drawer-overlay', { includeHiddenElements: true });
+    const gone = () => Boolean(StyleSheet.flatten(overlay().props.style)?.display === 'none');
+    // A drawer that is only slid aside still holds every Tab stop on the web: the search
+    // field, forty rows, the account - and the conversation behind it cannot be reached.
+    expect(gone()).toBe(true);
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    expect(gone()).toBe(false);
+    await fireEvent.press(screen.getByTestId('drawer-scrim', { includeHiddenElements: true }));
+    // It leaves once it has finished sliding, not through the middle of the slide.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, motion.drawer + 120));
+    });
+    expect(gone()).toBe(true);
   });
 
   it('opens a conversation from the drawer, and Back closes the drawer, then goes back, then leaves', async () => {

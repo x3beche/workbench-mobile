@@ -58,11 +58,14 @@ export interface CcpoolStrings {
   refresh: string;
   /** The way back out, said by the arrow: not the title again. */
   back: string;
+  /** The row in Settings under the section of the same name: what it shows, not its name again. */
+  usage: string;
 }
 
 const en: CcpoolStrings = {
   title: 'Claude pool',
   back: 'Back',
+  usage: 'Usage',
   about: "who may use this server's Claude account",
   subscription: 'Subscription usage',
   sharedPlan: "the server's Claude plan, shared by every key",
@@ -116,6 +119,7 @@ const en: CcpoolStrings = {
 
 const tr: CcpoolStrings = {
   back: 'Geri',
+  usage: 'Kullanım',
   title: 'Claude havuzu',
   about: 'bu sunucunun Claude hesabını kimler kullanabilir',
   subscription: 'Abonelik kullanımı',

@@ -253,7 +253,8 @@ export function SettingsScreen({
                   <Glyph icon={KeyRound} size={20} color={colors.ink} />
                 </View>
                 <View style={s.flex}>
-                  <Text style={s.name}>{pt.title}</Text>
+                  {/* The block is already 'Claude pool': the row says what it shows. */}
+                  <Text style={s.name}>{pt.usage}</Text>
                   <Text style={s.dim} numberOfLines={1}>
                     {poolLine}
                   </Text>

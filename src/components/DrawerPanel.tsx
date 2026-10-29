@@ -872,6 +872,10 @@ const s = StyleSheet.create({
     gap: 2,
     minHeight: 36,
     paddingHorizontal: gutter,
+    // The list runs under this row: a hairline, so a row cut off at the top
+    // reads as scrolled rather than as broken.
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
   },
   // A narrow phone: the tabs give way (a label ends in an ellipsis), Select never does.
   tabs: { flex: 1, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },

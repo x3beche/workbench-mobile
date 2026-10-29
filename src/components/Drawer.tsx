@@ -12,7 +12,7 @@
  * On a wide screen (`wide`) the panel is a side column that stays open.
  * A row that opens on a swipe (SwipeRow) takes the swipe to the left first.
  */
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Reanimated, {
@@ -115,6 +115,20 @@ export function Drawer({
   }));
   const dimStyle = useAnimatedStyle(() => ({ opacity: p.value * 0.8 }));
 
+  // A shut drawer is out of the finger's way, and out of the keyboard's: on the
+  // web a panel that is only slid aside still takes every Tab stop (the search
+  // field, forty rows, the account), so the conversation behind it cannot be
+  // reached at all. Once it has finished sliding it leaves the layout, and comes
+  // back for the slide in.
+  // Where the slide has settled: shut, and the panel is out of the layout; open,
+  // and it is back in it (nothing is drawn through the middle of the slide).
+  const [settled, setSettled] = useState(open);
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(open), open || reduce ? 0 : motion.drawer + 80);
+    return () => clearTimeout(t);
+  }, [open, reduce]);
+  const gone = !open && !settled;
+
   if (wide) {
     return (
       <View style={s.row}>
@@ -136,7 +150,11 @@ export function Drawer({
         </GestureDetector>
       </DrawerPull.Provider>
       <GestureDetector gesture={gestures.push}>
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        <View
+          style={[StyleSheet.absoluteFill, gone && s.gone]}
+          pointerEvents="box-none"
+          testID="drawer-overlay"
+        >
           <Reanimated.View style={[StyleSheet.absoluteFill, s.dim, dimStyle]} pointerEvents={open ? 'auto' : 'none'}>
             <Pressable
               style={s.flex}
@@ -170,6 +188,7 @@ const s = StyleSheet.create({
   row: { flex: 1, flexDirection: 'row' },
   column: { borderRightWidth: 1, borderRightColor: colors.line, backgroundColor: colors.surface },
   dim: { backgroundColor: colors.scrim },
+  gone: { display: 'none' },
   panel: {
     position: 'absolute',
     top: 0,
