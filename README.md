@@ -94,7 +94,7 @@ Then you sign in with the same e-mail address and password as on the web.
 - **The figures, on the home screen** (1.9.0, Android): the Chat tab's two
   cards - the models' month and the tools' week, each with its last 14 days
   - as a widget of five cells by two, split by a hairline and sitting on a
-  light grey plate. It is the same reading the Analytics screen makes,
+  mid grey plate. It is the same reading the Analytics screen makes,
   counted the same way, so the numbers agree with the screen to the call;
   the screen hands the widget each reading as it takes one, and Android
   redraws it on its own every thirty minutes. A phone with no network at

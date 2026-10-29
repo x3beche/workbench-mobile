@@ -1,6 +1,6 @@
 /**
  * The home screen widget: the web Chat tab's two cards - the models' month and
- * the tools' week, each with its last 14 days - on a light grey plate, split by
+ * the tools' week, each with its last 14 days - on a mid grey plate, split by
  * a hairline. It is the web's own drawing (cc-usage.ts CcUsageLine beside
  * cc-tools.ts CcToolsLine), piece for piece: the head with its icon, its name,
  * what it says at the right and a chevron; the figures row, the big figure in

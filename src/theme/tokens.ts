@@ -276,12 +276,13 @@ export const radius = {
 export const paper = '#ffffff';
 
 /**
- * The home screen widget's ground: a light grey plate the two cards sit on.
- * It is the one colour in the app that is no theme's - the widget is laid over
- * the wallpaper, and a plate reads as a widget there where a dark rectangle
- * reads as a hole. The cards on it stay the theme's, so their words do.
+ * The home screen widget's ground: a mid grey plate the two cards sit on (the
+ * user, 2026-10-29: grey, not the light one that read as white). It is the one
+ * colour in the app that is no theme's - the widget is laid over the
+ * wallpaper, and a plate reads as a widget there where a black rectangle reads
+ * as a hole. The cards on it stay the theme's, so their words do.
  */
-export const widgetGround = '#c9cacf';
+export const widgetGround = '#45464c';
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 
