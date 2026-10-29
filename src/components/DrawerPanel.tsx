@@ -1,10 +1,12 @@
 /**
  * What the drawer holds: search and New chat at the top, then the workspace's
- * rooms (3D Drawing, PCB Design, Firmware) with their last line, then Chats,
- * Archived and Trash as three tabs over the conversations (by day, one line
- * each, the open one in heavier, brighter ink). A swipe to the left on a
- * row shows its buttons (Archive and Delete; Unarchive; Restore and Delete
- * forever in the trash). At the bottom: Files, and the account, which opens
+ * rooms (3D Drawing, PCB Design, Firmware) with their last line, then the web's
+ * own tab row over the conversations - Conversations, Archived, Trash, small
+ * and left-aligned, with Select at its right (styles.css, .tcv-cc-tabrow) -
+ * the conversations by day, one line each, the open one in brighter ink. A
+ * swipe to the left on a row shows its buttons (Archive and Delete; Unarchive;
+ * Restore and Delete forever in the trash); Select ticks several and does it to
+ * all of them at once. At the bottom: Files, and the account, which opens
  * Account - with a dot and "Update ready: 1.5.1" when an update is ready there.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -46,25 +48,32 @@ import type { WboStrings } from '../lib/wboStrings';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
 import { Avatar } from './Avatar';
 import {
+  Archive,
+  ArchiveRestore,
   ChartColumn,
+  Check,
   ChevronRight,
   FolderOpen,
+  ListChecks,
   Network,
+  RotateCcw,
   Search,
-  SquareCode,
   SquarePen,
-  SquareTerminal,
+  Trash,
   X,
+  type LucideIcon,
 } from './icons';
 import { DrawerRow } from './DrawerRow';
 import { StateDot } from './StateDot';
 import { GroupHead, SessionGroup, type SessionRowData } from './SessionGroup';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
-import { Tabs } from './Tabs';
 import { Button, ErrorText, Glyph } from './ui';
 
+/** What Select may be asked to do with the conversations it ticks. */
+export type BulkWhat = 'archive' | 'unarchive' | 'restore' | 'delete' | 'forever';
+
 const SCOPES: { id: ChatScope; label: string }[] = [
-  { id: 'live', label: 'Chats' },
+  { id: 'live', label: 'Conversations' },
   { id: 'archived', label: 'Archived' },
   { id: 'trash', label: 'Trash' },
 ];
@@ -89,6 +98,7 @@ export function DrawerPanel({
   onScope,
   swipeActions,
   onEmptyTrash,
+  onBulk,
   onFiles,
   filesOn = false,
   rooms,
@@ -130,6 +140,8 @@ export function DrawerPanel({
   onScope?: (scope: ChatScope) => void;
   /** The buttons a swipe to the left shows on a row. */
   swipeActions?: (chat: Chat) => SwipeAction[];
+  /** Select: what is to be done with every conversation ticked, at once. */
+  onBulk?: (chats: Chat[], what: BulkWhat) => void;
   onEmptyTrash?: () => void;
   onFiles?: () => void;
   /** Files is what is open. */
@@ -171,8 +183,30 @@ export function DrawerPanel({
   const [refreshing, setRefreshing] = useState(false);
   const [focused, setFocused] = useState(false);
   const input = useRef<TextInput>(null);
+  /** Select: ticking several conversations, and the ones ticked (the web's .tcv-cc-selbar). */
+  const [picking, setPicking] = useState(false);
+  const [sel, setSel] = useState<ReadonlySet<string>>(() => new Set());
   // The server's own days once its trash was listed (X-Trash-Days), else its default.
   const trashDays = client?.chatTrashDays ?? CHAT_TRASH_DAYS;
+
+  const tick = (id: string) =>
+    setSel((now) => {
+      const next = new Set(now);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const allTicked = !!chats?.length && chats.every((c) => sel.has(c.id));
+  const pickOff = () => {
+    setPicking(false);
+    setSel(new Set());
+  };
+  const bulk = (what: BulkWhat) => {
+    const picked = (chats ?? []).filter((c) => sel.has(c.id));
+    if (!picked.length) return;
+    pickOff();
+    onBulk?.(picked, what);
+  };
 
   // Titles are searched here at once; what was said in them, by the server once typing pauses.
   useEffect(() => {
@@ -252,53 +286,150 @@ export function DrawerPanel({
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom', 'left']}>
-      <View style={s.top}>
-        <View style={[s.search, focused && s.searchFocused]}>
-          <Glyph icon={Search} size={18} color={colors.inkDim} />
-          <TextInput
-            ref={input}
-            testID="drawer-search"
-            style={s.searchInput}
-            value={q}
-            onChangeText={setQ}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            placeholder="Search"
-            placeholderTextColor={colors.inkDim}
-            selectionColor={colors.inkDim}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            accessibilityLabel="Search the conversations"
-          />
-          {q ? (
+      {picking ? (
+        // Selecting takes the search row's and New chat's place, so the list below does not move (the web's .tcv-cc-selbar).
+        <View style={s.pickBar} testID="chat-pickbar">
+          <Pressable
+            testID="chat-pick-all"
+            onPress={() => setSel(allTicked ? new Set() : new Set((chats ?? []).map((c) => c.id)))}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: allTicked }}
+            accessibilityLabel={allTicked ? 'Untick every conversation' : 'Tick every conversation'}
+            style={s.pickAll}
+          >
+            <View style={[s.pickBox, allTicked && s.pickBoxOn]}>
+              {allTicked ? <Glyph icon={Check} size={12} color={colors.inkOnAccent} /> : null}
+            </View>
+            <Text style={s.pickCount} numberOfLines={1}>
+              {sel.size} selected
+            </Text>
+          </Pressable>
+          <View style={s.pickActs}>
+            {scope === 'trash' ? (
+              <>
+                <PickAct icon={RotateCcw} label="Restore" testID="chat-bulk-restore" onPress={() => bulk('restore')} />
+                <PickAct
+                  icon={Trash}
+                  label="Delete forever"
+                  testID="chat-bulk-forever"
+                  danger
+                  onPress={() => bulk('forever')}
+                />
+              </>
+            ) : (
+              <>
+                <PickAct
+                  icon={scope === 'archived' ? ArchiveRestore : Archive}
+                  label={scope === 'archived' ? 'Unarchive' : 'Archive'}
+                  testID={scope === 'archived' ? 'chat-bulk-unarchive' : 'chat-bulk-archive'}
+                  onPress={() => bulk(scope === 'archived' ? 'unarchive' : 'archive')}
+                />
+                <PickAct icon={Trash} label="Delete" testID="chat-bulk-delete" danger onPress={() => bulk('delete')} />
+              </>
+            )}
+          </View>
+        </View>
+      ) : (
+        <>
+          <View style={s.top}>
+            <View style={[s.search, focused && s.searchFocused]}>
+              <Glyph icon={Search} size={18} color={colors.inkDim} />
+              <TextInput
+                ref={input}
+                testID="drawer-search"
+                style={s.searchInput}
+                value={q}
+                onChangeText={setQ}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                placeholder="Search"
+                placeholderTextColor={colors.inkDim}
+                selectionColor={colors.inkDim}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+                accessibilityLabel="Search the conversations"
+              />
+              {q ? (
+                <Pressable
+                  onPress={() => setQ('')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear the search"
+                  hitSlop={10}
+                  style={s.clear}
+                >
+                  <Glyph icon={X} size={16} color={colors.inkDim} />
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+          <Pressable
+            testID="new-chat"
+            onPress={onNew}
+            accessibilityRole="button"
+            accessibilityLabel="New chat"
+            style={s.newRow}
+          >
+            {({ pressed }) => (
+              <>
+                <Glyph icon={SquarePen} size={20} color={pressed ? colors.inkDim : colors.ink} />
+                <Text style={[s.newText, pressed && s.dimText]}>New chat</Text>
+              </>
+            )}
+          </Pressable>
+        </>
+      )}
+      {onScope ? (
+        // The web's tab row: small tabs at the left, Select at the right (.tcv-cc-tabrow, .tcv-cc-tabs).
+        <View style={s.tabRow}>
+          <View style={s.tabs} accessibilityRole="tablist">
+            {SCOPES.map((t) => {
+              const on = t.id === scope;
+              return (
+                <Pressable
+                  key={t.id}
+                  testID={`chat-scope-${t.id}`}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={t.label}
+                  onPress={() => {
+                    // Another scope's conversations are another list: nothing ticked carries over.
+                    setSel(new Set());
+                    onScope(t.id);
+                  }}
+                  style={s.tab}
+                >
+                  {({ pressed }) => (
+                    <Text style={[s.tabText, on && s.tabOn, pressed && !on && s.tabPressed]} numberOfLines={1}>
+                      {t.label}
+                    </Text>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+          {onBulk && chats?.length ? (
             <Pressable
-              onPress={() => setQ('')}
+              testID="chat-select"
+              onPress={() => (picking ? pickOff() : setPicking(true))}
               accessibilityRole="button"
-              accessibilityLabel="Clear the search"
-              hitSlop={10}
-              style={s.clear}
+              accessibilityState={{ selected: picking }}
+              accessibilityLabel={picking ? 'Done selecting' : 'Select several conversations'}
+              hitSlop={8}
+              style={[s.selBtn, picking && s.selBtnOn]}
             >
-              <Glyph icon={X} size={16} color={colors.inkDim} />
+              {({ pressed }) => (
+                <>
+                  <Glyph icon={ListChecks} size={13} color={picking || pressed ? colors.inkBright : colors.inkDim} />
+                  <Text style={[s.selText, picking && s.selTextOn, pressed && !picking && s.tabPressed]}>
+                    {picking ? 'Done' : 'Select'}
+                  </Text>
+                </>
+              )}
             </Pressable>
           ) : null}
         </View>
-      </View>
-      <Pressable
-        testID="new-chat"
-        onPress={onNew}
-        accessibilityRole="button"
-        accessibilityLabel="New chat"
-        style={s.newRow}
-      >
-        {({ pressed }) => (
-          <>
-            <Glyph icon={SquarePen} size={20} color={pressed ? colors.inkDim : colors.ink} />
-            <Text style={[s.newText, pressed && s.dimText]}>New chat</Text>
-          </>
-        )}
-      </Pressable>
-      {onScope ? <Tabs tabs={SCOPES} value={scope} onChange={onScope} testID="chat-scope" /> : null}
+      ) : null}
       <SectionList
         indicatorStyle="white"
         testID="drawer-list"
@@ -311,17 +442,28 @@ export function DrawerPanel({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         renderSectionHeader={({ section }) => <Text style={s.group}>{section.title}</Text>}
-        renderItem={({ item }) => (
-          <SwipeRow actions={swipeActions?.(item) ?? []} testID={`swipe-${item.id}`}>
+        renderItem={({ item }) =>
+          // Selecting, a row is a box to tick: no swipe, no opening, the actions are in the bar above.
+          picking ? (
             <Row
               chat={item}
-              on={item.id === openId && !filesOn}
+              on={false}
               trash={scope === 'trash'}
-              onPress={() => (scope === 'trash' ? onActions(item) : onOpen(item))}
-              onLongPress={() => onActions(item)}
+              check={sel.has(item.id)}
+              onPress={() => tick(item.id)}
             />
-          </SwipeRow>
-        )}
+          ) : (
+            <SwipeRow actions={swipeActions?.(item) ?? []} testID={`swipe-${item.id}`}>
+              <Row
+                chat={item}
+                on={item.id === openId && !filesOn}
+                trash={scope === 'trash'}
+                onPress={() => (scope === 'trash' ? onActions(item) : onOpen(item))}
+                onLongPress={() => onActions(item)}
+              />
+            </SwipeRow>
+          )
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -335,7 +477,7 @@ export function DrawerPanel({
           <>
             {/* The rooms lead the list, as they do on the web: the workspace's own
                 threads, above the conversations. */}
-            {!q.trim() && ((onRoom && rooms?.length) || (orchestrator && onOrchestrator)) ? (
+            {!picking && !q.trim() && ((onRoom && rooms?.length) || (orchestrator && onOrchestrator)) ? (
               <View testID="drawer-rooms">
                 <GroupHead
                   label="Rooms"
@@ -367,12 +509,11 @@ export function DrawerPanel({
                 ))}
               </View>
             ) : null}
-            {wbc && onWbc ? (
+            {!picking && wbc && onWbc ? (
               <SessionGroup
                 group="claude"
                 label={wbc.t.group}
                 rows={claude}
-                icon={SquareTerminal}
                 prefs={side}
                 selected={openWbc}
                 searching={!!q.trim()}
@@ -384,12 +525,11 @@ export function DrawerPanel({
                 prefix="wbc"
               />
             ) : null}
-            {wbo && onWbo ? (
+            {!picking && wbo && onWbo ? (
               <SessionGroup
                 group="opencode"
                 label={wbo.t.group}
                 rows={opencode}
-                icon={SquareCode}
                 prefs={side}
                 selected={openWbo}
                 searching={!!q.trim()}
@@ -406,7 +546,7 @@ export function DrawerPanel({
                 <ErrorText>{error}</ErrorText>
                 <Button label="Try again" onPress={refresh} testID="chats-retry" />
               </View>
-            ) : scope === 'trash' && chats?.length && !q.trim() && onEmptyTrash ? (
+            ) : !picking && scope === 'trash' && chats?.length && !q.trim() && onEmptyTrash ? (
               <View style={s.trashHead}>
                 <Text style={s.trashNote}>Kept {trashDays} days, then deleted for good.</Text>
                 <Button label="Empty trash" variant="danger" onPress={onEmptyTrash} testID="empty-trash" />
@@ -521,7 +661,7 @@ function RoomRow({ room, on, unread, onPress }: { room: Room; on: boolean; unrea
       {({ pressed }) => (
         <>
           <View style={s.roomIco}>
-            <Glyph icon={Icon} size={20} color={pressed ? colors.inkDim : colors.ink} />
+            <Glyph icon={Icon} size={16} color={pressed ? colors.inkDim : colors.ink} />
           </View>
           <View style={s.roomText}>
             <View style={s.roomTop}>
@@ -561,7 +701,7 @@ function OrchRow({ label, snip, on, onPress }: { label: string; snip: string; on
       {({ pressed }) => (
         <>
           <View style={s.roomIco}>
-            <Glyph icon={Network} size={20} color={pressed ? colors.inkDim : colors.ink} />
+            <Glyph icon={Network} size={16} color={pressed ? colors.inkDim : colors.ink} />
           </View>
           <View style={s.roomText}>
             <Text style={[s.title, on && s.titleOn, pressed && s.dimText]} numberOfLines={1}>
@@ -577,30 +717,69 @@ function OrchRow({ label, snip, on, onPress }: { label: string; snip: string; on
   );
 }
 
+/** One button of the selection bar: what Select does with what is ticked. */
+function PickAct({
+  icon,
+  label,
+  onPress,
+  danger,
+  testID,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onPress: () => void;
+  danger?: boolean;
+  testID: string;
+}) {
+  return (
+    <Pressable
+      testID={testID}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={s.pickAct}
+    >
+      {({ pressed }) => (
+        <Glyph icon={icon} size={18} color={danger ? colors.danger : pressed ? colors.inkDim : colors.ink} />
+      )}
+    </Pressable>
+  );
+}
+
 /** A conversation: its title and when, what was last said under it - the same
  *  row as the sessions' (DrawerRow). */
 function Row({
   chat,
   on,
   trash,
+  check,
   onPress,
   onLongPress,
 }: {
   chat: Chat;
   on: boolean;
   trash?: boolean;
+  /** Selecting several: undefined when not, else whether this one is ticked. */
+  check?: boolean;
   onPress: () => void;
-  onLongPress: () => void;
+  onLongPress?: () => void;
 }) {
   return (
     <DrawerRow
       title={chat.title}
       when={trash ? (chat.days_left == null ? '' : `${chat.days_left} d left`) : rowTime(chat, groupOf(chat))}
       sub={trash ? undefined : chatSnippet(chat)}
+      check={check}
       on={on}
       onPress={onPress}
       onLongPress={onLongPress}
-      hint={trash ? 'Restore or delete forever' : 'Swipe left, or long press, for archive, delete and more'}
+      hint={
+        check !== undefined
+          ? 'Ticks it, for the buttons above'
+          : trash
+            ? 'Restore or delete forever'
+            : 'Swipe left, or long press, for archive, delete and more'
+      }
       testID={`chat-${chat.id}`}
     />
   );
@@ -642,32 +821,83 @@ const s = StyleSheet.create({
   },
   newText: { fontFamily: fonts.sansMedium, fontSize: type.body, color: colors.ink },
   dimText: { color: colors.inkDim },
+  // The web's .tcv-cc-tabrow: small tabs at the left, Select at the right.
+  tabRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    minHeight: 36,
+    paddingHorizontal: gutter,
+  },
+  tabs: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  tab: { paddingVertical: 8 },
+  tabText: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.inkDim },
+  tabOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
+  tabPressed: { color: colors.ink },
+  // .tcv-cc-selbtn: an outlined word at the row's end, bright and bold while selecting.
+  selBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    height: 28,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 5,
+  },
+  selBtnOn: { borderColor: colors.pressed },
+  selText: { fontFamily: fonts.sans, fontSize: 12, color: colors.inkDim },
+  selTextOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
+  // .tcv-cc-selbar: where the search and New chat were, with the boxes and the buttons.
+  pickBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    minHeight: 48,
+    paddingLeft: gutter,
+    paddingRight: space.sm,
+  },
+  pickAll: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: 8 },
+  pickBox: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickBoxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  pickCount: { fontFamily: fonts.sansMedium, fontSize: 12.5, color: colors.ink },
+  pickActs: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  pickAct: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
   listPad: { paddingBottom: space.lg, flexGrow: 1 },
+  // The web's .tcv-cc-group, which the date headings and the groups' heads share.
   group: {
     paddingHorizontal: gutter,
-    paddingTop: space.lg + 2,
-    paddingBottom: space.xs + 2,
+    paddingTop: space.md,
+    paddingBottom: 3,
     fontFamily: fonts.sansMedium,
-    fontSize: type.tiny,
+    fontSize: 11.5,
     color: colors.inkDim,
   },
-  title: { flex: 1, fontFamily: fonts.sans, fontSize: 15, color: colors.ink },
+  title: { flex: 1, minWidth: 0, fontFamily: fonts.sansMedium, fontSize: 13.5, color: colors.ink },
   titleOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
-  when: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  when: { flexShrink: 0, fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
   // A room is two lines: its name and when, then the last thing said in it.
   room: {
     backgroundColor: colors.surface,
     minHeight: touch,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 8,
     paddingHorizontal: gutter,
-    paddingVertical: space.sm + 2,
+    paddingVertical: 6,
   },
-  roomIco: { width: 20, paddingTop: 2, alignItems: 'center' },
-  roomText: { flex: 1, minWidth: 0, gap: 3 },
-  roomTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  snip: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },
+  roomIco: { width: 16, paddingTop: 1, alignItems: 'center' },
+  roomText: { flex: 1, minWidth: 0, gap: 1 },
+  roomTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  snip: { fontFamily: fonts.sans, fontSize: 11.5, lineHeight: 15, color: colors.inkDim },
   badge: {
     minWidth: 20,
     height: 20,

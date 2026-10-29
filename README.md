@@ -40,6 +40,7 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/31-files-deleted.png" width="200" alt="Deleted files, kept 30 days">
 </p>
 <p>
+  <img src="docs/screenshots/05b-drawer-select.png" width="200" alt="Select: a box on every conversation, and what to do with the ticked ones at once">
   <img src="docs/screenshots/22-drawer-swipe.png" width="200" alt="A swipe to the left on a conversation: Archive and Delete">
   <img src="docs/screenshots/23-header-menu.png" width="200" alt="The conversation's menu: rename, pin, archive, export, delete">
   <img src="docs/screenshots/24-archived.png" width="200" alt="Archived conversations">
@@ -113,14 +114,19 @@ Then you sign in with the same e-mail address and password as on the web.
   left or Back puts it away. At its top: search (titles at once, what was
   said in them from the server) and New chat; then the workspace's own rooms
   - 3D Drawing, PCB Design and Firmware - each with the last thing said in
-  it and, until it is read here, how much the agent wrote since; then Chats,
-  Archived and
-  Trash as three tabs, and the conversations by Pinned, Today, Yesterday,
-  Previous 7 days and Older, one line each, the open one in heavier,
-  brighter ink (pull to refresh). A swipe to the left on a row shows
-  Archive and Delete (Unarchive in Archived; Restore and Delete forever
-  in Trash, with Empty trash above the list); Delete asks first and puts
-  the conversation in the server's trash, kept 30 days. A long press, or
+  it and, until it is read here, how much the agent wrote since; then the
+  web's own row of small tabs - Conversations, Archived, Trash - with
+  Select at its end, and the conversations by Pinned, Today, Yesterday,
+  Previous 7 days and Older, the web's own row and its sizes: the pin and
+  the live dot before the title, the time at the right in the mono face,
+  what was last said under it, the open one in brighter ink (1.7.5; pull
+  to refresh). A swipe to the left on a row shows Archive and Delete
+  (Unarchive in Archived; Restore and Delete forever in Trash, with Empty
+  trash above the list); Delete asks first and puts the conversation in the server's
+  trash, kept 30 days. Select ticks several - a box on every row, a bar in
+  the search row's place with the box for all of them, how many, and what
+  to do with them at once (Archive or Unarchive, Delete; Restore and
+  Delete forever in the trash), as on the web. A long press, or
   the "…" in a conversation's top bar, offers everything: Rename, Pin or
   Unpin, Archive, Export as Markdown or PDF, Delete. The server writes the
   export (in the document theme, kept in Files > In the app > Chat/Exports)
@@ -310,11 +316,12 @@ Then you sign in with the same e-mail address and password as on the web.
   room's question waits, accent while a room has lines not read), kept with
   the others (`folds.rooms`); a server that does not keep it yet answers 422
   and the phone keeps it, sending it once the server does. Session rows are
-  the conversations' own row: the title with the kind's small icon before it
-  (the live dot on it) and the time at the right, one plain line, with a
-  line under it only when there is news to tell - waiting for your answer,
-  starting - never for the state or the computer, which the dot and the
-  screen reader have (1.7.1). A time reads as words now, as the web writes
+  the conversations' own row: the live dot inline before the title and the
+  time at the right, one plain line, with a line under it only when there is
+  news to tell - waiting for your answer, starting - never for the state or
+  the computer, which the dot and the screen reader have (1.7.1). The
+  kind's small icon went with 1.7.5, the header over them already saying
+  which kind it is, as on the web. A time reads as words now, as the web writes
   it - "just now", "34 min ago", "1 h ago", the clock of yesterday, the day
   or date before - and a conversation says what was last said under its
   title, in one line, without the Markdown it was written in (1.7.2).

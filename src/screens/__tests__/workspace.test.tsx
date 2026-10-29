@@ -487,6 +487,41 @@ describe('workspace', () => {
     expect(await screen.findByTestId('chat-a1')).toBeTruthy();
   });
 
+  it('Select ticks several conversations and does it to all of them at once', async () => {
+    await start();
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    // The web's own row of tabs, with Select at its right.
+    expect(screen.getByText('Conversations')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('chat-select'));
+
+    // Selecting, the search and New chat give way to the bar, and a row is a box to tick.
+    expect(screen.queryByTestId('new-chat')).toBeNull();
+    await fireEvent.press(screen.getByTestId('chat-c3'));
+    await fireEvent.press(screen.getByTestId('chat-c2'));
+    expect(screen.getByText('2 selected')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('chat-bulk-archive'));
+    expect(mockClient.archive).toHaveBeenCalledWith('c3', true);
+    expect(mockClient.archive).toHaveBeenCalledWith('c2', true);
+    expect(screen.queryByTestId('chat-c3')).toBeNull();
+    expect(screen.queryByTestId('chat-c2')).toBeNull();
+    // Out of selecting, the list as it was.
+    expect(screen.getByTestId('new-chat')).toBeTruthy();
+
+    // Every row at once, then the trash's own two buttons behind their question.
+    mockTrash.push(listed('t2', 'Another scratch', 60 * 24 * 3, { deleted_at: ago(90), days_left: 28 }));
+    await fireEvent.press(screen.getByTestId('chat-scope-trash'));
+    await fireEvent.press(await screen.findByTestId('chat-select'));
+    await fireEvent.press(screen.getByTestId('chat-pick-all'));
+    expect(screen.getByText('2 selected')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('chat-bulk-forever'));
+    expect(screen.getByText('Delete 2 conversations forever?')).toBeTruthy();
+    expect(mockClient.removeForever).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('dialog-confirm'));
+    expect(mockClient.removeForever).toHaveBeenCalledWith('t1');
+    expect(mockClient.removeForever).toHaveBeenCalledWith('t2');
+    expect(await screen.findByText(/The trash is empty/)).toBeTruthy();
+  });
+
   it('shows Trash: restore, delete forever and empty the trash', async () => {
     mockTrash.push(listed('t2', 'Another scratch', 60 * 24 * 3, { deleted_at: ago(90), days_left: 28 }));
     await start();

@@ -211,6 +211,16 @@ async function connect(page, base, address) {
   await page.waitForSelector(tid('chat-c1'), { visible: true, timeout: 10000 });
   await shot(page, '05-drawer');
 
+  // Select, at the tabs' end: a box on every conversation, and the search and
+  // New chat give way to the bar of what is done with them at once.
+  await page.click(tid('chat-select'));
+  await page.waitForSelector(tid('chat-pickbar'), { visible: true, timeout: 5000 });
+  await page.click(tid('chat-c2'));
+  await sleep(300);
+  await shot(page, '05b-drawer-select');
+  await page.click(tid('chat-select'));
+  await sleep(400);
+
   // A conversation's actions - rename, pin, archive, export, delete - from the
   // top bar's "…". (A long press on a drawer row opens the same sheet, but a
   // browser cannot hold a row still; the phone's own shots are of the sheet.)
@@ -237,6 +247,14 @@ async function connect(page, base, address) {
   await page.click(tid('chat-scope-trash'));
   await page.waitForSelector(tid('empty-trash'), { visible: true, timeout: 5000 });
   await shot(page, '25-trash');
+  // Selecting in the trash: restore or delete forever, all of them at once.
+  await page.click(tid('chat-select'));
+  await page.waitForSelector(tid('chat-pickbar'), { visible: true, timeout: 5000 });
+  await page.click(tid('chat-pick-all'));
+  await sleep(300);
+  await shot(page, '25b-trash-select');
+  await page.click(tid('chat-select'));
+  await sleep(400);
   await page.click(tid('chat-scope-live'));
   // Back among the chats, which sit under the rooms and the session groups.
   await revealed(page, tid('drawer-list'), tid('chat-c1'));

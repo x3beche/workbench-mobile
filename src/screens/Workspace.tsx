@@ -35,7 +35,7 @@ import type {
 import { AgentSheet } from '../components/AgentSheet';
 import { Appear } from '../components/Appear';
 import { Drawer } from '../components/Drawer';
-import { DrawerPanel } from '../components/DrawerPanel';
+import { DrawerPanel, type BulkWhat } from '../components/DrawerPanel';
 import {
   Archive,
   ArchiveRestore,
@@ -143,7 +143,10 @@ export function Workspace({
   const history = useRef<Chat[]>([]);
   const [actions, setActions] = useState<Chat | null>(null);
   const [ask, setAsk] = useState<
-    { chat: Chat; what: 'rename' | 'delete' | 'forever' } | { chat?: undefined; what: 'empty' } | null
+    | { chat: Chat; what: 'rename' | 'delete' | 'forever' }
+    | { chats: Chat[]; what: 'delete-many' | 'forever-many' }
+    | { chat?: undefined; what: 'empty' }
+    | null
   >(null);
   const [page, setPage] = useState<'chat' | 'files' | 'settings' | 'analytics' | 'ccpool'>('chat');
   /** Settings > Claude pool: what Settings read for its row, drawn at once. */
@@ -706,6 +709,26 @@ export function Workspace({
       })
       .catch((e) => fail(e, 'It could not be pinned.'));
 
+  /**
+   * The drawer's Select: what was ticked, all of it at once - the same routes a
+   * swipe reaches, one conversation at a time, and one word about them all.
+   */
+  const bulk = (picked: Chat[], what: BulkWhat) => {
+    if (!client || !picked.length) return;
+    if (what === 'delete') return setAsk({ chats: picked, what: 'delete-many' });
+    if (what === 'forever') return setAsk({ chats: picked, what: 'forever-many' });
+    const on = what === 'archive';
+    Promise.all(picked.map((c) => client.archive(c.id, on)))
+      .then(() => {
+        picked.forEach((c) => dropped(c, on));
+        if (!on) load();
+        say(
+          `${picked.length} ${picked.length === 1 ? 'conversation' : 'conversations'} ${on ? 'archived' : 'back in Conversations'}`,
+        );
+      })
+      .catch((e) => fail(e, on ? 'They could not be archived.' : 'They could not be unarchived.'));
+  };
+
   const restore = (chat: Chat) =>
     client
       ?.restoreChat(chat.id)
@@ -831,6 +854,7 @@ export function Workspace({
       scope={scope}
       onScope={setScope}
       swipeActions={swipeActions}
+      onBulk={bulk}
       onEmptyTrash={() => setAsk({ what: 'empty' })}
       onFiles={openFiles}
       filesOn={page === 'files'}
@@ -1047,6 +1071,40 @@ export function Workspace({
             await client.removeForever(ask.chat.id);
             dropped(ask.chat);
             setAsk(null);
+          }}
+        />
+      ) : null}
+      {ask?.what === 'delete-many' ? (
+        <Dialog
+          title={`Delete ${ask.chats.length} conversations?`}
+          text={`They go to the trash and can be restored from Trash for ${client?.chatTrashDays ?? CHAT_TRASH_DAYS} days, then they are deleted for good.`}
+          confirm="Delete"
+          danger
+          onCancel={() => setAsk(null)}
+          onConfirm={async () => {
+            if (!client) return;
+            const many = ask.chats;
+            await Promise.all(many.map((c) => client.remove(c.id)));
+            many.forEach((c) => dropped(c));
+            setAsk(null);
+            say(`${many.length} moved to Trash`);
+          }}
+        />
+      ) : null}
+      {ask?.what === 'forever-many' ? (
+        <Dialog
+          title={`Delete ${ask.chats.length} conversations forever?`}
+          text="They are deleted for good, with every line in them. This cannot be undone."
+          confirm="Delete forever"
+          danger
+          onCancel={() => setAsk(null)}
+          onConfirm={async () => {
+            if (!client) return;
+            const many = ask.chats;
+            await Promise.all(many.map((c) => client.removeForever(c.id)));
+            many.forEach((c) => dropped(c));
+            setAsk(null);
+            say(`${many.length} deleted for good`);
           }}
         />
       ) : null}

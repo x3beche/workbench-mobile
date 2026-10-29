@@ -67,6 +67,7 @@ export { default as Wrench } from 'lucide-react-native/icons/wrench';
 export { default as X } from 'lucide-react-native/icons/x';
 export { default as Coins } from 'lucide-react-native/icons/coins';
 export { default as Layers } from 'lucide-react-native/icons/layers';
+export { default as ListChecks } from 'lucide-react-native/icons/list-checks';
 export { default as ListOrdered } from 'lucide-react-native/icons/list-ordered';
 export { default as SquareTerminal } from 'lucide-react-native/icons/square-terminal';
 export { default as TriangleAlert } from 'lucide-react-native/icons/triangle-alert';
