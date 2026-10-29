@@ -99,11 +99,17 @@ Then you sign in with the same e-mail address and password as on the web.
   the screen hands the widget each reading as it takes one, and Android
   redraws it on its own every thirty minutes. A phone with no network at
   that moment keeps the last reading it had rather than showing an empty
-  frame. It is drawn at the web card's own sizes - 11px head, 15px
-  figures, 10.5px asides, 9px padding, the same hairline and bars - and only
-  the chart takes the height the cell has left, so a cell of 320x110 and one
-  of 390x200 read the same and neither leaves a band of nothing. A cell
-  narrower than a phone's shrinks the type to fit rather than spilling. It
+  frame. The card is the site's, measured off it in a browser rather than
+  guessed: an 11px head over 15px figures and 10.5px asides, 9px padding on
+  a phone, gaps of 4, the plate at radius 14 and the card at 5. Those are the
+  web's numbers at the width the web card has, and one factor - the room its
+  widest line, "9,212 this week 33 tools", leaves - multiplies all of them at
+  once (1.9.2). A little under 1 at 320, the width the web card itself has,
+  where the web clips that line and the widget does not; 1 at 344 and 1.15 in
+  a 5x2 cell of 390, so a bigger frame gets a bigger card instead of 11px left
+  small in it. Only the chart takes the height the cell has left, so a cell of
+  320x110 and one of 390x200 both read and neither leaves a band of nothing;
+  a narrower cell shrinks the type to fit rather than spilling. It
   says the web card's own words, piece for piece - the figures with their
   small words beside them, "88/298", the tools that are on out of all of
   them, read from the same route the Tools page reads - and the icons are

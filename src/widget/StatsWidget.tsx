@@ -28,25 +28,35 @@ import { colors, widgetGround } from '../theme/tokens';
 import type { WidgetSnapshot } from './data';
 
 /**
- * The web card's own numbers (cc-usage.ts / cc-tools.ts / charts.ts): an 11px
- * head, a 15px figure with 10.5px asides, 7px padding on a wide screen and 9
- * on a narrow one, the head's 4px gap, a 5px card radius, a 34px chart. They
- * are absolute, not proportional: a wider card does not get bigger words on the
- * web, and it must not here either or the Tools card's "9,212 this week" and
- * "33 tools" stop fitting side by side.
+ * The card as the web draws it on a phone, read off the site in a browser
+ * (cc-usage.ts / cc-tools.ts / charts.ts): an 11px head, a 15px figure with
+ * 10.5px asides, 9px padding on a narrow screen, the head's 5px gap, a 13px
+ * icon, a 12px chevron, a 5px card radius inside a plate at 14, and 14 bars
+ * two px apart on the 1px line. These are the web's numbers at the width the
+ * web card itself has, and `metrics` multiplies all of them by one factor.
  */
-const HEAD_FONT = 11;
-const FIG_FONT = 15;
-const SMALL_FONT = 10.5;
+const WEB = {
+  head: 11,
+  fig: 15,
+  aside: 10.5,
+  pad: 9,
+  gap: 4,
+  headGap: 5,
+  icon: 13,
+  chev: 12,
+  radius: 5,
+  plateRadius: 14,
+  barGap: 2,
+};
 /** Body is 13px/1.45 and the cards inherit it; the figures' `font:` shorthand resets theirs to normal, 1.28 in the web's own face. */
 const TEXT_LINE = 1.45;
 const FIG_LINE = 1.28;
 /**
- * The widest figure row the two cards ask for - "9,212" + "this week" + "33
- * tools" with its gaps, 148.4px in the web's face. 152 leaves room for a face
- * that is a hair wider, and below it the type shrinks to fit rather than clip.
+ * The room the widest figure row asks for - "9,212" + "this week" + "33 tools"
+ * with the gaps between them, measured in the platform's own faces (Roboto and
+ * Roboto Mono, not the web's IBM Plex) at the card's own scale of 1.
  */
-const FIG_ROW = 152;
+const FIG_ROW = 142.3;
 
 /** The theme's colours are strings; the widget's own type wants a `#` or an `rgba()`. */
 const paint = (colour: string) => colour as ColorProp;
@@ -103,17 +113,21 @@ interface Metrics {
 
 function metrics(w: number, h: number): Metrics {
   const pad = 6; // the web's `.ccl-wrap` margin round the card, now the plate's
-  const cardPad = 9; // `.ccl` padding on a narrow screen - what a phone sees
-  const gap = 4;
-  // A half's room inside the plate, the card's two borders and its own padding.
+  // A half's room inside the plate and the card's own borders.
   const half = (w - 2 * pad - 2) / 2;
-  const innerLeft = half - 2 * cardPad;
-  const innerRight = half - 1 - 2 * cardPad;
-  // The web's sizes, given up only where the card is too narrow to hold the figure row.
-  const s = Math.max(0.72, Math.min(1, (innerRight - 2) / FIG_ROW));
-  const headFont = Math.round(HEAD_FONT * s * 10) / 10;
-  const figFont = Math.round(FIG_FONT * s * 10) / 10;
-  const smallFont = Math.round(SMALL_FONT * s * 10) / 10;
+  /**
+   * The card is the web's, enlarged only as far as its widest line still fits:
+   * a little under 1 at the width the web card itself has (where the web clips
+   * that line and this does not), 1 at 344dp, 1.15 in a 5x2 cell of 390 - so a
+   * bigger frame gets a bigger card rather than the web's 11px in a wide hole.
+   */
+  const k = Math.max(0.75, Math.min(1.4, (half - 4) / (FIG_ROW + 2 * WEB.pad)));
+  const of = (v: number) => Math.round(v * k * 10) / 10;
+  const cardPad = Math.round(WEB.pad * k * 10) / 10;
+  const gap = Math.round(WEB.gap * k * 10) / 10;
+  const headFont = of(WEB.head);
+  const figFont = of(WEB.fig);
+  const smallFont = of(WEB.aside);
   // The web's own line boxes, unrounded: 11 x 1.45 = 15.95, 15 x 1.28 = 19.2.
   const headLine = Math.round(headFont * TEXT_LINE * 100) / 100;
   const figLine = Math.round(figFont * FIG_LINE * 100) / 100;
@@ -121,7 +135,7 @@ function metrics(w: number, h: number): Metrics {
   // chart is the rest, so a taller cell is a taller chart, not a band of nothing.
   const chart = Math.max(16, Math.round(h - 2 * pad - 2 - 2 * cardPad - headLine - figLine - 2 * gap));
   return {
-    s,
+    s: k,
     pad,
     cardPad,
     gap,
@@ -131,16 +145,16 @@ function metrics(w: number, h: number): Metrics {
     headLine,
     figLine,
     smallLine: Math.round(smallFont * TEXT_LINE * 100) / 100,
-    icon: 13,
-    chev: 12,
-    radius: 5,
-    plateRadius: 14,
+    icon: Math.round(WEB.icon * k * 10) / 10,
+    chev: Math.round(WEB.chev * k * 10) / 10,
+    radius: Math.round(WEB.radius * k * 10) / 10,
+    plateRadius: Math.round(WEB.plateRadius * k * 10) / 10,
     chart,
-    barGap: 2,
-    innerLeft,
-    innerRight,
-    headGap: 5,
-    figGap: 4,
+    barGap: Math.round(WEB.barGap * k * 10) / 10,
+    innerLeft: half - 2 * cardPad,
+    innerRight: half - 1 - 2 * cardPad,
+    headGap: Math.round(WEB.headGap * k * 10) / 10,
+    figGap: gap,
   };
 }
 
