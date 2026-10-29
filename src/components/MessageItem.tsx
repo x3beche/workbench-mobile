@@ -16,6 +16,7 @@ import type { Writing } from '../lib/answer';
 import { activityWords, chatDetailStrings, type ChatDetailStrings } from '../lib/chatDetail';
 import { initials } from '../lib/groups';
 import { useSmoothText } from '../lib/drain';
+import { copy } from '../lib/feel';
 import { stepDetail, stepLabel, stepState } from '../lib/steps';
 import { colors, fonts, gutter, motion, space, type } from '../theme/tokens';
 import { Appear } from './Appear';
@@ -225,6 +226,10 @@ export const MessageItem = memo(function MessageItem({
           onLongPress={onMenu ? () => onMenu(m) : undefined}
           delayLongPress={350}
           accessibilityHint="Long press to copy"
+          accessibilityActions={[{ name: 'copy', label: 'Copy' }]}
+          onAccessibilityAction={(e) => {
+            if (e.nativeEvent.actionName === 'copy') copy(m.content);
+          }}
         >
           <Text style={[s.userText, wrapAnywhere]}>{m.content}</Text>
         </Pressable>
@@ -234,6 +239,10 @@ export const MessageItem = memo(function MessageItem({
         onLongPress={onMenu ? () => onMenu(m) : undefined}
         delayLongPress={350}
         accessibilityHint="Long press to copy"
+        accessibilityActions={[{ name: 'copy', label: 'Copy' }]}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === 'copy') copy(m.content);
+        }}
         style={s.msg}
         testID="msg-answer"
       >

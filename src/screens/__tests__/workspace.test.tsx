@@ -458,6 +458,15 @@ describe('workspace', () => {
     expect(onVoiceMode).toHaveBeenCalledWith('record');
   });
 
+  it('offers the row actions as its own button, for anyone who would not think to swipe', async () => {
+    await start();
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    // No swipe and no long press: the … at the end of the row opens the same sheet.
+    await fireEvent.press(screen.getByTestId('chat-c3-more'));
+    await fireEvent.press(screen.getByTestId('action-archive'));
+    expect(mockClient.archive).toHaveBeenCalledWith('c3', true);
+  });
+
   it('swipe actions on a row archive or delete it (delete asks first)', async () => {
     await start();
     await fireEvent.press(screen.getByTestId('open-drawer'));

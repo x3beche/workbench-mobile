@@ -464,6 +464,7 @@ export function DrawerPanel({
                 trash={scope === 'trash'}
                 onPress={() => (scope === 'trash' ? onActions(item) : onOpen(item))}
                 onLongPress={() => onActions(item)}
+                onMore={() => onActions(item)}
               />
             </SwipeRow>
           )
@@ -764,6 +765,7 @@ function Row({
   check,
   onPress,
   onLongPress,
+  onMore,
 }: {
   chat: Chat;
   on: boolean;
@@ -772,6 +774,7 @@ function Row({
   check?: boolean;
   onPress: () => void;
   onLongPress?: () => void;
+  onMore?: () => void;
 }) {
   return (
     <DrawerRow
@@ -782,12 +785,13 @@ function Row({
       on={on}
       onPress={onPress}
       onLongPress={onLongPress}
+      onMore={onMore}
       hint={
         check !== undefined
           ? 'Ticks it, for the buttons above'
           : trash
             ? 'Restore or delete forever'
-            : 'Swipe left, or long press, for archive, delete and more'
+            : 'Archive, delete and more: its … at the end of the row'
       }
       testID={`chat-${chat.id}`}
     />
@@ -880,7 +884,8 @@ const s = StyleSheet.create({
   pickBoxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
   pickCount: { fontFamily: fonts.sansMedium, fontSize: type.tiny, color: colors.ink },
   pickActs: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  pickAct: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
+  // A target as big as the finger, drawn small: 36 of mark in the box the row gives.
+  pickAct: { width: touch, height: touch, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
   listPad: { paddingBottom: space.lg, flexGrow: 1 },
   // The web's .tcv-cc-group, which the date headings and the groups' heads share.
   group: {

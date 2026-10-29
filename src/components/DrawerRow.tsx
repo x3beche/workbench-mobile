@@ -10,9 +10,9 @@
  */
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, gutter, type } from '../theme/tokens';
+import { colors, fonts, gutter, touch, type } from '../theme/tokens';
 import type { Dot } from '../lib/orchestrator';
-import { Check, Pin } from './icons';
+import { Check, Ellipsis, Pin } from './icons';
 import { StateDot } from './StateDot';
 import { Glyph } from './ui';
 
@@ -30,6 +30,7 @@ export function DrawerRow({
   on,
   onPress,
   onLongPress,
+  onMore,
   label,
   hint,
   testID,
@@ -47,6 +48,12 @@ export function DrawerRow({
   on: boolean;
   onPress: () => void;
   onLongPress?: () => void;
+  /**
+   * The row's actions as a button of their own, at its end: a swipe and a long
+   * press are both invisible, and a phone held in one hand has room for one
+   * more mark. Its own label says what it does.
+   */
+  onMore?: () => void;
   label?: string;
   hint?: string;
   /** `<group>-<id>`: its dot is `<group>-dot-<id>`, its pin `<group>-pin-<id>`, its box `<group>-<id>-check`. */
@@ -62,6 +69,10 @@ export function DrawerRow({
       accessibilityState={check === undefined ? { selected: on } : { checked: check, selected: on }}
       accessibilityLabel={label ?? title}
       accessibilityHint={hint}
+      accessibilityActions={onMore ? [{ name: 'more', label: 'Actions' }] : undefined}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'more') onMore?.();
+      }}
       style={[s.row, sub ? s.two : null]}
     >
       {({ pressed }) => (
@@ -98,6 +109,18 @@ export function DrawerRow({
               </Text>
             ) : null}
           </View>
+          {onMore ? (
+            <Pressable
+              testID={`${testID}-more`}
+              onPress={onMore}
+              accessibilityRole="button"
+              accessibilityLabel={`Actions for ${title}`}
+              hitSlop={{ left: 4, right: 4 }}
+              style={({ pressed }) => [s.moreBtn, pressed && s.morePressed]}
+            >
+              <Glyph icon={Ellipsis} size={16} color={colors.inkDim} />
+            </Pressable>
+          ) : null}
         </>
       )}
     </Pressable>
@@ -113,7 +136,7 @@ const checkId = (id: string) => `${id}-check`;
 const s = StyleSheet.create({
   row: {
     backgroundColor: colors.surface,
-    minHeight: 40,
+    minHeight: touch,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -149,4 +172,8 @@ const s = StyleSheet.create({
   // One width, so the times of every row stand in one column ("Sun" and "14:05" alike).
   when: { flexShrink: 0, minWidth: 44, textAlign: 'right', fontFamily: fonts.mono, fontSize: type.micro, color: colors.inkDim },
   sub: { fontFamily: fonts.sans, fontSize: type.micro, lineHeight: type.microLine, color: colors.inkDim },
+  // The row's actions: 36 wide and the row's own 44 high, with the slop that
+  // makes the whole target 44 - it sits where nothing else is tapped.
+  moreBtn: { width: 36, height: touch, alignItems: 'center', justifyContent: 'center' },
+  morePressed: { opacity: 0.6 },
 });

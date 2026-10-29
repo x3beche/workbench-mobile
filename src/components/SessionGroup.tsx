@@ -101,6 +101,7 @@ export function SessionGroup({
             on={r.id === selected}
             onPress={() => onOpen(r.id)}
             onLongPress={() => setMenu(r)}
+            onMore={() => setMenu(r)}
             label={`${r.name}${pinned ? `, ${t.pinned}` : ''}, ${r.says}`}
             testID={`${prefix}-${r.id}`}
           />
