@@ -217,6 +217,55 @@ export function pictureType(mime: string | null | undefined, name: string): stri
   return EXT[ext] ?? m;
 }
 
+/** A picture's type by its own first bytes, as the server checks it: png, jpeg, gif or webp, else null. */
+export function sniffPicture(b: ArrayLike<number>): string | null {
+  const at = (i: number, ...want: number[]) => want.every((x, k) => b[i + k] === x);
+  if (at(0, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png';
+  if (at(0, 0xff, 0xd8, 0xff)) return 'image/jpeg';
+  if (at(0, 0x47, 0x49, 0x46, 0x38)) return 'image/gif';
+  if (at(0, 0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50)) return 'image/webp';
+  return null;
+}
+
+/** What the image picker hands back, as far as the composer reads it. */
+export interface PickedAsset {
+  uri: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  /** The web's File. */
+  file?: Blob & { size: number };
+}
+
+/** A picked picture's file as it is on the phone: its size and first bytes (lib/pictureFile). */
+export interface PictureHead {
+  size: number | null;
+  head: ArrayLike<number>;
+}
+
+/**
+ * A picked picture as the composer keeps it. On Android the picker writes
+ * the picture it hands back afresh (a HEIC photo becomes a JPEG, a large one
+ * smaller) but still says the original's type, name and size: what is on
+ * disk (`disk`) is what is sent, so its own bytes and size decide, and its
+ * name gets the extension of what it now is.
+ */
+export function pickedOf(a: PickedAsset, i: number, key: string, disk: PictureHead | null, now = Date.now()): Picked {
+  const said = pictureType(a.mimeType, a.fileName || '');
+  const real = disk ? sniffPicture(disk.head) : null;
+  const kind = real ?? said;
+  const ext = (kind.split('/')[1] || 'jpeg').replace('jpeg', 'jpg');
+  const base = a.fileName || `picture-${now}-${i + 1}.${ext}`;
+  const name = real ? `${base.replace(/\.[^./]*$/, '')}.${ext}` : base;
+  return {
+    key,
+    part: a.file ? { blob: a.file, name } : { uri: a.uri, name, type: kind },
+    uri: a.uri,
+    type: kind,
+    size: disk?.size ?? a.fileSize ?? a.file?.size,
+  };
+}
+
 /**
  * The pictures that may go with the next message: png, jpeg, gif or webp, at
  * most `max` of `bytes` each (the server checks their bytes again). What is

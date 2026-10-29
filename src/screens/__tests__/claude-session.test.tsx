@@ -7,7 +7,7 @@ import * as React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { FlatList } from 'react-native';
 
-import type { WorkbenchClient } from '../../api/client';
+import { ApiError, type WorkbenchClient } from '../../api/client';
 import type { BusEvent, WbcDetail, WbcMessage, WbcSession, WbcTurn } from '../../api/types';
 import { DrawerPanel } from '../../components/DrawerPanel';
 import { BusPace, type LiveHub } from '../../live/hub';
@@ -41,6 +41,11 @@ jest.mock('expo-image-picker', () => ({
     ],
   })),
 }));
+
+// What is on disk of a picked picture: unread (null) unless a test says.
+jest.mock('../../lib/pictureFile', () => ({ readPictureHead: jest.fn(() => null) }));
+const ImagePicker = jest.requireMock('expo-image-picker') as Record<string, jest.Mock>;
+const { readPictureHead } = jest.requireMock('../../lib/pictureFile') as { readPictureHead: jest.Mock };
 
 const canRender = typeof (React as { act?: unknown }).act === 'function';
 const en = wbcStrings('en');
@@ -254,6 +259,48 @@ const scrollOf = (y: number) => ({
     expect(c.wbcSend).toHaveBeenCalledWith('s1', '', [
       { uri: 'file:///shot.png', name: 'shot.png', type: 'image/png' },
     ]);
+  });
+
+  it("sends a Samsung photo as the JPEG the picker wrote, not the HEIC it says it was", async () => {
+    const c = client();
+    await open(c);
+    ImagePicker.launchImageLibraryAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: 'file:///cache/a.jpeg', fileName: '20261029_1.heic', mimeType: 'image/heic', fileSize: 9e6 }],
+    });
+    readPictureHead.mockReturnValueOnce({ size: 1_500_000, head: [0xff, 0xd8, 0xff, 0xe1] });
+    await fireEvent.press(screen.getByTestId('wbc-attach'));
+    await fireEvent.press(screen.getByTestId('action-wbc-photos'));
+    await tick(0);
+    expect(ImagePicker.launchImageLibraryAsync).toHaveBeenLastCalledWith(expect.objectContaining({ quality: 0.85 }));
+    expect(screen.queryByTestId('wbc-pic-error')).toBeNull();
+    await fireEvent.press(screen.getByTestId('send'));
+    await tick(0);
+    expect(c.wbcSend).toHaveBeenCalledWith('s1', '', [
+      { uri: 'file:///cache/a.jpeg', name: '20261029_1.jpg', type: 'image/jpeg' },
+    ]);
+  });
+
+  it('says so when the picker fails, instead of doing nothing', async () => {
+    const c = client();
+    await open(c);
+    ImagePicker.launchImageLibraryAsync.mockRejectedValueOnce(new Error('FailedToReadFileException'));
+    await fireEvent.press(screen.getByTestId('wbc-attach'));
+    await fireEvent.press(screen.getByTestId('action-wbc-photos'));
+    await tick(0);
+    expect(screen.getByText(en.pickFailed)).toBeTruthy();
+  });
+
+  it("says why the server would not take a picture", async () => {
+    const c = client();
+    c.wbcSend.mockRejectedValueOnce(new ApiError(413, 'a picture is at most 5 MB'));
+    await open(c);
+    await fireEvent.press(screen.getByTestId('wbc-attach'));
+    await fireEvent.press(screen.getByTestId('action-wbc-photos'));
+    await tick(0);
+    await fireEvent.press(screen.getByTestId('send'));
+    await tick(0);
+    expect(screen.getByText('a picture is at most 5 MB')).toBeTruthy();
   });
 
   it('says to update wb-claude before pictures go to an old one', async () => {

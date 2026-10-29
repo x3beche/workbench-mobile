@@ -59,7 +59,7 @@ import {
   liveDot,
   MARK,
   pendingOf,
-  pictureType,
+  pickedOf,
   putOlderTurns,
   serverWords,
   stateWord,
@@ -71,6 +71,7 @@ import {
   whyText,
   type Picked,
 } from '../lib/wbc';
+import { readPictureHead } from '../lib/pictureFile';
 import type { WbcStrings } from '../lib/wbcStrings';
 import { inFront } from '../live/hub';
 import { useBus, useLive } from '../live/LiveContext';
@@ -291,39 +292,31 @@ export function ClaudeSessionScreen({
   const pick = async (camera: boolean) => {
     setPicking(false);
     setPicError(null);
-    if (camera) {
-      const ok = await ImagePicker.requestCameraPermissionsAsync();
-      if (!ok.granted) {
-        setPicError(t.noCamera);
-        return;
+    try {
+      if (camera) {
+        const ok = await ImagePicker.requestCameraPermissionsAsync();
+        if (!ok.granted) {
+          setPicError(t.noCamera);
+          return;
+        }
       }
+      const left = Math.max(1, rules.max - pics.length);
+      // Both are written afresh by the picker below full quality: a phone's photo is often over
+      // 5 MB, or a HEIC (Samsung, iPhone) the server does not take - it comes back a JPEG.
+      const got = camera
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            quality: 0.85,
+            allowsMultipleSelection: true,
+            selectionLimit: left,
+          });
+      if (got.canceled || !got.assets?.length) return;
+      const now = Date.now();
+      add(got.assets.map((a, i) => pickedOf(a, i, `p${++seq.current}`, readPictureHead(a.uri), now)));
+    } catch {
+      if (mounted.current) setPicError(t.pickFailed);
     }
-    const left = Math.max(1, rules.max - pics.length);
-    // A photo from the camera is made smaller (a phone's is often over 5 MB); one picked is sent as it is.
-    const got = camera
-      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
-      : await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          quality: 1,
-          allowsMultipleSelection: true,
-          selectionLimit: left,
-        });
-    if (got.canceled) return;
-    add(
-      got.assets.map((a, i) => {
-        const guess = pictureType(a.mimeType, a.fileName || '');
-        const ext = (guess.split('/')[1] || 'jpeg').replace('jpeg', 'jpg');
-        const name = a.fileName || `picture-${Date.now()}-${i + 1}.${ext}`;
-        const kind = pictureType(a.mimeType, name);
-        return {
-          key: `p${++seq.current}`,
-          part: a.file ? { blob: a.file, name } : { uri: a.uri, name, type: kind },
-          uri: a.uri,
-          type: kind,
-          size: a.fileSize ?? a.file?.size,
-        };
-      }),
-    );
   };
 
   const attach = () => {

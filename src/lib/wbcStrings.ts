@@ -70,6 +70,8 @@ export interface WbcStrings {
   onlyTypes: string;
   tooLarge: (mb: number) => string;
   noCamera: string;
+  /** The picker or the picked file could not be read. */
+  pickFailed: string;
   remove: string;
   tooMany: string;
   cantReach: string;
@@ -146,6 +148,7 @@ const en: WbcStrings = {
   onlyTypes: 'Only png, jpeg, gif and webp pictures can be sent.',
   tooLarge: (mb) => `A picture is at most ${mb} MB.`,
   noCamera: 'The camera is not allowed for Workbench. Allow it in the phone’s settings.',
+  pickFailed: 'The picture could not be read on this phone. Try another one.',
   remove: 'Remove',
   tooMany: 'too many messages — wait a little',
   cantReach: 'Could not reach the server.',
@@ -221,6 +224,7 @@ const tr: WbcStrings = {
   onlyTypes: 'Yalnızca png, jpeg, gif ve webp resimler gönderilebilir.',
   tooLarge: (mb) => `Bir resim en fazla ${mb} MB olabilir.`,
   noCamera: 'Workbench için kameraya izin verilmemiş. Telefonun ayarlarından izin verin.',
+  pickFailed: 'Resim bu telefonda okunamadı. Başka bir resim deneyin.',
   remove: 'Kaldır',
   tooMany: 'çok fazla mesaj — biraz bekleyin',
   cantReach: 'Sunucuya ulaşılamadı.',

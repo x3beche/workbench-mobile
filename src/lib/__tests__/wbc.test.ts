@@ -6,10 +6,12 @@ import {
   liveDot,
   MARK,
   pendingOf,
+  pickedOf,
   pictureType,
   putOlderTurns,
   serverWords,
   shownSessions,
+  sniffPicture,
   stateWord,
   statusTone,
   statusWord,
@@ -265,5 +267,47 @@ describe('reading only in the front', () => {
     expect(inFront({ currentState: 'unknown' })).toBe(true);
     expect(inFront({})).toBe(true);
     expect(inFront(null)).toBe(true);
+  });
+});
+
+describe('a picked picture', () => {
+  const JPEG = [0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46];
+  const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d];
+  const WEBP = [0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4, 0x57, 0x45, 0x42, 0x50];
+
+  it('is known by its own first bytes, as the server knows it', () => {
+    expect(sniffPicture(JPEG)).toBe('image/jpeg');
+    expect(sniffPicture(PNG)).toBe('image/png');
+    expect(sniffPicture(WEBP)).toBe('image/webp');
+    expect(sniffPicture([0x47, 0x49, 0x46, 0x38, 0x39, 0x61])).toBe('image/gif');
+    // a HEIC: ....ftypheic
+    expect(sniffPicture([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63])).toBeNull();
+    expect(sniffPicture([])).toBeNull();
+  });
+
+  it('is sent as what the picker wrote, not what it says the original was (Samsung HEIC, 12 MB)', () => {
+    const p = pickedOf(
+      { uri: 'file:///cache/ImagePicker/a.jpeg', fileName: '20261029_101010.heic', mimeType: 'image/heic', fileSize: 12e6 },
+      0,
+      'p1',
+      { size: 1_900_000, head: JPEG },
+    );
+    expect(p).toEqual({
+      key: 'p1',
+      part: { uri: 'file:///cache/ImagePicker/a.jpeg', name: '20261029_101010.jpg', type: 'image/jpeg' },
+      uri: 'file:///cache/ImagePicker/a.jpeg',
+      type: 'image/jpeg',
+      size: 1_900_000,
+    });
+    expect(admit([], [p], en).error).toBeNull();
+  });
+
+  it('keeps what the picker said when its file cannot be read, and names one that has no name', () => {
+    const p = pickedOf({ uri: 'file:///x', mimeType: 'image/png', fileSize: 10 }, 1, 'p2', null, 7);
+    expect(p.part).toEqual({ uri: 'file:///x', name: 'picture-7-2.png', type: 'image/png' });
+    expect(p.size).toBe(10);
+    const heic = pickedOf({ uri: 'file:///y', fileName: 'y.heic', mimeType: 'image/heic' }, 0, 'p3', { size: 5, head: [0, 0, 0, 0x18] });
+    expect(heic.type).toBe('image/heic');
+    expect(admit([], [heic], en).error).toBe(en.onlyTypes);
   });
 });

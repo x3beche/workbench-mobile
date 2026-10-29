@@ -54,7 +54,8 @@ import { EmptyState, ErrorText, Glyph, IconButton, LoadError, wrapAnywhere } fro
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
 import { chatDetailStrings } from '../lib/chatDetail';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
-import { admit, IMAGE_RULES, pictureType, serverWords, type Picked } from '../lib/wbc';
+import { admit, IMAGE_RULES, pickedOf, serverWords, type Picked } from '../lib/wbc';
+import { readPictureHead } from '../lib/pictureFile';
 import {
   applyWbo,
   buildTurns,
@@ -313,46 +314,40 @@ export function OpencodeSessionScreen({
 
   const rules = s?.images ?? IMAGE_RULES;
 
+  const add = (got: Picked[]) => {
+    const r = admit(pics, got, t, rules);
+    setPics(r.pics);
+    setPicError(r.error);
+  };
+
   const pick = async (camera: boolean) => {
     setPicking(false);
     setPicError(null);
-    if (camera) {
-      const ok = await ImagePicker.requestCameraPermissionsAsync();
-      if (!ok.granted) {
-        setPicError(t.noCamera);
-        return;
+    try {
+      if (camera) {
+        const ok = await ImagePicker.requestCameraPermissionsAsync();
+        if (!ok.granted) {
+          setPicError(t.noCamera);
+          return;
+        }
       }
+      const left = Math.max(1, rules.max - pics.length);
+      // Both are written afresh by the picker below full quality: a phone's photo is often over
+      // 5 MB, or a HEIC (Samsung, iPhone) the server does not take - it comes back a JPEG.
+      const got = camera
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            quality: 0.85,
+            allowsMultipleSelection: true,
+            selectionLimit: left,
+          });
+      if (got.canceled || !got.assets?.length) return;
+      const now = Date.now();
+      add(got.assets.map((a, i) => pickedOf(a, i, `p${++seq.current}`, readPictureHead(a.uri), now)));
+    } catch {
+      if (mounted.current) setPicError(t.pickFailed);
     }
-    const left = Math.max(1, rules.max - pics.length);
-    const got = camera
-      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
-      : await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
-          quality: 1,
-          allowsMultipleSelection: true,
-          selectionLimit: left,
-        });
-    if (got.canceled) return;
-    const r = admit(
-      pics,
-      got.assets.map((a, i) => {
-        const guess = pictureType(a.mimeType, a.fileName || '');
-        const ext = (guess.split('/')[1] || 'jpeg').replace('jpeg', 'jpg');
-        const name = a.fileName || `picture-${Date.now()}-${i + 1}.${ext}`;
-        const kind = pictureType(a.mimeType, name);
-        return {
-          key: `p${++seq.current}`,
-          part: a.file ? { blob: a.file, name } : { uri: a.uri, name, type: kind },
-          uri: a.uri,
-          type: kind,
-          size: a.fileSize ?? a.file?.size,
-        };
-      }),
-      t,
-      rules,
-    );
-    setPics(r.pics);
-    setPicError(r.error);
   };
 
   const attach = () => {

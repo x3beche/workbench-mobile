@@ -38,6 +38,10 @@ jest.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: jest.fn(),
 }));
 
+jest.mock('../../lib/pictureFile', () => ({ readPictureHead: jest.fn(() => null) }));
+const ImagePicker = jest.requireMock('expo-image-picker') as Record<string, jest.Mock>;
+const { readPictureHead } = jest.requireMock('../../lib/pictureFile') as { readPictureHead: jest.Mock };
+
 const canRender = typeof (React as { act?: unknown }).act === 'function';
 const en = wboStrings('en');
 const tr = wboStrings('tr');
@@ -216,6 +220,27 @@ async function show(d: WboDetail, t = en) {
     expect(screen.queryByText('On the computer')).toBeNull();
     expect(screen.queryByText(/tok\/s/)).toBeNull();
     expect(screen.getByTestId('wbo-composer')).toBeTruthy();
+  });
+
+  it('sends a picture from the phone as the bytes on disk say it is, and says when the picker fails', async () => {
+    const { client } = await show(detail());
+    ImagePicker.launchImageLibraryAsync.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: 'file:///cache/b.jpeg', fileName: 'IMG_1.HEIC', mimeType: 'image/heif', fileSize: 8e6 }],
+    });
+    readPictureHead.mockReturnValueOnce({ size: 900_000, head: [0xff, 0xd8, 0xff, 0xdb] });
+    await fireEvent.press(screen.getByTestId('wbo-attach'));
+    await fireEvent.press(screen.getByTestId('action-wbo-photos'));
+    await act(async () => undefined);
+    expect(screen.queryByTestId('wbo-pic-error')).toBeNull();
+    await fireEvent.press(screen.getByTestId('send'));
+    await act(async () => undefined);
+    expect(client.wboSend).toHaveBeenCalledWith(SID, '', [{ uri: 'file:///cache/b.jpeg', name: 'IMG_1.jpg', type: 'image/jpeg' }]);
+    ImagePicker.launchImageLibraryAsync.mockRejectedValueOnce(new Error('no'));
+    await fireEvent.press(screen.getByTestId('wbo-attach'));
+    await fireEvent.press(screen.getByTestId('action-wbo-photos'));
+    await act(async () => undefined);
+    expect(screen.getByText(en.pickFailed)).toBeTruthy();
   });
 
   it("puts an answer's work behind one line, and opens it", async () => {
