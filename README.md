@@ -101,14 +101,21 @@ Then you sign in with the same e-mail address and password as on the web.
   that moment keeps the last reading it had rather than showing an empty
   frame. The card is the site's, measured off it in a browser rather than
   guessed: an 11px head over 15px figures and 10.5px asides, 9px padding on
-  a phone, gaps of 4, the plate at radius 14 and the card at 5. Those are the
+  a phone, gaps of 4. Those are the
   web's numbers at the width the web card has, and one factor - the room its
-  widest line leaves - multiplies all of them at once (1.9.2). That line is
+  widest line leaves - multiplies all of them at once (1.9.2). The corners are
+  the launcher's (1.9.5): from Android 12 a launcher rounds the whole widget
+  off at its own radius - 16dp on a Pixel, rounder on a Samsung, never more
+  than 28 - and the widget is one picture drawn in the app, where that radius
+  cannot be read, so the plate is drawn at 28 and the cut always falls outside
+  its curve. The plate's padding, 10, is deeper than the curve (28 x (1 -
+  1/sqrt 2) = 8.2), and the card inside rounds at the same centre, 18, so
+  nothing reaches into a corner and the corners look drawn, not cut. The widest line is
   worked out from the very words and figures the widget is about to write
   (1.9.3), glyph by glyph from Roboto's and Roboto Mono's own advances, in
-  English or Turkish: "9212 this week 33 tools" gives a little under 1 at
+  English or Turkish: "9212 this week 33 tools" gives 0.9 at
   320, the width the web card itself has, where the web clips that line and
-  the widget does not, 1 at 344 and 1.15 in a 5x2 cell of 390, so a bigger
+  the widget does not, a little under 1 at 344 and 1.12 in a 5x2 cell of 390, so a bigger
   frame gets a bigger card instead of 11px left small in it; a week past
   10,000 ("10.00k", "99.99k"), "999.9M" tokens, "12,350" calls or "100
   tools" make it a step smaller instead of running off the edge. The figures

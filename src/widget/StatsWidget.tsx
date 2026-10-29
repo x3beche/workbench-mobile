@@ -31,9 +31,10 @@ import type { WidgetSnapshot } from './data';
  * The card as the web draws it on a phone, read off the site in a browser
  * (cc-usage.ts / cc-tools.ts / charts.ts): an 11px head, a 15px figure with
  * 10.5px asides, 9px padding on a narrow screen, the head's 5px gap, a 13px
- * icon, a 12px chevron, a 5px card radius inside a plate at 14, and 14 bars
- * two px apart on the 1px line. These are the web's numbers at the width the
- * web card itself has, and `metrics` multiplies all of them by one factor.
+ * icon, a 12px chevron, and 14 bars two px apart on the 1px line. These are
+ * the web's numbers at the width the web card itself has, and `metrics`
+ * multiplies all of them by one factor. The corners are not among them: they
+ * are the launcher's (`CORNER`).
  */
 const WEB = {
   head: 11,
@@ -44,10 +45,25 @@ const WEB = {
   headGap: 5,
   icon: 13,
   chev: 12,
-  radius: 5,
-  plateRadius: 14,
   barGap: 2,
 };
+/**
+ * The launcher's corner. From Android 12 a launcher rounds the whole widget
+ * off - the library's root is `@android:id/background`, and the widget is one
+ * picture inside it - at `system_app_widget_background_radius`: 16dp on a
+ * Pixel, more on a Samsung (One UI's widgets are rounder, a little under 28),
+ * and the platform caps it at 28. The picture is drawn in the app, where that
+ * value cannot be read, so the plate is drawn at the cap: on any launcher the
+ * cut then falls outside the plate's own curve, never into it.
+ */
+const CORNER = 28;
+/**
+ * The plate's padding: at least the depth of the curve on the diagonal,
+ * R(1 - 1/sqrt 2) = 8.2, and a dp more, so the card's corner stays clear of the
+ * cut and the card inside rounds at the same centre, R - pad.
+ */
+const PLATE_PAD = Math.ceil(CORNER * (1 - Math.SQRT1_2)) + 1;
+const CARD_RADIUS = CORNER - PLATE_PAD;
 /** Body is 13px/1.45 and the cards inherit it; the figures' `font:` shorthand resets theirs to normal, 1.28 in the web's own face. */
 const TEXT_LINE = 1.45;
 const FIG_LINE = 1.28;
@@ -170,15 +186,15 @@ interface Metrics {
 }
 
 function metrics(w: number, h: number, room: number): Metrics {
-  const pad = 6; // the web's `.ccl-wrap` margin round the card, now the plate's
+  const pad = PLATE_PAD;
   // A half's room inside the plate and the card's own borders.
   const half = (w - 2 * pad - 2) / 2;
   /**
    * The card is the web's, enlarged only as far as its widest line - `room`,
    * worked out from the words and figures it is about to write - still fits:
-   * for "9212 this week 33 tools" a little under 1 at the width the web card
-   * itself has (where the web clips that line and this does not), 1 at 344dp,
-   * 1.15 in a 5x2 cell of 390 - so a bigger frame gets a bigger card rather than
+   * for "9212 this week 33 tools" 0.9 at the width the web card itself has
+   * (where the web clips that line and this does not), a little under 1 at
+   * 344dp, 1.12 in a 5x2 cell of 390 - so a bigger frame gets a bigger card rather than
    * the web's 11px in a wide hole, and a longer figure a slightly smaller one.
    */
   const k = Math.max(0.75, Math.min(1.4, (half - 4) / (room + 2 * WEB.pad)));
@@ -207,8 +223,8 @@ function metrics(w: number, h: number, room: number): Metrics {
     smallLine: Math.round(smallFont * TEXT_LINE * 100) / 100,
     icon: Math.round(WEB.icon * k * 10) / 10,
     chev: Math.round(WEB.chev * k * 10) / 10,
-    radius: Math.round(WEB.radius * k * 10) / 10,
-    plateRadius: Math.round(WEB.plateRadius * k * 10) / 10,
+    radius: CARD_RADIUS,
+    plateRadius: CORNER,
     chart,
     barGap: Math.round(WEB.barGap * k * 10) / 10,
     innerLeft: half - 2 * cardPad,
