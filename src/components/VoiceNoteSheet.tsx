@@ -7,7 +7,9 @@ import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { VoiceLang, WorkbenchClient } from '../api/client';
+import { chatStrings } from '../lib/chatStrings';
 import { colors, fonts, gutter, motion, radius, type } from '../theme/tokens';
+import { uiLang } from '../update/strings';
 import { useVoiceRecorder } from '../voice/useVoiceRecorder';
 import { langLabel, type VoiceMode } from '../voice/voice';
 import { Appear } from './Appear';
@@ -31,6 +33,7 @@ export function VoiceNoteSheet({
   onClose: () => void;
   onSend: (text: string) => Promise<boolean>;
 }) {
+  const t = chatStrings(uiLang(lang));
   const [text, setText] = useState<string | null>(null);
   const voice = useVoiceRecorder(client, lang, 'note', (got) => setText(got ?? ''), mode);
   const { start, cancel, phase, finish } = voice;
@@ -66,11 +69,11 @@ export function VoiceNoteSheet({
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={close}>
-      <Pressable style={s.scrim} onPress={close} accessibilityLabel="Close" />
+      <Pressable style={s.scrim} onPress={close} accessibilityLabel={t.close} />
       <Appear from="below" fill={false} duration={motion.sheet}>
         <SafeAreaView edges={['bottom', 'left', 'right']} style={s.sheet}>
           <View style={s.head}>
-            <Text style={s.title}>Voice note</Text>
+            <Text style={s.title}>{t.voiceNote}</Text>
             <Text style={s.lang}>{langLabel(lang)}</Text>
           </View>
           {voice.error ? <ErrorText>{voice.error}</ErrorText> : voice.notice ? <Hint>{voice.notice}</Hint> : null}
@@ -80,7 +83,7 @@ export function VoiceNoteSheet({
             </View>
           ) : null}
           {phase !== 'idle' ? (
-            <RecordingBar phase={phase} elapsed={voice.elapsed} onCancel={close} onDone={finish} doneLabel="Stop" />
+            <RecordingBar phase={phase} elapsed={voice.elapsed} onCancel={close} onDone={finish} words={t} endsWith="stop" />
           ) : text !== null ? (
             <>
               <TextInput
@@ -90,24 +93,24 @@ export function VoiceNoteSheet({
                 onChangeText={setText}
                 multiline
                 textAlignVertical="top"
-                accessibilityLabel="Transcript"
-                placeholder="Nothing was heard"
+                accessibilityLabel={t.transcript}
+                placeholder={t.nothingHeard}
                 placeholderTextColor={colors.inkDim}
                 selectionColor={colors.inkDim}
               />
-              <Hint>Read it over and correct it before sending.</Hint>
+              <Hint>{t.readItOver}</Hint>
               {failed ? <ErrorText>{failed}</ErrorText> : null}
               <View style={s.row}>
-                <Button label="Discard" variant="quiet" onPress={close} />
+                <Button label={t.discard} variant="quiet" onPress={close} />
                 <Button
-                  label="Record again"
+                  label={t.recordAgain}
                   onPress={() => {
                     setText(null);
                     start();
                   }}
                 />
                 <Button
-                  label="Send"
+                  label={t.send}
                   variant="primary"
                   disabled={!text.trim()}
                   busy={sending}
@@ -118,8 +121,8 @@ export function VoiceNoteSheet({
             </>
           ) : (
             <View style={s.row}>
-              <Button label="Close" variant="quiet" onPress={close} />
-              <Button label="Try again" onPress={start} />
+              <Button label={t.close} variant="quiet" onPress={close} />
+              <Button label={t.retry} onPress={start} />
             </View>
           )}
           <KeyboardSpacer />

@@ -48,6 +48,8 @@ function Sideways({ style, hint, children }: { style?: object; hint: string; chi
 export interface MarkdownWords {
   code: string;
   copy: string;
+  /** On a line: what a long press does, read out by a screen reader. */
+  longPressCopy: string;
   copied: string;
   copyCode: string;
   sidewaysCode: string;
@@ -57,6 +59,7 @@ export interface MarkdownWords {
 export const MARKDOWN_WORDS: MarkdownWords = {
   code: 'code',
   copy: 'Copy',
+  longPressCopy: 'Long press to copy',
   copied: 'Copied',
   copyCode: 'Copy the code',
   sidewaysCode: 'The rest of the code is to the right: swipe sideways.',

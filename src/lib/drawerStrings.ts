@@ -16,6 +16,8 @@ export interface DrawerStrings {
   deletedFirst: string;
   groups: Record<GroupName, string>;
   search: string;
+  /** A row's own actions, for a screen reader's menu. */
+  actions: string;
   searchChats: string;
   clearSearch: string;
   searching: string;
@@ -75,6 +77,7 @@ const en: DrawerStrings = {
     Older: 'Older',
   },
   search: 'Search',
+  actions: 'Actions',
   searchChats: 'Search the conversations',
   clearSearch: 'Clear the search',
   searching: 'Searching',
@@ -132,6 +135,7 @@ const tr: DrawerStrings = {
     Older: 'Daha eski',
   },
   search: 'Ara',
+  actions: 'İşlemler',
   searchChats: 'Sohbetlerde ara',
   clearSearch: 'Aramayı temizle',
   searching: 'Aranıyor',

@@ -41,7 +41,7 @@ import { applyEvent, applyPiece, type ConversationView } from '../lib/answer';
 import { authorHeads } from '../lib/authors';
 import { chatDetailStrings } from '../lib/chatDetail';
 import { copy } from '../lib/feel';
-import { chatStrings } from '../lib/chatStrings';
+import { chatStrings, type ChatStrings } from '../lib/chatStrings';
 import { greeting } from '../lib/groups';
 import { useBus, useLive } from '../live/LiveContext';
 import { useSession } from '../state/session';
@@ -436,7 +436,7 @@ export function ChatScreen({
             {onMore ? (
               <IconButton
                 icon={Ellipsis}
-                label="More: rename, pin, archive, export, delete"
+                label={t.moreActions}
                 onPress={() => id && onMore({ id, title: view.title })}
                 testID="header-more"
                 disabled={!id}
@@ -498,7 +498,7 @@ export function ChatScreen({
                 {error ? (
                   <LoadError text={error} onRetry={() => load()} retryLabel={t.retry} centered testID="chat-retry" />
                 ) : (
-                  <ActivityIndicator color={colors.inkDim} accessibilityLabel="Reading the conversation" />
+                  <ActivityIndicator color={colors.inkDim} accessibilityLabel={t.readingConversation} />
                 )}
               </View>
             ) : empty ? (
@@ -552,7 +552,7 @@ export function ChatScreen({
           <Pressable
             testID="jump-to-latest"
             accessibilityRole="button"
-            accessibilityLabel="Jump to the latest message"
+            accessibilityLabel={t.jumpLatest}
             onPress={() => followEnd(true)}
             hitSlop={8}
             style={({ pressed }) => [st.jump, pressed && st.jumpPressed]}
@@ -589,6 +589,7 @@ export function ChatScreen({
       {models ? (
         <ModelSheet
           client={client}
+          lang={lang}
           provider={model.provider}
           model={model.model}
           onClose={() => setModels(false)}
@@ -631,20 +632,20 @@ export function ChatScreen({
           />
         </Sheet>
       ) : null}
-      {reading !== null ? <SelectText text={reading} onClose={() => setReading(null)} /> : null}
+      {reading !== null ? <SelectText text={reading} words={t} onClose={() => setReading(null)} /> : null}
     </SafeAreaView>
   );
 }
 
 /** A line as plain text to select a part of it. */
-function SelectText({ text, onClose }: { text: string; onClose: () => void }) {
+function SelectText({ text, words, onClose }: { text: string; words: ChatStrings; onClose: () => void }) {
   return (
     <Modal visible animationType="none" onRequestClose={onClose}>
       <SafeAreaView style={st.safe}>
         <Appear from="below" duration={motion.sheet}>
           <View style={st.selHead}>
-            <Text style={st.selTitle}>Select text</Text>
-            <Button label="Done" variant="quiet" onPress={onClose} testID="select-done" />
+            <Text style={st.selTitle}>{words.selectText}</Text>
+            <Button label={words.done} variant="quiet" onPress={onClose} testID="select-done" />
           </View>
           <ScrollView contentContainerStyle={st.selBody} indicatorStyle={indicatorStyle}>
             <Text style={st.selText} selectable>

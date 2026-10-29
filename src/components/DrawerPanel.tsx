@@ -828,6 +828,7 @@ function Row({
       onMore={onMore}
       hint={check !== undefined ? t.rowHintTick : trash ? t.rowHintTrash : t.rowHintChat}
       moreLabel={t.actionsFor(chat.title)}
+      actionsLabel={t.actions}
       testID={`chat-${chat.id}`}
     />
   );

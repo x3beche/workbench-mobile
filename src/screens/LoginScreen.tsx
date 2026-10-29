@@ -6,12 +6,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '../api/client';
 import { displayServer } from '../api/server';
+import { accountStrings, type AccountStrings } from '../components/accountStrings';
 import { Button, ErrorText, Field, Wordmark } from '../components/ui';
 import { useSession } from '../state/session';
 import * as prefs from '../storage/prefs';
 import { colors, fonts, gutter, space, type } from '../theme/tokens';
 
-export function LoginScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string }) {
+export function LoginScreen({
+  cancelLabel = 'Cancel',
+  words,
+}: {
+  cancelLabel?: string;
+  /** The screen's own words; English when a caller gives none. */
+  words?: AccountStrings;
+}) {
+  const t = words ?? accountStrings('en');
   const { server, signedIn, changeServer, notice, adding, accounts, cancelAdd, clientWith } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,7 +35,7 @@ export function LoginScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string }
   const go = async () => {
     if (!server) return;
     if (!email.trim() || !password) {
-      setError('Enter your email address and password.');
+      setError(t.enterEmailPassword);
       return;
     }
     setBusy(true);
@@ -40,14 +49,14 @@ export function LoginScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string }
       const state = await mine.authState().catch(() => null);
       if (state?.must_change_password) {
         await mine.logout().catch(() => undefined);
-        setError('This account must choose a new password first. Do that in the web app, then sign in here.');
+        setError(t.mustChoosePassword);
         setBusy(false);
         return;
       }
       setPassword('');
       await signedIn(user, session);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Signing in failed.');
+      setError(e instanceof ApiError ? e.message : t.signInFailed);
       setBusy(false);
     }
   };
@@ -57,16 +66,16 @@ export function LoginScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string }
       {/* The focused field and the button under it scroll clear of the keyboard. */}
       <KeyboardAwareScrollView contentContainerStyle={st.scroll} keyboardShouldPersistTaps="handled" bottomOffset={96}>
         <View style={st.card}>
-          <Wordmark sub="Sign in to continue." />
+          <Wordmark sub={t.signInSub} />
           <View style={st.serverRow}>
             <Text style={st.server} numberOfLines={1} testID="login-server">
               {server ? displayServer(server) : ''}
             </Text>
-            <Button label="Change" variant="quiet" onPress={changeServer} accessibilityLabel="Change server" />
+            <Button label={t.change} variant="quiet" onPress={changeServer} accessibilityLabel={t.changeServer} />
           </View>
           <Field
             testID="login-email"
-            label="Email"
+            label={t.email}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -81,7 +90,7 @@ export function LoginScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string }
           <Field
             ref={pw}
             testID="login-password"
-            label="Password"
+            label={t.password}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -92,7 +101,7 @@ export function LoginScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string }
             error={!!error}
           />
           {error ? <ErrorText>{error}</ErrorText> : null}
-          <Button testID="login-submit" label="Sign in" variant="primary" busy={busy} onPress={go} />
+          <Button testID="login-submit" label={t.signIn} variant="primary" busy={busy} onPress={go} />
           {adding && accounts.length ? (
             <Button testID="login-cancel" label={cancelLabel} variant="quiet" onPress={cancelAdd} />
           ) : null}

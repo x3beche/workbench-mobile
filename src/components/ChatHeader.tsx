@@ -30,6 +30,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import type { VoiceLang, WorkbenchClient } from '../api/client';
 import { useMaybeSession } from '../state/session';
+import { chromeStrings } from '../lib/chromeStrings';
 import { colors, fonts, motion, space, touch, type } from '../theme/tokens';
 import { uiLang } from '../update/strings';
 import { ActivityStrip } from './Activity';
@@ -93,6 +94,7 @@ export function ChatHeader({
   titleTestID?: string;
   testID?: string;
 }) {
+  const c = chromeStrings(uiLang(lang));
   const session = useMaybeSession();
   const reduce = useReduceMotion();
   /** The page in front, for what a screen reader reads: 0 the name, 1 the activity. */
@@ -228,7 +230,7 @@ export function ChatHeader({
               style={StyleSheet.absoluteFill}
               onPress={turn}
               accessibilityRole="button"
-              accessibilityLabel="Back to the conversation's name"
+              accessibilityLabel={c.backToName}
               testID="activity-back"
             />
             <ActivityStrip client={client} scope={session?.account?.id ?? 'local'} lang={uiLang(lang)} brief />

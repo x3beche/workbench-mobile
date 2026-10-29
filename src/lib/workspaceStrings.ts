@@ -18,6 +18,16 @@ export interface WorkspaceStrings {
   keptBack: (n: number) => string;
   /** "3 conversations archived", "1 moved to Trash" - and what did not go. */
   bulk: (what: BulkAction, n: number, failed: number) => { text: string; bad: boolean };
+  // The row's own actions: the "…" menu and the buttons behind a swipe
+  pin: string;
+  unpin: string;
+  archive: string;
+  unarchive: string;
+  restore: string;
+  /** "Delete forever" in the menu of a conversation already in the trash. */
+  foreverAction: string;
+  exportMd: string;
+  exportPdf: string;
   // The dialogs
   rename: string;
   save: string;
@@ -91,6 +101,14 @@ const en: WorkspaceStrings = {
     if (!n) return { text: `Nothing changed: ${stayed} could not be reached.`, bad: true };
     return { text: `${done}; ${stayed} could not be reached and stayed.`, bad: true };
   },
+  pin: 'Pin',
+  unpin: 'Unpin',
+  archive: 'Archive',
+  unarchive: 'Unarchive',
+  restore: 'Restore',
+  foreverAction: 'Delete forever',
+  exportMd: 'Export as Markdown',
+  exportPdf: 'Export as PDF',
   rename: 'Rename',
   save: 'Save',
   name: 'Name',
@@ -128,6 +146,14 @@ const tr: WorkspaceStrings = {
     if (!n) return { text: `Hiçbir şey değişmedi: ${stayed} ulaşılamadı.`, bad: true };
     return { text: `${done}; ${stayed} ulaşılamadı ve yerinde kaldı.`, bad: true };
   },
+  pin: 'Sabitle',
+  unpin: 'Sabitlemeyi kaldır',
+  archive: 'Arşivle',
+  unarchive: 'Arşivden çıkar',
+  restore: 'Geri getir',
+  foreverAction: 'Kalıcı olarak sil',
+  exportMd: 'Markdown olarak indir',
+  exportPdf: 'PDF olarak indir',
   rename: 'Adını değiştir',
   save: 'Kaydet',
   name: 'Ad',

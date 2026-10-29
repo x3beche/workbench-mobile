@@ -32,6 +32,7 @@ export function DrawerRow({
   onLongPress,
   onMore,
   moreLabel,
+  actionsLabel,
   label,
   hint,
   testID,
@@ -57,6 +58,8 @@ export function DrawerRow({
   onMore?: () => void;
   /** What its … is for, in the caller's words: "Actions for Trip photos". */
   moreLabel?: string;
+  /** What the row's own action menu is called, for a screen reader. */
+  actionsLabel?: string;
   label?: string;
   hint?: string;
   /** `<group>-<id>`: its dot is `<group>-dot-<id>`, its pin `<group>-pin-<id>`, its box `<group>-<id>-check`. */
@@ -72,7 +75,7 @@ export function DrawerRow({
       accessibilityState={check === undefined ? { selected: on } : { checked: check, selected: on }}
       accessibilityLabel={label ?? title}
       accessibilityHint={hint}
-      accessibilityActions={onMore ? [{ name: 'more', label: 'Actions' }] : undefined}
+      accessibilityActions={onMore ? [{ name: 'more', label: actionsLabel ?? 'Actions' }] : undefined}
       onAccessibilityAction={(e) => {
         if (e.nativeEvent.actionName === 'more') onMore?.();
       }}

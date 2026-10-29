@@ -25,6 +25,25 @@ export interface AccountStrings {
   signOutTitle: string;
   signOutText: string;
   sessionEnded: string;
+  // Before signing in: choosing the server and the way in
+  serverSub: string;
+  serverAddress: string;
+  connect: string;
+  connectTo: (server: string) => string;
+  recentServers: string;
+  forgetServer: string;
+  forgetServerLabel: (server: string) => string;
+  addressUnusable: string;
+  notWorkbenchServer: string;
+  httpsHint: string;
+  signInSub: string;
+  email: string;
+  password: string;
+  signIn: string;
+  change: string;
+  enterEmailPassword: string;
+  mustChoosePassword: string;
+  signInFailed: string;
   /** The voice choices' labels, by id (Türkçe and English stay as they are). */
   options: Record<string, string>;
 }
@@ -49,6 +68,25 @@ const en: AccountStrings = {
   signOutText:
     'The conversation you have open stays on this phone, and a draft stays in the box. You need your password to come back.',
   sessionEnded: 'Signed out',
+  serverSub: 'Connect to a Workbench server: the address you open the web app at.',
+  serverAddress: 'Server address',
+  connect: 'Connect',
+  connectTo: (server) => `Connect to ${server}`,
+  recentServers: 'Recent servers',
+  forgetServer: 'Remove',
+  forgetServerLabel: (server) => `Remove ${server} from recent servers`,
+  addressUnusable: 'That address cannot be used.',
+  notWorkbenchServer: 'It did not answer as a Workbench server.',
+  httpsHint: 'https is used unless you type http://.',
+  signInSub: 'Sign in to continue.',
+  email: 'Email',
+  password: 'Password',
+  signIn: 'Sign in',
+  change: 'Change',
+  enterEmailPassword: 'Enter your email address and password.',
+  mustChoosePassword:
+    'This account must choose a new password first. Do that in the web app, then sign in here.',
+  signInFailed: 'Signing in failed.',
   options: {},
 };
 
@@ -72,6 +110,25 @@ const tr: AccountStrings = {
   signOutText:
     'Açık konuşma bu telefonda kalır, yazdığın taslak kutuda durur. Geri dönmek için şifren gerekir.',
   sessionEnded: 'Oturum kapalı',
+  serverSub: 'Bir Workbench sunucusuna bağlanın: web uygulamasını açtığınız adres.',
+  serverAddress: 'Sunucu adresi',
+  connect: 'Bağlan',
+  connectTo: (server) => `${server} sunucusuna bağlan`,
+  recentServers: 'Son sunucular',
+  forgetServer: 'Kaldır',
+  forgetServerLabel: (server) => `${server} son sunuculardan kaldırılsın`,
+  addressUnusable: 'Bu adres kullanılamıyor.',
+  notWorkbenchServer: 'Bir Workbench sunucusu gibi yanıt vermedi.',
+  httpsHint: 'http:// yazmazsanız https kullanılır.',
+  signInSub: 'Devam etmek için giriş yapın.',
+  email: 'E-posta',
+  password: 'Parola',
+  signIn: 'Giriş yap',
+  change: 'Değiştir',
+  enterEmailPassword: 'E-posta adresinizi ve parolanızı girin.',
+  mustChoosePassword:
+    'Bu hesabın önce yeni bir parola seçmesi gerekiyor. Bunu web uygulamasında yapın, sonra buradan giriş yapın.',
+  signInFailed: 'Giriş yapılamadı.',
   options: { auto: 'Otomatik', live: 'Konuşurken', record: 'Kayıt bitince' },
 };
 

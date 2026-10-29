@@ -787,10 +787,10 @@ export function Workspace({
     };
     if (chat.deleted_at || scope === 'trash') {
       return [
-        { id: 'restore', label: 'Restore', icon: RotateCcw, onPress: close(() => restore(chat)) },
+        { id: 'restore', label: wst.restore, icon: RotateCcw, onPress: close(() => restore(chat)) },
         {
           id: 'forever',
-          label: 'Delete forever',
+          label: wst.foreverAction,
           icon: Trash,
           danger: true,
           onPress: close(() => setAsk({ chat, what: 'forever' })),
@@ -798,21 +798,21 @@ export function Workspace({
       ];
     }
     return [
-      { id: 'rename', label: 'Rename', icon: Pencil, onPress: close(() => setAsk({ chat, what: 'rename' })) },
+      { id: 'rename', label: wst.rename, icon: Pencil, onPress: close(() => setAsk({ chat, what: 'rename' })) },
       {
         id: 'pin',
-        label: chat.pinned ? 'Unpin' : 'Pin',
+        label: chat.pinned ? wst.unpin : wst.pin,
         icon: chat.pinned ? PinOff : Pin,
         onPress: close(() => pin(chat)),
       },
       chat.archived
-        ? { id: 'unarchive', label: 'Unarchive', icon: ArchiveRestore, onPress: close(() => archive(chat, false)) }
-        : { id: 'archive', label: 'Archive', icon: Archive, onPress: close(() => archive(chat, true)) },
-      { id: 'export-md', label: 'Export as Markdown', icon: FileDown, onPress: close(() => exportChat(chat, 'md')) },
-      { id: 'export-pdf', label: 'Export as PDF', icon: FileText, onPress: close(() => exportChat(chat, 'pdf')) },
+        ? { id: 'unarchive', label: wst.unarchive, icon: ArchiveRestore, onPress: close(() => archive(chat, false)) }
+        : { id: 'archive', label: wst.archive, icon: Archive, onPress: close(() => archive(chat, true)) },
+      { id: 'export-md', label: wst.exportMd, icon: FileDown, onPress: close(() => exportChat(chat, 'md')) },
+      { id: 'export-pdf', label: wst.exportPdf, icon: FileText, onPress: close(() => exportChat(chat, 'pdf')) },
       {
         id: 'delete',
-        label: 'Delete',
+        label: wst.delete,
         icon: Trash,
         danger: true,
         onPress: close(() => setAsk({ chat, what: 'delete' })),
@@ -823,14 +823,14 @@ export function Workspace({
   const swipeActions = (chat: Chat): SwipeAction[] => {
     if (scope === 'trash')
       return [
-        { id: 'restore', label: 'Restore', icon: RotateCcw, onPress: () => restore(chat) },
-        { id: 'forever', label: 'Delete', icon: Trash, danger: true, onPress: () => setAsk({ chat, what: 'forever' }) },
+        { id: 'restore', label: wst.restore, icon: RotateCcw, onPress: () => restore(chat) },
+        { id: 'forever', label: wst.delete, icon: Trash, danger: true, onPress: () => setAsk({ chat, what: 'forever' }) },
       ];
     return [
       scope === 'archived'
-        ? { id: 'unarchive', label: 'Unarchive', icon: ArchiveRestore, onPress: () => archive(chat, false) }
-        : { id: 'archive', label: 'Archive', icon: Archive, onPress: () => archive(chat, true) },
-      { id: 'delete', label: 'Delete', icon: Trash, danger: true, onPress: () => setAsk({ chat, what: 'delete' }) },
+        ? { id: 'unarchive', label: wst.unarchive, icon: ArchiveRestore, onPress: () => archive(chat, false) }
+        : { id: 'archive', label: wst.archive, icon: Archive, onPress: () => archive(chat, true) },
+      { id: 'delete', label: wst.delete, icon: Trash, danger: true, onPress: () => setAsk({ chat, what: 'delete' }) },
     ];
   };
 

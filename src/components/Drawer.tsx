@@ -25,7 +25,9 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
+import { chromeStrings } from '../lib/chromeStrings';
 import { colors, motion } from '../theme/tokens';
+import { uiLang } from '../update/strings';
 import { useReduceMotion } from './motion';
 import { DrawerGesture, DrawerPull } from './drawerGestures';
 
@@ -59,6 +61,7 @@ export function Drawer({
   const p = useSharedValue(open ? 1 : 0);
   // The drawer was let go by the finger: it is already springing to where it settles.
   const byHand = useSharedValue(false);
+  const c = chromeStrings(uiLang('auto'));
 
   useEffect(() => {
     if (byHand.get()) {
@@ -132,7 +135,7 @@ export function Drawer({
   if (wide) {
     return (
       <View style={s.row}>
-        <View style={[s.column, { width }]} testID="drawer" accessibilityLabel="Conversations">
+        <View style={[s.column, { width }]} testID="drawer" accessibilityLabel={c.conversations}>
           {panel}
         </View>
         <View style={s.flex}>{children}</View>
@@ -160,7 +163,7 @@ export function Drawer({
               style={s.flex}
               onPress={() => onOpenChange(false)}
               accessibilityRole="button"
-              accessibilityLabel="Close the conversations"
+              accessibilityLabel={c.closeConversations}
               testID="drawer-scrim"
             />
           </Reanimated.View>

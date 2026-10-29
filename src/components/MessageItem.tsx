@@ -18,7 +18,9 @@ import { initials } from '../lib/groups';
 import { useSmoothText } from '../lib/drain';
 import { copy } from '../lib/feel';
 import { stepDetail, stepLabel, stepState } from '../lib/steps';
+import { chromeStrings } from '../lib/chromeStrings';
 import { colors, fonts, gutter, motion, space, type } from '../theme/tokens';
+import { uiLang } from '../update/strings';
 import { Appear } from './Appear';
 import { Check, ChevronDown, ChevronRight, CircleAlert, Square } from './icons';
 import { Markdown, type MarkdownWords } from './Markdown';
@@ -228,8 +230,8 @@ export const MessageItem = memo(function MessageItem({
         <Pressable
           onLongPress={onMenu ? () => onMenu(m) : undefined}
           delayLongPress={350}
-          accessibilityHint="Long press to copy"
-          accessibilityActions={[{ name: 'copy', label: 'Copy' }]}
+          accessibilityHint={md?.longPressCopy ?? 'Long press to copy'}
+          accessibilityActions={[{ name: 'copy', label: md?.copy ?? 'Copy' }]}
           onAccessibilityAction={(e) => {
             if (e.nativeEvent.actionName === 'copy') copy(m.content);
           }}
@@ -241,8 +243,8 @@ export const MessageItem = memo(function MessageItem({
       <Pressable
         onLongPress={onMenu ? () => onMenu(m) : undefined}
         delayLongPress={350}
-        accessibilityHint="Long press to copy"
-        accessibilityActions={[{ name: 'copy', label: 'Copy' }]}
+        accessibilityHint={md?.longPressCopy ?? 'Long press to copy'}
+        accessibilityActions={[{ name: 'copy', label: md?.copy ?? 'Copy' }]}
         onAccessibilityAction={(e) => {
           if (e.nativeEvent.actionName === 'copy') copy(m.content);
         }}
@@ -303,6 +305,7 @@ export function PendingItem({ text }: { text: string }) {
 
 /** Three dots breathing while the first words are awaited (still, under reduced motion). */
 export function TypingDots() {
+  const c = chromeStrings(uiLang('auto'));
   const reduce = useReduceMotion();
   const [t] = useState(() => new Animated.Value(0));
   useEffect(() => {
@@ -319,7 +322,7 @@ export function TypingDots() {
     return () => loop.stop();
   }, [t, reduce]);
   return (
-    <View style={s.dots} testID="typing" accessibilityLabel="Writing the answer" accessibilityLiveRegion="polite">
+    <View style={s.dots} testID="typing" accessibilityLabel={c.writingAnswer} accessibilityLiveRegion="polite">
       {[0, 1, 2].map((i) => {
         const opacity = reduce
           ? 0.6

@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ApiError, type WorkbenchClient } from '../api/client';
+import { ApiError, type VoiceLang, type WorkbenchClient } from '../api/client';
 import type { Model, Provider } from '../api/types';
 import { colors, fonts, gutter, indicatorStyle, motion, radius, space, touch, type } from '../theme/tokens';
 import { Appear } from './Appear';
@@ -27,18 +27,23 @@ import { Choice } from './Choice';
 import { Check, Search, X } from './icons';
 import { KeyboardSpacer } from './KeyboardSpacer';
 import { modelName } from './MessageItem';
+import { chatStrings } from '../lib/chatStrings';
+import { uiLang } from '../update/strings';
 import { ErrorText, Glyph, IconButton } from './ui';
 
 export function ModelSheet({
   client,
   provider,
   model,
+  lang,
   onClose,
   onPick,
 }: {
   client: WorkbenchClient | null;
   provider: string;
   model: string;
+  /** The app's language: the sheet's own words follow it. */
+  lang?: VoiceLang;
   onClose: () => void;
   onPick: (provider: string, model: string) => Promise<void>;
 }) {
@@ -50,6 +55,7 @@ export function ModelSheet({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const { height } = useWindowDimensions();
+  const t = chatStrings(uiLang(lang ?? 'auto'));
 
   useEffect(() => {
     if (!client) return;
@@ -59,19 +65,19 @@ export function ModelSheet({
       .catch((e) =>
         setError(
           e instanceof ApiError && e.status === 403
-            ? 'Your account may not choose models on this server.'
-            : 'The providers could not be read.',
+            ? t.mayNotChoose
+            : t.providersUnreadable,
         ),
       );
-  }, [client]);
+  }, [client, t.mayNotChoose, t.providersUnreadable]);
 
   useEffect(() => {
     if (!client || !prov) return;
     client
       .models(prov)
       .then((list) => setLoaded({ prov, list }))
-      .catch((e) => setError(e instanceof ApiError ? e.message : 'The models could not be read.'));
-  }, [client, prov]);
+      .catch((e) => setError(e instanceof ApiError ? e.message : t.modelsUnreadable));
+  }, [client, prov, t.modelsUnreadable]);
 
   const shown = useMemo(() => {
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -92,25 +98,25 @@ export function ModelSheet({
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable style={s.scrim} onPress={onClose} accessibilityLabel="Close" />
+      <Pressable style={s.scrim} onPress={onClose} accessibilityLabel={t.close} />
       <Appear from="below" fill={false} duration={motion.sheet}>
         <SafeAreaView edges={['bottom', 'left', 'right']} style={[s.sheet, { height: Math.round(height * 0.82) }]}>
           <View style={s.grip} aria-hidden />
           <View style={s.head}>
             <View style={s.flex}>
-              <Text style={s.title}>Model</Text>
+              <Text style={s.title}>{t.model}</Text>
               {model ? (
                 <Text style={s.now} numberOfLines={1}>
-                  Now: {modelName(model)}
+                  {t.nowModel(modelName(model))}
                 </Text>
               ) : null}
             </View>
-            <IconButton icon={X} label="Close" onPress={onClose} testID="models-close" color={colors.inkDim} />
+            <IconButton icon={X} label={t.close} onPress={onClose} testID="models-close" color={colors.inkDim} />
           </View>
           <View style={s.body}>
             {providers && providers.length > 1 ? (
               <Choice
-                label="Provider"
+                label={t.provider}
                 options={providers.map((p) => ({ id: p.id, label: p.name }))}
                 value={prov}
                 onChange={setProv}
@@ -122,12 +128,12 @@ export function ModelSheet({
                 style={s.searchInput}
                 value={q}
                 onChangeText={setQ}
-                placeholder="Find a model"
+                placeholder={t.findModel}
                 placeholderTextColor={colors.inkDim}
                 selectionColor={colors.inkDim}
                 autoCapitalize="none"
                 autoCorrect={false}
-                accessibilityLabel="Find a model"
+                accessibilityLabel={t.findModel}
               />
             </View>
             {error ? <ErrorText>{error}</ErrorText> : null}
@@ -156,7 +162,7 @@ export function ModelSheet({
                           {item.name || item.id}
                         </Text>
                         <Text style={s.id} numberOfLines={1}>
-                          {saving === item.id ? 'Saving' : item.id}
+                          {saving === item.id ? t.saving : item.id}
                         </Text>
                       </View>
                       {on ? <Glyph icon={Check} size={18} color={colors.inkBright} /> : null}

@@ -31,6 +31,7 @@ import type { FileFolder, StoredFile, TrashFile, UploadPart, User } from '../api
 import { FileThumb } from '../components/FileThumb';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { filesStrings } from '../lib/filesStrings';
+import { chromeStrings } from '../lib/chromeStrings';
 import { uiLang } from '../update/strings';
 import { Toast, useToast } from '../components/Toast';
 import {
@@ -378,7 +379,7 @@ export const FilesScreen = forwardRef<
     }
     if (rights.change) {
       out.push({ id: 'rename', label: f.rename, icon: Pencil, onPress: () => setAsk({ what: 'rename', target: t }) });
-      out.push({ id: 'move', label: 'Move', icon: FolderInput, onPress: () => setPicker({ mode: 'move', target: t }) });
+      out.push({ id: 'move', label: f.move, icon: FolderInput, onPress: () => setPicker({ mode: 'move', target: t }) });
     }
     if (t.kind === 'file' ? mayDelete(t.file, rights, user?.id) : rights.change)
       out.push({
@@ -579,7 +580,7 @@ export const FilesScreen = forwardRef<
   return (
     <SafeAreaView style={s.safe} edges={['top', 'left', 'right', 'bottom']} testID="files-screen">
       <ScreenHeader
-        title="Files"
+        title={f.title}
         onMenu={wide ? undefined : onMenu}
         menuTestID="files-open-drawer"
         left={wide ? <View style={s.side} /> : undefined}
@@ -679,11 +680,10 @@ export const FilesScreen = forwardRef<
         <View style={s.uploading} testID="files-uploading">
           <ActivityIndicator size="small" color={colors.inkDim} />
           <Text style={s.meta} numberOfLines={1}>
-            Uploading {uploading.name}
-            {uploading.all > 1 ? ` (${uploading.done + 1} of ${uploading.all})` : ''}…
+            {f.uploading(uploading.name, uploading.done + 1, uploading.all)}
           </Text>
           <Button
-            label="Stop"
+            label={f.stopUpload}
             variant="quiet"
             onPress={() => uploadStop.current?.abort()}
             testID="files-upload-stop"
@@ -713,20 +713,20 @@ export const FilesScreen = forwardRef<
             error ? (
               <View style={s.note}>
                 <ErrorText>{error}</ErrorText>
-                <Button label="Try again" onPress={refresh} testID="files-retry" />
+                <Button label={f.retry} onPress={refresh} testID="files-retry" />
               </View>
             ) : side === 'trash' && trash?.files.length ? (
-              <Text style={s.kept}>Kept {trash.days} days, then deleted for good.</Text>
+              <Text style={s.kept}>{f.keptDays(trash.days)}</Text>
             ) : null
           }
           ListEmptyComponent={
             loading && !error ? (
-              <ActivityIndicator style={s.wait} color={colors.inkDim} accessibilityLabel="Reading the files" />
+              <ActivityIndicator style={s.wait} color={colors.inkDim} accessibilityLabel={f.readingThese} />
             ) : empty && !error ? (
               <View style={s.empty}>
                 <Text style={s.emptyText}>{empty}</Text>
                 {canUpload && !at ? (
-                  <Button label="Upload" onPress={() => setAdding(true)} testID="files-empty-upload" />
+                  <Button label={f.upload} onPress={() => setAdding(true)} testID="files-empty-upload" />
                 ) : null}
               </View>
             ) : null
@@ -824,11 +824,11 @@ export const FilesScreen = forwardRef<
 
       {ask?.what === 'rename' && ask.target.kind !== 'trash' ? (
         <Dialog
-          title="Rename"
-          confirm="Save"
+          title={f.rename}
+          confirm={f.save}
           input={{
             value: ask.target.kind === 'folder' ? ask.target.folder.name : ask.target.file.name,
-            label: 'Name',
+            label: f.nameLabel,
           }}
           onCancel={() => setAsk(null)}
           onConfirm={async (name) => {
@@ -842,9 +842,9 @@ export const FilesScreen = forwardRef<
       ) : null}
       {ask?.what === 'new-folder' ? (
         <Dialog
-          title="New folder"
-          confirm="Make"
-          input={{ value: '', label: 'Name' }}
+          title={f.newFolder}
+          confirm={f.make}
+          input={{ value: '', label: f.nameLabel }}
           onCancel={() => setAsk(null)}
           onConfirm={async (name) => {
             if (!client) return;
@@ -860,10 +860,10 @@ export const FilesScreen = forwardRef<
           title={ask.target.kind === 'folder' ? f.deleteFolderQ : f.deleteFileQ}
           text={
             ask.target.kind === 'folder'
-              ? `“${ask.target.folder.name}” and everything in it go to Deleted files, kept ${trash?.days ?? 30} days.`
-              : `“${ask.target.file.name}” goes to Deleted files, kept ${trash?.days ?? 30} days. Where it was used, it shows as deleted.`
+              ? f.deleteFolderText(ask.target.folder.name, trash?.days ?? 30)
+              : f.deleteFileText(ask.target.file.name, trash?.days ?? 30)
           }
-          confirm="Delete"
+          confirm={f.delete}
           danger
           onCancel={() => setAsk(null)}
           onConfirm={async () => {
@@ -881,9 +881,9 @@ export const FilesScreen = forwardRef<
       ) : null}
       {ask?.what === 'purge' ? (
         <Dialog
-          title="Delete forever?"
-          text={`“${ask.file.name}” is deleted for good. This cannot be undone.`}
-          confirm="Delete forever"
+          title={f.foreverQ}
+          text={f.foreverText(ask.file.name)}
+          confirm={f.deleteForever}
           danger
           onCancel={() => setAsk(null)}
           onConfirm={async () => {
@@ -928,16 +928,17 @@ function FolderPicker({
   onClose: () => void;
   onPick: (to: string) => Promise<void>;
 }) {
+  const c = chromeStrings(uiLang('auto'));
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const choices = useMemo(() => folderChoices(folders).filter((c) => !exclude.has(c.id)), [folders, exclude]);
+  const choices = useMemo(() => folderChoices(folders).filter((c2) => !exclude.has(c2.id)), [folders, exclude]);
   const pick = async (id: string) => {
     setBusy(id);
     setError(null);
     try {
       await onPick(id);
     } catch (e) {
-      setError(errText(e, 'That did not work.'));
+      setError(errText(e, c.failed));
       setBusy(null);
     }
   };

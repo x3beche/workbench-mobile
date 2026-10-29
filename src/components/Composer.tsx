@@ -12,9 +12,11 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type Reac
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { VoiceLang, WorkbenchClient } from '../api/client';
+import { chatStrings } from '../lib/chatStrings';
 import { readDraft, writeDraft } from '../lib/drafts';
 import { tick } from '../lib/feel';
 import { colors, fonts, radius, space, type } from '../theme/tokens';
+import { uiLang } from '../update/strings';
 import { joinWords } from '../voice/live';
 import { useVoiceRecorder } from '../voice/useVoiceRecorder';
 import type { VoiceMode } from '../voice/voice';
@@ -65,10 +67,12 @@ export const Composer = forwardRef<
     draftKey?: string;
   }
 >(function Composer(
-  { client, lang, mode = 'record', writing, onSend, onStop, onVoiceNote, placeholder = 'Message', above, tool, ready = false, suggestion = null, draftKey },
+  { client, lang, mode = 'record', writing, onSend, onStop, onVoiceNote, placeholder, above, tool, ready = false, suggestion = null, draftKey },
   ref,
 ) {
   // Read from the conversation's kept draft: coming back to it finds the text.
+  const t = chatStrings(uiLang(lang));
+  const boxWords = placeholder ?? t.message;
   const [text, setBox] = useState(() => (draftKey ? readDraft(draftKey) : ''));
   /** Every way the text changes writes it to the conversation's draft. */
   const setText = (next: string | ((now: string) => string)) => {
@@ -153,7 +157,7 @@ export const Composer = forwardRef<
         <View style={[s.field, s.recording, voice.live && s.liveField]}>
           {voice.live ? <LiveWords base={text.trim()} words={voice.live} lines={MAX_LINES} /> : null}
           <View style={voice.live ? s.liveBar : s.flex}>
-            <RecordingBar phase={voice.phase} elapsed={voice.elapsed} onCancel={voice.cancel} onDone={voice.finish} />
+            <RecordingBar phase={voice.phase} elapsed={voice.elapsed} onCancel={voice.cancel} onDone={voice.finish} words={t} />
           </View>
         </View>
       </View>
@@ -162,12 +166,12 @@ export const Composer = forwardRef<
 
   const has = !!text.trim() || ready;
   const round = has
-    ? { id: 'send', label: 'Send', icon: ArrowUp, on: true, press: send }
+    ? { id: 'send', label: t.send, icon: ArrowUp, on: true, press: send }
     : writing
-      ? { id: 'stop', label: 'Stop the answer', icon: Square, on: true, press: onStop }
+      ? { id: 'stop', label: t.stopAnswer, icon: Square, on: true, press: onStop }
       : onVoiceNote
-        ? { id: 'open-voice-note', label: 'Record a voice note', icon: AudioLines, on: true, press: onVoiceNote }
-        : { id: 'send', label: 'Send', icon: ArrowUp, on: false, press: send };
+        ? { id: 'open-voice-note', label: t.recordNote, icon: AudioLines, on: true, press: onVoiceNote }
+        : { id: 'send', label: t.send, icon: ArrowUp, on: false, press: send };
 
   return (
     <View style={s.wrap}>
@@ -194,10 +198,10 @@ export const Composer = forwardRef<
             if (voice.error) voice.setError(null);
             if (voice.notice) voice.setNotice(null);
           }}
-          placeholder={offer ? offer.text : placeholder}
+          placeholder={offer ? offer.text : boxWords}
           placeholderTextColor={colors.inkDim}
           selectionColor={colors.inkDim}
-          accessibilityLabel={placeholder}
+          accessibilityLabel={boxWords}
           onContentSizeChange={
             Platform.OS === 'web'
               ? // A textarea never shrinks by itself, so taking text out starts it again from one line.
@@ -229,7 +233,7 @@ export const Composer = forwardRef<
           {tool}
           <IconButton
             icon={Mic}
-            label="Dictate a message"
+            label={t.dictate}
             onPress={voice.start}
             testID="voice-start"
             size={20}

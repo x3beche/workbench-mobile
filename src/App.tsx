@@ -96,14 +96,14 @@ function Screens() {
   if (phase === 'server') {
     return (
       <Appear key="server">
-        <ServerScreen cancelLabel={accountStrings(uiLang(lang)).cancel} />
+        <ServerScreen cancelLabel={accountStrings(uiLang(lang)).cancel} words={accountStrings(uiLang(lang))} />
       </Appear>
     );
   }
   if (phase === 'login') {
     return (
       <Appear key="login">
-        <LoginScreen cancelLabel={accountStrings(uiLang(lang)).cancel} />
+        <LoginScreen cancelLabel={accountStrings(uiLang(lang)).cancel} words={accountStrings(uiLang(lang))} />
       </Appear>
     );
   }

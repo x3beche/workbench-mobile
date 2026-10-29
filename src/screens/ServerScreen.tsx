@@ -6,12 +6,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, WorkbenchClient } from '../api/client';
 import { displayServer, normalizeServer, ServerAddressError } from '../api/server';
+import { accountStrings } from '../components/accountStrings';
 import { Button, ErrorText, Field, Hint, Wordmark } from '../components/ui';
 import { useSession } from '../state/session';
 import * as prefs from '../storage/prefs';
+import type { AccountStrings } from '../components/accountStrings';
 import { colors, fonts, gutter, space, type } from '../theme/tokens';
 
-export function ServerScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string }) {
+export function ServerScreen({
+  cancelLabel = 'Cancel',
+  words,
+}: {
+  cancelLabel?: string;
+  /** The screen's own words; English when a caller gives none. */
+  words?: AccountStrings;
+}) {
+  const t = words ?? accountStrings('en');
   const { connect, notice, server, adding, accounts, cancelAdd } = useSession();
   const [address, setAddress] = useState(server ? displayServer(server) : '');
   const [recent, setRecent] = useState<string[]>([]);
@@ -28,7 +38,7 @@ export function ServerScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string 
     try {
       base = normalizeServer(typed);
     } catch (e) {
-      setError(e instanceof ServerAddressError ? e.message : 'That address cannot be used.');
+      setError(e instanceof ServerAddressError ? e.message : t.addressUnusable);
       return;
     }
     setBusy(base);
@@ -36,7 +46,7 @@ export function ServerScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string 
       const state = await new WorkbenchClient(base).probe();
       await connect(base, state);
     } catch (e) {
-      const why = e instanceof ApiError && e.status === 0 ? e.message : 'It did not answer as a Workbench server.';
+      const why = e instanceof ApiError && e.status === 0 ? e.message : t.notWorkbenchServer;
       setError(`${displayServer(base)}: ${why}`);
       setBusy(null);
     }
@@ -49,10 +59,10 @@ export function ServerScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string 
       {/* The focused field and the button under it scroll clear of the keyboard. */}
       <KeyboardAwareScrollView contentContainerStyle={st.scroll} keyboardShouldPersistTaps="handled" bottomOffset={96}>
         <View style={st.card}>
-          <Wordmark sub="Connect to a Workbench server: the address you open the web app at." />
+          <Wordmark sub={t.serverSub} />
           <Field
             testID="server-input"
-            label="Server address"
+            label={t.serverAddress}
             placeholder="workbench.example.com"
             value={address}
             onChangeText={setAddress}
@@ -64,10 +74,10 @@ export function ServerScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string 
             onSubmitEditing={() => go(address)}
             error={!!error}
           />
-          {error ? <ErrorText>{error}</ErrorText> : <Hint>https is used unless you type http://.</Hint>}
+          {error ? <ErrorText>{error}</ErrorText> : <Hint>{t.httpsHint}</Hint>}
           <Button
             testID="server-connect"
-            label="Connect"
+            label={t.connect}
             variant="primary"
             busy={!!busy}
             disabled={!address.trim()}
@@ -79,13 +89,13 @@ export function ServerScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string 
         </View>
         {recent.length ? (
           <View style={st.recent}>
-            <Text style={st.head}>Recent servers</Text>
+            <Text style={st.head}>{t.recentServers}</Text>
             {recent.map((r) => (
               <View key={r} style={st.row}>
                 <Pressable
                   style={({ pressed }) => [st.rowMain, pressed && st.pressed]}
                   accessibilityRole="button"
-                  accessibilityLabel={`Connect to ${displayServer(r)}`}
+                  accessibilityLabel={t.connectTo(displayServer(r))}
                   disabled={!!busy}
                   onPress={() => {
                     setAddress(displayServer(r));
@@ -97,9 +107,9 @@ export function ServerScreen({ cancelLabel = 'Cancel' }: { cancelLabel?: string 
                   </Text>
                 </Pressable>
                 <Button
-                  label="Remove"
+                  label={t.forgetServer}
                   variant="quiet"
-                  accessibilityLabel={`Remove ${displayServer(r)} from recent servers`}
+                  accessibilityLabel={t.forgetServerLabel(displayServer(r))}
                   onPress={() => forget(r)}
                 />
               </View>

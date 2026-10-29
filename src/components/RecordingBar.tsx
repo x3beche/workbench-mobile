@@ -1,6 +1,7 @@
 /** While recording: a small red dot, the time, and the two ways to end it (an X, and a round tick or stop). */
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import type { ChatStrings } from '../lib/chatStrings';
 import { colors, fonts, type } from '../theme/tokens';
 import { formatDuration, MAX_RECORD_MS } from '../voice/voice';
 import { Check, Square, X } from './icons';
@@ -11,20 +12,22 @@ export function RecordingBar({
   elapsed,
   onCancel,
   onDone,
-  doneLabel = 'Done',
+  words,
+  endsWith = 'done',
 }: {
   phase: 'recording' | 'transcribing';
   elapsed: number;
   onCancel: () => void;
   onDone: () => void;
-  /** "Done" turns the recording into text; "Stop" ends it for review. */
-  doneLabel?: 'Done' | 'Stop';
+  words: ChatStrings;
+  /** done: the round button turns the recording into text; stop: it ends it for review. */
+  endsWith?: 'done' | 'stop';
 }) {
   if (phase === 'transcribing') {
     return (
       <View style={s.bar} accessibilityLiveRegion="polite">
         <ActivityIndicator size="small" color={colors.inkDim} />
-        <Text style={s.label}>Transcribing</Text>
+        <Text style={s.label}>{words.transcribing}</Text>
       </View>
     );
   }
@@ -32,15 +35,15 @@ export function RecordingBar({
   return (
     <View style={s.bar} testID="recording-bar">
       <View style={s.dot} accessibilityElementsHidden importantForAccessibility="no" />
-      <Text style={s.time} accessibilityLabel={`Recording, ${Math.floor(elapsed / 1000)} seconds`}>
+      <Text style={s.time} accessibilityLabel={words.recordingSeconds(Math.floor(elapsed / 1000))}>
         {formatDuration(elapsed)}
       </Text>
       <Text style={s.label} numberOfLines={1}>
-        {left < 30_000 ? `Stops in ${Math.ceil(left / 1000)} s` : 'Recording'}
+        {left < 30_000 ? words.stopsIn(Math.ceil(left / 1000)) : words.recording}
       </Text>
       <IconButton
         icon={X}
-        label="Cancel the recording"
+        label={words.cancelRecording}
         onPress={onCancel}
         testID="voice-cancel"
         size={20}
@@ -51,13 +54,13 @@ export function RecordingBar({
         testID="voice-done"
         onPress={onDone}
         accessibilityRole="button"
-        accessibilityLabel={doneLabel === 'Stop' ? 'Stop recording' : 'Done: turn it into text'}
+        accessibilityLabel={endsWith === 'stop' ? words.stopRecording : words.doneToText}
         hitSlop={6}
         style={({ pressed }) => [s.round, pressed && s.pressed]}
       >
         <Glyph
-          icon={doneLabel === 'Stop' ? Square : Check}
-          size={doneLabel === 'Stop' ? 14 : 20}
+          icon={endsWith === 'stop' ? Square : Check}
+          size={endsWith === 'stop' ? 14 : 20}
           color={colors.inkOnAccent}
         />
       </Pressable>

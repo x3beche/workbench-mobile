@@ -7,7 +7,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { chromeStrings } from '../lib/chromeStrings';
 import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
+import { uiLang } from '../update/strings';
 import { Appear } from './Appear';
 import type { LucideIcon } from './icons';
 import { KeyboardSpacer } from './KeyboardSpacer';
@@ -18,15 +20,19 @@ export function Sheet({
   title,
   children,
   testID,
+  closeLabel,
 }: {
   onClose: () => void;
   title?: string;
   children: ReactNode;
   testID?: string;
+  /** What the dimmed ground is called, for a screen reader. */
+  closeLabel?: string;
 }) {
+  const c = chromeStrings(uiLang('auto'));
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable style={s.scrim} onPress={onClose} accessibilityLabel="Close" />
+      <Pressable style={s.scrim} onPress={onClose} accessibilityLabel={closeLabel ?? c.close} />
       <Appear from="below" fill={false} duration={motion.sheet}>
         <SafeAreaView edges={['bottom', 'left', 'right']} style={s.sheet} testID={testID}>
           <View style={s.grip} aria-hidden />
@@ -102,6 +108,7 @@ export function Dialog({
   onCancel: () => void;
   onConfirm: (value: string) => Promise<void>;
 }) {
+  const c = chromeStrings(uiLang('auto'));
   const [value, setValue] = useState(input?.value ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +127,7 @@ export function Dialog({
     try {
       await onConfirm(value.trim());
     } catch (e) {
-      setError((e as Error).message || 'That did not work.');
+      setError((e as Error).message || c.failed);
     } finally {
       // The dialog may be closing; a dialog that fails keeps its buttons for another go.
       setBusy(false);
@@ -130,7 +137,7 @@ export function Dialog({
   return (
     <Modal visible transparent animationType="none" onRequestClose={onCancel} statusBarTranslucent>
       <View style={s.center}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} accessibilityLabel="Cancel" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} accessibilityLabel={c.cancel} />
         <Appear fill={false} duration={motion.sheet} style={s.dialogWrap}>
           <View style={s.dialog} accessibilityViewIsModal testID={testID ?? 'dialog'}>
             <Text style={s.dialogTitle}>{title}</Text>
@@ -152,7 +159,7 @@ export function Dialog({
             ) : null}
             {error ? <ErrorText>{error}</ErrorText> : null}
             <View style={s.dialogRow}>
-              <Button label={cancel ?? 'Cancel'} variant="quiet" onPress={onCancel} />
+              <Button label={cancel ?? c.cancel} variant="quiet" onPress={onCancel} />
               <Button
                 testID="dialog-confirm"
                 label={confirm}

@@ -30,7 +30,7 @@ import { Markdown } from '../components/Markdown';
 import { ActionList, Sheet, type Action } from '../components/Sheet';
 import { Button, ErrorText, IconButton } from '../components/ui';
 import { previewWorth, size, viewerOf } from '../lib/files';
-import { filesStrings } from '../lib/filesStrings';
+import { filesStrings, type FilesStrings } from '../lib/filesStrings';
 import { uiLang } from '../update/strings';
 import { canSave } from '../lib/share';
 import { shortTime } from '../lib/time';
@@ -103,13 +103,13 @@ export function FilePreview({
             </View>
             <IconButton
               icon={Share}
-              label="Share or open in another app"
+              label={f.shareOpen}
               onPress={() => run('share')}
               disabled={!!busy}
               testID="preview-share"
             />
             {actions.length || canSave ? (
-              <IconButton icon={Ellipsis} label="More" onPress={() => setMore(true)} testID="preview-more" />
+              <IconButton icon={Ellipsis} label={f.more} onPress={() => setMore(true)} testID="preview-more" />
             ) : null}
           </View>
           {error ? (
@@ -127,7 +127,7 @@ export function FilePreview({
             ) : viewer === 'table' ? (
               <TableView client={client} file={file} onFail={() => setViewer('text')} lang={lang} />
             ) : (
-              <Other client={client} file={file} busy={busy} onShare={() => run('share')} onSave={() => run('save')} />
+              <Other client={client} file={file} busy={busy} words={f} onShare={() => run('share')} onSave={() => run('save')} />
             )}
           </View>
         </Appear>
@@ -140,7 +140,7 @@ export function FilePreview({
                 ? [
                     {
                       id: 'save-phone',
-                      label: 'Save to phone',
+                      label: f.saveToPhone,
                       icon: Download,
                       onPress: () => {
                         setMore(false);
@@ -173,11 +173,11 @@ function Waiting({ label }: { label: string }) {
   );
 }
 
-function Failed({ text, onRetry }: { text: string; onRetry?: () => void }) {
+function Failed({ text, retry, onRetry }: { text: string; retry: string; onRetry?: () => void }) {
   return (
     <View style={s.center}>
       <ErrorText>{text}</ErrorText>
-      {onRetry ? <Button label="Try again" onPress={onRetry} /> : null}
+      {onRetry ? <Button label={retry} onPress={onRetry} /> : null}
     </View>
   );
 }
@@ -292,6 +292,7 @@ function Pdf({
     return (
       <Failed
         text={error}
+        retry={f.retry}
         onRetry={() => {
           setError(null);
           load();
@@ -362,13 +363,14 @@ function TextView({
     if (!client) return;
     client
       .fileText(file.id, TEXT_MAX)
-      .then(setGot, (e) => setError(e instanceof ApiError ? e.message : 'The file could not be read.'));
-  }, [client, file.id]);
+      .then(setGot, (e) => setError(e instanceof ApiError ? e.message : f.fileUnreadable));
+  }, [client, file.id, f.fileUnreadable]);
   useEffect(load, [load]);
   if (error)
     return (
       <Failed
         text={error}
+        retry={f.retry}
         onRetry={() => {
           setError(null);
           load();
@@ -385,7 +387,7 @@ function TextView({
           {got.text}
         </Text>
       )}
-      {got.cut ? <Text style={s.note}>The first {size(TEXT_MAX)} are shown. Share it to read the rest.</Text> : null}
+      {got.cut ? <Text style={s.note}>{f.firstShown(size(TEXT_MAX))}</Text> : null}
     </ScrollView>
   );
 }
@@ -442,12 +444,14 @@ function Other({
   client,
   file,
   busy,
+  words,
   onShare,
   onSave,
 }: {
   client: WorkbenchClient | null;
   file: StoredFile;
   busy: 'share' | 'save' | null;
+  words: FilesStrings;
   onShare: () => void;
   onSave: () => void;
 }) {
@@ -457,16 +461,16 @@ function Other({
       <Text style={s.otherName} numberOfLines={2}>
         {file.name}
       </Text>
-      <Text style={[s.meta, s.centered]}>This file opens in another app on the phone.</Text>
+      <Text style={[s.meta, s.centered]}>{words.opensElsewhere}</Text>
       <View style={s.otherRow}>
         <Button
-          label="Open or share"
+          label={words.openOrShare}
           variant="primary"
           busy={busy === 'share'}
           onPress={onShare}
           testID="preview-open"
         />
-        {canSave ? <Button label="Save to phone" busy={busy === 'save'} onPress={onSave} /> : null}
+        {canSave ? <Button label={words.saveToPhone} busy={busy === 'save'} onPress={onSave} /> : null}
       </View>
     </View>
   );
