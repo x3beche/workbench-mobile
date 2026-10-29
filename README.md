@@ -105,6 +105,21 @@ Then you sign in with the same e-mail address and password as on the web.
   four thousand rows draws the dozen near the eye. A shut drawer is out of a
   keyboard's way as well as a finger's, which on a tablet it was not: all
   forty of its Tab stops were in an invisible panel.
+- **The last English, and the last small targets** (1.8.1): the same pass
+  again, this time with a browser measuring every screen in both themes and
+  both languages. The words that were still English were the ones on
+  things rather than on screens: the "…" menu on a conversation (pin,
+  archive, the two exports), the dialogs in Files, the composer's own
+  buttons, a voice note, the model chooser, a line's long press - and the
+  two screens before signing in, where they mattered most because a Turkish
+  reader met them first. Seven controls a thumb had to hit were still under
+  44 px - the drawer's tabs (31), Files' sides (40), a folder crumb in a file's path
+  (18), the model under a conversation's name (22), the folded tool line,
+  the code block's Copy, and Settings' Source link at 15 px inside a
+  sentence, which now has a row of its own. A swipe's Delete was white on
+  the theme's red at 3.76:1; the red behind it is deepened until the word
+  reads at 4.5 (4.56 measured), and left alone in themes whose red already
+  did.
 - **Any server.** Type an address (`workbench.example.com`, `https://...`,
   or `http://192.168.1.20:8000` on a local network). The app checks that it
   answers as Workbench (`/api/health`, `/api/auth/state`) before going on.
