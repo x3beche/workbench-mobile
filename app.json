@@ -3,7 +3,7 @@
     "name": "Workbench",
     "slug": "workbench-mobile",
     "scheme": "workbench",
-    "version": "1.8.1",
+    "version": "1.9.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -19,7 +19,7 @@
         "NSCameraUsageDescription": "Workbench uses the camera only when you take a photo to upload to Files or send with a message.",
         "NSPhotoLibraryUsageDescription": "Workbench reads the photos you pick, to upload them to Files or send them with a message."
       },
-      "buildNumber": "29"
+      "buildNumber": "30"
     },
     "android": {
       "package": "dev.workbench.mobile",
@@ -30,7 +30,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 34,
+      "versionCode": 35,
       "permissions": [
         "android.permission.REQUEST_INSTALL_PACKAGES"
       ],
@@ -101,7 +101,26 @@
         }
       ],
       "expo-sharing",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Stats",
+              "label": "Workbench figures",
+              "description": "This month's models and this week's tools, each with its last 14 days, from your Workbench server.",
+              "minWidth": "320dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 5,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000,
+              "previewImage": "./assets/widget-preview/stats.png"
+            }
+          ]
+        }
+      ]
     ]
   }
 }

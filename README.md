@@ -82,12 +82,26 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/91b-claude-suggestion.png" width="200" alt="Claude Code's suggestion in the empty box, with Use">
 </p>
 <p>
+  <img src="docs/screenshots/90-widget.png" width="320" alt="The home screen widget, five cells by two: the models' month and the tools' week, each with its last 14 days">
+</p>
+<p>
   <img src="docs/screenshots/21-wide-chat.png" width="520" alt="On a wide screen the drawer is a column that stays open">
   <img src="docs/screenshots/34-wide-scrollbar.png" width="520" alt="The web build's thin scrollbars, as the web app draws them">
 </p>
 
 ## What it does
 
+- **The figures, on the home screen** (1.9.0, Android): the Chat tab's two
+  cards - the models' month and the tools' week, each with its last 14 days
+  - as a widget of five cells by two, one frame split by a hairline. It is
+  the same reading the Analytics screen makes, counted the same way, so the
+  numbers agree with the screen to the call; the screen hands the widget
+  each reading as it takes one, and Android redraws it on its own every
+  thirty minutes. A phone with no network at that moment keeps the last
+  reading it had rather than showing an empty frame. It wears the app's
+  theme and language, and a tap opens the app. One thing the web card has
+  and this does not: "which tools are on" (88/298) is the Tools page's
+  figure, and the phone has no Tools page to read it from.
 - **Said plainly, and reachable with a thumb** (1.8.0): a pass over every
   screen with the app in front of it. A draft is the person's work - it
   outlives leaving the screen, a restart and a send that fails, and comes

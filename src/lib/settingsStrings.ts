@@ -44,6 +44,8 @@ export interface SettingsStrings {
   tools: string;
   toolsAbout: string;
   uses: (n: number) => string;
+  /** How many different tools were used this week - the home screen widget's head. */
+  toolCount: (n: number) => string;
   worked: (n: number) => string;
   /** The week's most used tool, of any source. */
   mostUsed: string;
@@ -126,6 +128,7 @@ const en: SettingsStrings = {
   tools: 'Tools',
   toolsAbout: 'Tool use this week, by day',
   uses: (n) => (n === 1 ? '1 use' : `${n} uses`),
+  toolCount: (n) => (n === 1 ? '1 tool' : `${n} tools`),
   worked: (n) => `${n} worked`,
   mostUsed: 'Most used',
   claudeTools: 'Your Claude Code tool calls, through the Claude pool',
@@ -201,6 +204,7 @@ const tr: SettingsStrings = {
   tools: 'Araçlar',
   toolsAbout: 'Bu haftaki araç kullanımı, güne göre',
   uses: (n) => `${n} kullanım`,
+  toolCount: (n) => `${n} araç`,
   worked: (n) => `${n} başarılı`,
   mostUsed: 'En çok kullanılan',
   claudeTools: 'Claude Code araç çağrıların, Claude havuzu üzerinden',

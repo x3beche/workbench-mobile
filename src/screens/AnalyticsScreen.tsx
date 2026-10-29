@@ -83,6 +83,7 @@ import { useBus, useLive } from '../live/LiveContext';
 import { inFront } from '../live/hub';
 import { useMaybeSession } from '../state/session';
 import { colors, fonts, gutter, indicatorStyle, space, type } from '../theme/tokens';
+import { pushWidget } from '../widget/push';
 
 interface Data {
   summary?: LlmSummary | null;
@@ -141,6 +142,9 @@ export function AnalyticsScreen({
     ]);
     const tree = orch && (orch.desired === 'running' || orch.session) ? await soft(client.orchestratorTree()) : null;
     const got: Data = { summary, usage, tools, orch, tree, incidents, pool, adminPool, sandboxes };
+    // The home screen widget draws these two cards too (widget/push.ts), from the
+    // reading the screen just took - no second request for it.
+    if (summary && tools) void pushWidget(summary, tools).catch(() => undefined);
     // A section that could not be read this time keeps what it showed: the
     // figures are a reading, not a live truth, and blanking them is worse than
     // a minute-old number.
