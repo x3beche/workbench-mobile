@@ -110,14 +110,29 @@ Then you sign in with the same e-mail address and password as on the web.
   cannot be read, so the plate is drawn at 28 and the cut always falls outside
   its curve. The plate's padding, 10, is deeper than the curve (28 x (1 -
   1/sqrt 2) = 8.2), and the card inside rounds at the same centre, 18, so
-  nothing reaches into a corner and the corners look drawn, not cut. The widest line is
-  worked out from the very words and figures the widget is about to write
-  (1.9.3), glyph by glyph from Roboto's and Roboto Mono's own advances, in
-  English or Turkish: "9212 this week 33 tools" gives 0.9 at
-  320, the width the web card itself has, where the web clips that line and
-  the widget does not, a little under 1 at 344 and 1.12 in a 5x2 cell of 390, so a bigger
-  frame gets a bigger card instead of 11px left small in it; a week past
-  10,000 ("10.00k", "99.99k"), "999.9M" tokens, "12,350" calls or "100
+  nothing reaches into a corner and the corners look drawn, not cut. The type
+  is the web's own (1.9.8): IBM Plex Sans and IBM Plex Mono (OFL), bundled
+  into the APK's font assets through the widget plugin's `fonts`, because the
+  widget library looks a font up by file name and draws anything else -
+  "monospace" included - in the launcher's default sans; on a Samsung that
+  was One UI's own face at a weight it made up, and it read thin. The figures
+  are Plex Mono Bold, the heads' names Plex Sans Bold, every small word the
+  Medium of its face in the dim ink taken a third of the way to the ink, and
+  nothing is drawn at 400. The widest line is worked out from the very words
+  and figures the widget is about to write (1.9.3), glyph by glyph from the
+  bundled fonts' own advances, in English or Turkish, and the figures are as
+  large as that line allows with 3dp to spare. In a cell with the height for
+  it - the Samsung's 5x2, about 362x184dp, or 390x200 - the small figure
+  ("10,680 calls") takes a row of its own under the big one, and the big
+  figure grows from 13dp to 20-27; a 320x110 cell keeps the web's one row
+  unless the figures are long enough that two rows draw them larger. The
+  head and the small words are a step larger against the figure than the
+  web's (12 and 11.5 to its 15).
+  The head follows the figures as far as its own line ("Models this month")
+  fits. Each line is counted as Android boxes it - a one-line TextView is as
+  tall as its font's bounding box, whatever line height it is given - and a
+  sans word beside a mono figure is lifted onto the figure's baseline. A week
+  past 10,000 ("10.00k", "99.99k"), "999.9M" tokens, "12,350" calls or "100
   tools" make it a step smaller instead of running off the edge. The figures
   are written as the web writes them - k and B with two decimals, M with one. Only the chart takes the height the cell has left, so a cell of
   320x110 and one of 390x200 both read and neither leaves a band of nothing;

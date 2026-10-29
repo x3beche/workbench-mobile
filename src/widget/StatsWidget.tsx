@@ -7,12 +7,18 @@
  * the ink and the small ones dim; the chart along the bottom. The words are
  * the same ones the web card says, its "88/298" included.
  *
- * Everything is measured from the size the launcher hands us, against those
- * numbers at 320 dp (11px head, 15px figures, 10.5px asides, 7px padding, a
- * 34px chart): a 5x2 cell is 320x110 dp on one phone and 390x200 on another,
+ * Everything is measured from the size the launcher hands us: a 5x2 cell is
+ * 320x110 dp on one phone, about 362x184 on a Samsung and 390x200 on another,
  * and a drawing of one size in the other's box is what left small words and a
- * band of nothing. So `s` scales type and padding with the width, and the
- * chart takes whatever height is left.
+ * band of nothing. So one factor scales type and padding to the room the
+ * widest line leaves, and the chart takes whatever height is left.
+ *
+ * The faces are the web's own, IBM Plex Sans and IBM Plex Mono, bundled with
+ * the app (app.json, the widget plugin's `fonts`) and named by file: the
+ * library looks a `fontFamily` up among the app's font assets and falls back to
+ * the launcher's default sans for any other name - "monospace" included, so
+ * before 1.9.8 the figures were drawn in Samsung's own sans at a weight it
+ * made up, which is what read thin.
  *
  * It is drawn from primitives only (FlexWidget, TextWidget, SvgWidget): the
  * library renders a widget to an image, so nothing here may use a hook, a
@@ -31,22 +37,38 @@ import type { WidgetSnapshot } from './data';
  * The card as the web draws it on a phone, read off the site in a browser
  * (cc-usage.ts / cc-tools.ts / charts.ts): an 11px head, a 15px figure with
  * 10.5px asides, 9px padding on a narrow screen, the head's 5px gap, a 13px
- * icon, a 12px chevron, and 14 bars two px apart on the 1px line. These are
- * the web's numbers at the width the web card itself has, and `metrics`
- * multiplies all of them by one factor. The corners are not among them: they
- * are the launcher's (`CORNER`).
+ * icon, a 12px chevron, and 14 bars two px apart on the 1px line - with the
+ * head and the asides a step larger against the figure (12 and 11.5 where the
+ * web has 11 and 10.5): on a phone's home screen, at arm's length and over a
+ * wallpaper, the web's small words read as thin (the user, 2026-10-29).
+ * `metrics` multiplies all of them by one factor. The corners are not among
+ * them: they are the launcher's (`CORNER`).
  */
 const WEB = {
-  head: 11,
+  head: 12,
   fig: 15,
-  aside: 10.5,
+  aside: 11.5,
   pad: 9,
   gap: 4,
   headGap: 5,
-  icon: 13,
+  icon: 14,
   chev: 12,
   barGap: 2,
 };
+/**
+ * The faces, by their font files' names (assets/fonts in the APK): the figures
+ * in Plex Mono Bold - the web's are SemiBold on a lit screen; on a home screen
+ * a step heavier holds up - the heads' names in Plex Sans Bold, and every small
+ * word in the Medium of its face rather than the Regular, so nothing on the
+ * card is drawn at 400. `fontWeight` is the file's own, passed with it so Android
+ * matches the file rather than thickening it.
+ */
+const FACE = {
+  title: { fontFamily: 'IBMPlexSans_700Bold', fontWeight: '700' },
+  word: { fontFamily: 'IBMPlexSans_500Medium', fontWeight: '500' },
+  figure: { fontFamily: 'IBMPlexMono_700Bold', fontWeight: '700' },
+  aside: { fontFamily: 'IBMPlexMono_500Medium', fontWeight: '500' },
+} as const;
 /**
  * The launcher's corner. From Android 12 a launcher rounds the whole widget
  * off - the library's root is `@android:id/background`, and the widget is one
@@ -64,33 +86,48 @@ const CORNER = 28;
  */
 const PLATE_PAD = Math.ceil(CORNER * (1 - Math.SQRT1_2)) + 1;
 const CARD_RADIUS = CORNER - PLATE_PAD;
-/** Body is 13px/1.45 and the cards inherit it; the figures' `font:` shorthand resets theirs to normal, 1.28 in the web's own face. */
-const TEXT_LINE = 1.45;
-const FIG_LINE = 1.28;
 /**
- * How wide each character is in the platform's sans face (Roboto), in ems, at
- * 400 and at 600 - read off the font itself, glyph by glyph, for every letter
- * the card's words and figures can have in English and Turkish. The monospace
- * face needs no table: each of its glyphs, at any weight, is 0.6em.
+ * How Android boxes a line of each face, in ems: a one-line TextView is as tall
+ * as its font's bounding box (the head table's yMax over yMin - includeFontPadding)
+ * whatever line height it is given, and its baseline sits `under` above the
+ * box's foot. Plex Mono reaches lower than Plex Sans, so a figure and the sans
+ * word beside it, both stood on the row's foot, would not share a baseline:
+ * `lift` raises the smaller one to it.
+ */
+const BOX: Record<keyof typeof FACE, { tall: number; under: number }> = {
+  title: { tall: 1.425, under: 0.275 },
+  word: { tall: 1.39, under: 0.258 },
+  figure: { tall: 1.5, under: 0.35 },
+  aside: { tall: 1.482, under: 0.35 },
+};
+const tall = (face: keyof typeof FACE, size: number) => Math.ceil(size * BOX[face].tall * 100) / 100;
+/** What lifts a line of `face` at `size` onto the baseline of a taller one beside it, both on the row's foot. */
+const lift = (face: keyof typeof FACE, size: number, by: keyof typeof FACE, bySize: number) =>
+  Math.max(0, Math.round((bySize * BOX[by].under - size * BOX[face].under) * 10) / 10);
+/**
+ * How wide each character is in IBM Plex Sans, in ems, at 500 and at 700 - read
+ * off the bundled font files' own advances (hmtx), glyph by glyph, for every
+ * letter the card's words and figures can have in English and Turkish. The
+ * monospace face needs no table: each of Plex Mono's glyphs, at any weight, is 0.6em.
  */
 const GLYPHS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ,./%·çğıöşüÇĞİÖŞÜ–-';
-const SANS: Record<400 | 600, number[]> = {
-  400: [
-    544, 562, 523, 564, 530, 348, 562, 551, 243, 239, 507, 243, 877, 552, 570, 562, 568, 339, 516, 327, 551, 484, 751,
-    496, 473, 496, 652, 623, 651, 656, 568, 553, 681, 713, 272, 552, 627, 539, 873, 713, 688, 631, 688, 616, 594, 597,
-    648, 637, 887, 627, 601, 599, 562, 562, 562, 562, 562, 562, 562, 562, 562, 562, 248, 197, 264, 413, 732, 261, 523,
-    550, 248, 570, 493, 551, 651, 765, 278, 688, 667, 648, 656, 276,
+const SANS: Record<500 | 700, number[]> = {
+  500: [
+    549, 592, 509, 592, 555, 340, 538, 580, 265, 265, 548, 285, 882, 580, 562, 592, 592, 383, 494, 365, 580, 512, 799,
+    530, 514, 487, 660, 659, 634, 682, 593, 570, 705, 714, 414, 531, 660, 513, 815, 714, 711, 627, 711, 655, 599, 577,
+    685, 627, 926, 639, 617, 592, 600, 600, 600, 600, 600, 600, 600, 600, 600, 600, 236, 288, 288, 416, 947, 340, 509,
+    544, 265, 562, 494, 580, 634, 705, 414, 711, 599, 685, 588, 401,
   ],
-  600: [
-    537, 563, 521, 563, 538, 355, 569, 558, 260, 255, 528, 260, 869, 559, 566, 563, 565, 360, 514, 336, 558, 501, 738,
-    506, 497, 506, 667, 635, 654, 651, 564, 550, 682, 708, 288, 557, 634, 541, 875, 708, 689, 642, 689, 635, 610, 615,
-    657, 649, 878, 633, 615, 605, 571, 571, 571, 571, 571, 571, 571, 571, 571, 571, 249, 235, 284, 380, 738, 292, 521,
-    550, 267, 566, 493, 558, 654, 765, 278, 689, 667, 657, 636, 367,
+  700: [
+    569, 608, 517, 608, 562, 361, 552, 596, 286, 286, 577, 303, 894, 596, 564, 608, 608, 404, 504, 383, 596, 538, 841,
+    560, 534, 518, 685, 667, 651, 697, 607, 585, 719, 724, 432, 559, 696, 530, 819, 724, 714, 656, 714, 674, 624, 584,
+    694, 650, 973, 673, 649, 607, 600, 600, 600, 600, 600, 600, 600, 600, 600, 600, 236, 310, 310, 460, 974, 358, 517,
+    562, 286, 564, 504, 596, 651, 719, 432, 714, 624, 694, 588, 403,
   ],
 };
 
 /** A line's width in ems: the sans face by its table (an unknown letter counted wide), the monospace one at 0.6 each. */
-function ems(text: string, face: 'sans' | 'mono', weight: 400 | 600 = 400): number {
+function ems(text: string, face: 'sans' | 'mono', weight: 500 | 700 = 500): number {
   if (face === 'mono') return [...text].length * 0.6;
   let w = 0;
   for (const ch of text) {
@@ -111,23 +148,29 @@ interface HalfText {
   word: string;
 }
 
-/**
- * The room a half's widest line asks for at the card's scale of 1: the head
- * (icon, name, what it says at the right, chevron, and the gaps between them
- * and the spring) and the figures row (the big figure, its word, the spring
- * and the small figure with its word), in the web's sizes.
- */
-function widest(halves: HalfText[]): number {
-  let most = 0;
+/** The room a half's lines ask for at the card's scale of 1, in the sizes of `WEB`. */
+interface Room {
+  /** The head: icon, name, what it says at the right, chevron, and the gaps between them and the spring. */
+  head: number;
+  /** The figures as the web writes them, in one row: the big figure, its word, the spring and the small figure with its word. */
+  row: number;
+  /** The same figures in two rows: the big figure and its word over the small figure and its own. */
+  big: number;
+  small: number;
+}
+
+/** The widest of the halves' lines, line by line. */
+function widest(halves: HalfText[]): Room {
+  const most: Room = { head: 0, row: 0, big: 0, small: 0 };
   for (const x of halves) {
     const right = x.headRight ? ems(x.headRight.text, x.headRight.mono ? 'mono' : 'sans') * (x.headRight.mono ? WEB.aside : WEB.head) : 0;
-    const head = WEB.icon + ems(x.title, 'sans', 600) * WEB.head + right + WEB.chev + (x.headRight ? 4 : 3) * WEB.headGap;
-    const fig =
-      ems(x.big, 'mono') * WEB.fig +
-      ems(x.unit, 'sans') * WEB.aside +
-      (ems(x.value, 'mono') + 0.6 + ems(x.word, 'mono')) * WEB.aside +
-      3 * WEB.gap;
-    most = Math.max(most, head, fig);
+    const head = WEB.icon + ems(x.title, 'sans', 700) * WEB.head + right + WEB.chev + (x.headRight ? 4 : 3) * WEB.headGap;
+    const big = ems(x.big, 'mono') * WEB.fig + ems(x.unit, 'sans') * WEB.aside + WEB.gap;
+    const small = (ems(x.value, 'mono') + 0.6 + ems(x.word, 'mono')) * WEB.aside;
+    most.head = Math.max(most.head, head);
+    most.row = Math.max(most.row, big + small + 2 * WEB.gap);
+    most.big = Math.max(most.big, big);
+    most.small = Math.max(most.small, small);
   }
   return most;
 }
@@ -149,7 +192,26 @@ const SERIES: ColorProp[] = [
 /** The tools' three sources: the Chat, the person's Claude Code, their OpenCode. */
 const TOOL_COLORS: ColorProp[] = [colors.series1, colors.series5, colors.series6].map(paint);
 
-const MONO = 'monospace';
+/** A hex colour's channels: `#ddd` and `#a0a0a0` alike; anything else is not ours to mix. */
+function rgb(hex: string): number[] | null {
+  const h = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex)?.[1];
+  if (!h) return null;
+  const full = h.length === 3 ? [...h].map((c) => c + c).join('') : h;
+  return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
+}
+
+/**
+ * The card's small words: the theme's dim ink taken a third of the way to its
+ * ink. The web's dim grey is drawn on a lit screen next to the rest of a page;
+ * on a home screen it is all the words there are, and at the dim itself they
+ * read as faint.
+ */
+function softInk(): string {
+  const a = rgb(colors.inkDim);
+  const b = rgb(colors.ink);
+  if (!a || !b) return colors.inkDim;
+  return `#${a.map((v, i) => Math.round(v + (b[i] - v) / 3).toString(16).padStart(2, '0')).join('')}`;
+}
 
 /** The web card's own icons (cc-usage.ts MODELS_ICON, cc-tools.ts WRENCH and CHEVRON), path for path. */
 const MODELS_ICON = 'M9 3v2M15 3v2M9 19v2M15 19v2M3 9h2M3 15h2M19 9h2M19 15h2M7 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM10 10h4v4h-4z';
@@ -157,18 +219,22 @@ const WRENCH_ICON = 'M14.5 4.5a4 4 0 0 0-5 5L4 15l2 2 2 2 5.5-5.5a4 4 0 0 0 5-5l
 const CHEVRON_ICON = 'M10 7l5 5-5 5';
 
 const glyph = (d: string, ink: string) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${ink}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${ink}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
 
 /** Everything the drawing measures, from the box the launcher gave it. */
 interface Metrics {
   s: number;
+  /** The small figure in a row of its own, under the big one. */
+  stacked: boolean;
   pad: number;
   cardPad: number;
   gap: number;
   headFont: number;
   figFont: number;
   smallFont: number;
-  /** The lines those fonts are drawn in: a widget is an image, so every box is ours to count. */
+  /** The head's own aside, "88/298": the asides' size at the head's scale. */
+  headAside: number;
+  /** The lines those fonts take: a widget is an image, so every box is ours to count. */
   headLine: number;
   figLine: number;
   smallLine: number;
@@ -185,51 +251,79 @@ interface Metrics {
   figGap: number;
 }
 
-function metrics(w: number, h: number, room: number): Metrics {
+/** What a half keeps clear beside its widest line, in dp: room for a renderer's rounding, not a band of nothing. */
+const MARGIN = 3;
+/** The least height the chart keeps in a short cell, in dp. */
+const MIN_CHART = 26;
+
+function metrics(w: number, h: number, room: Room): Metrics {
   const pad = PLATE_PAD;
   // A half's room inside the plate and the card's own borders.
   const half = (w - 2 * pad - 2) / 2;
+  // What the card's lines take in height at a scale of 1, with the two gaps
+  // between them and the chart: the figures in one row as the web has them, or
+  // in two.
+  const lines = 2 * WEB.pad + WEB.head * BOX.title.tall + WEB.fig * BOX.figure.tall + 2 * WEB.gap;
+  const fit = (across: number, down: number) =>
+    Math.max(0.7, Math.min(2, (half - MARGIN) / (across + 2 * WEB.pad), (h - 2 * pad - 2 - MIN_CHART) / down));
   /**
-   * The card is the web's, enlarged only as far as its widest line - `room`,
-   * worked out from the words and figures it is about to write - still fits:
-   * for "9212 this week 33 tools" 0.9 at the width the web card itself has
-   * (where the web clips that line and this does not), a little under 1 at
-   * 344dp, 1.12 in a 5x2 cell of 390 - so a bigger frame gets a bigger card rather than
-   * the web's 11px in a wide hole, and a longer figure a slightly smaller one.
+   * The figures are enlarged as far as their widest line - worked out from the
+   * very words and figures the card is about to write - still fits its half
+   * with `MARGIN` to spare, and only held where a short cell would leave the
+   * chart less than `MIN_CHART`. In the web's one row ("10.12k this week 33
+   * tools") that is a figure of 13dp in the Samsung's 362: every word of the
+   * row shares the width. Where the cell is tall enough, the small figure takes
+   * a row of its own under the big one, and the figures grow by half again -
+   * 20dp in the same cell, 21 at 390 - while a 320x110 cell, which has no
+   * height to give, keeps the web's one row.
    */
-  const k = Math.max(0.75, Math.min(1.4, (half - 4) / (room + 2 * WEB.pad)));
-  const of = (v: number) => Math.round(v * k * 10) / 10;
-  const cardPad = Math.round(WEB.pad * k * 10) / 10;
-  const gap = Math.round(WEB.gap * k * 10) / 10;
-  const headFont = of(WEB.head);
+  const one = fit(room.row, lines);
+  const two = fit(Math.max(room.big, room.small), lines + WEB.aside * BOX.figure.tall);
+  const stacked = two > one;
+  const k = stacked ? two : one;
+  const of = (v: number, by = k) => Math.round(v * by * 10) / 10;
+  const cardPad = of(WEB.pad);
+  const gap = of(WEB.gap);
+  // The head follows the figures, as far as its own line fits: a long word at
+  // its right ("this month") makes the head a step smaller, never the figures.
+  const kh = Math.min(k, (half - MARGIN - 2 * cardPad) / room.head);
+  const headFont = of(WEB.head, kh);
   const figFont = of(WEB.fig);
   const smallFont = of(WEB.aside);
-  // The web's own line boxes, unrounded: 11 x 1.45 = 15.95, 15 x 1.28 = 19.2.
-  const headLine = Math.round(headFont * TEXT_LINE * 100) / 100;
-  const figLine = Math.round(figFont * FIG_LINE * 100) / 100;
+  const headAside = of(WEB.aside, kh);
+  // The lines as Android boxes them (`BOX`): the head as tall as its tallest
+  // word, the figures' row as its big figure, the small figure's own row as it.
+  const headLine = Math.max(tall('title', headFont), tall('word', headFont), tall('figure', headAside));
+  const figLine = tall('figure', figFont);
+  const smallLine = tall('figure', smallFont);
   // What the head, the figures and the two gaps between the lines take: the
   // chart is the rest, so a taller cell is a taller chart, not a band of nothing.
-  const chart = Math.max(16, Math.round(h - 2 * pad - 2 - 2 * cardPad - headLine - figLine - 2 * gap));
+  const chart = Math.max(
+    16,
+    Math.round(h - 2 * pad - 2 - 2 * cardPad - headLine - figLine - (stacked ? smallLine : 0) - 2 * gap),
+  );
   return {
     s: k,
+    stacked,
     pad,
     cardPad,
     gap,
     headFont,
     figFont,
     smallFont,
+    headAside,
     headLine,
     figLine,
-    smallLine: Math.round(smallFont * TEXT_LINE * 100) / 100,
-    icon: Math.round(WEB.icon * k * 10) / 10,
-    chev: Math.round(WEB.chev * k * 10) / 10,
+    smallLine,
+    icon: of(WEB.icon, kh),
+    chev: of(WEB.chev, kh),
     radius: CARD_RADIUS,
     plateRadius: CORNER,
     chart,
-    barGap: Math.round(WEB.barGap * k * 10) / 10,
+    barGap: of(WEB.barGap),
     innerLeft: half - 2 * cardPad,
     innerRight: half - 1 - 2 * cardPad,
-    headGap: Math.round(WEB.headGap * k * 10) / 10,
+    headGap: of(WEB.headGap, kh),
     figGap: gap,
   };
 }
@@ -244,14 +338,17 @@ function Figure({
   value,
   word,
   m,
-  line,
+  lift: up = 0,
+  font = m.smallFont,
   tight = false,
 }: {
   value: string;
   word?: string;
   m: Metrics;
-  /** The line box it is drawn in: the head's, or the figures'. */
-  line: number;
+  /** How far it stands above the row's foot: onto the big figure's baseline, in the web's one row. */
+  lift?: number;
+  /** Its size: the figures' small one, or the head's when it stands in the head. */
+  font?: number;
   /** No air between them: a slash waits for its number, as in the web's `88/298`. */
   tight?: boolean;
 }) {
@@ -260,20 +357,21 @@ function Figure({
       style={{
         flexDirection: 'row',
         alignItems: 'flex-end',
+        paddingBottom: up,
         // The web puts a space between them, and in the monospace face that is 0.6em.
-        flexGap: tight ? 0 : Math.round(m.smallFont * 0.6),
+        flexGap: tight ? 0 : Math.round(font * 0.6),
       }}
     >
       <TextWidget
         text={value}
         maxLines={1}
-        style={{ fontSize: m.smallFont, lineHeight: line, fontFamily: MONO, fontWeight: '600', color: paint(colors.ink) }}
+        style={{ fontSize: font, ...FACE.figure, color: paint(colors.ink) }}
       />
       {word ? (
         <TextWidget
           text={word}
           maxLines={1}
-          style={{ fontSize: m.smallFont, lineHeight: line, fontFamily: MONO, color: paint(colors.inkDim) }}
+          style={{ fontSize: font, ...FACE.aside, color: paint(softInk()) }}
         />
       ) : null}
     </FlexWidget>
@@ -405,7 +503,7 @@ function Half({
         <TextWidget
           text={title}
           maxLines={1}
-          style={{ fontSize: m.headFont, lineHeight: m.headLine, fontWeight: '600', color: paint(colors.ink) }}
+          style={{ fontSize: m.headFont, ...FACE.title, color: paint(colors.ink) }}
         />
         <FlexWidget style={{ flex: 1 }} />
         {headRight}
@@ -414,21 +512,32 @@ function Half({
           style={{ width: m.chev, height: m.chev }}
         />
       </FlexWidget>
-      <FlexWidget
-        style={{ flexDirection: 'row', alignItems: 'flex-end', flexGap: m.figGap, width: 'match_parent' }}
-      >
-        <TextWidget
-          text={big}
-          maxLines={1}
-          style={{ fontSize: m.figFont, lineHeight: m.figLine, fontWeight: '600', fontFamily: MONO, color: paint(colors.ink) }}
-        />
-        <TextWidget
-          text={unit}
-          maxLines={1}
-          style={{ fontSize: m.smallFont, lineHeight: m.figLine, color: paint(colors.inkDim) }}
-        />
-        <FlexWidget style={{ flex: 1 }} />
-        {figRight}
+      {/* The figures: the web's one row, or - in a cell with the height for it -
+          the small figure in a row of its own under the big one, so both can be
+          drawn larger. */}
+      <FlexWidget style={{ flexDirection: 'column', width: 'match_parent' }}>
+        <FlexWidget
+          style={{ flexDirection: 'row', alignItems: 'flex-end', flexGap: m.figGap, width: 'match_parent' }}
+        >
+          <TextWidget
+            text={big}
+            maxLines={1}
+            style={{ fontSize: m.figFont, ...FACE.figure, color: paint(colors.ink) }}
+          />
+          <TextWidget
+            text={unit}
+            maxLines={1}
+            style={{
+              fontSize: m.smallFont,
+              paddingBottom: lift('word', m.smallFont, 'figure', m.figFont),
+              ...FACE.word,
+              color: paint(softInk()),
+            }}
+          />
+          {m.stacked ? null : <FlexWidget style={{ flex: 1 }} />}
+          {m.stacked ? null : figRight}
+        </FlexWidget>
+        {m.stacked ? figRight : null}
       </FlexWidget>
       {/* The rest of the card is the chart's, and the chart stands on the bottom
           edge - the web's `margin-top: auto` - with no gap counted for it. */}
@@ -505,12 +614,12 @@ export function StatsWidget({
           <TextWidget
             text={`${t.models} · ${t.tools}`}
             maxLines={1}
-            style={{ fontSize: m.headFont, lineHeight: m.headLine, fontWeight: '600', color: paint(colors.ink) }}
+            style={{ fontSize: m.headFont, ...FACE.title, color: paint(colors.ink) }}
           />
           <TextWidget
             text={t.nothing}
             maxLines={1}
-            style={{ fontSize: m.smallFont, lineHeight: m.smallLine, color: paint(colors.inkDim) }}
+            style={{ fontSize: m.smallFont, ...FACE.word, color: paint(softInk()) }}
           />
         </FlexWidget>
       </FlexWidget>
@@ -520,18 +629,18 @@ export function StatsWidget({
     <FlexWidget style={plate} clickAction="OPEN_APP" accessibilityLabel={label}>
       <FlexWidget style={card}>
         <Half
-          icon={glyph(MODELS_ICON, colors.inkDim)}
+          icon={glyph(MODELS_ICON, softInk())}
           title={models.title}
           headRight={
             <TextWidget
               text={t.period.month}
               maxLines={1}
-              style={{ fontSize: m.headFont, lineHeight: m.headLine, color: paint(colors.inkDim) }}
+              style={{ fontSize: m.headFont, ...FACE.word, color: paint(softInk()) }}
             />
           }
           big={models.big}
           unit={models.unit}
-          figRight={<Figure value={models.value} word={models.word} m={m} line={m.figLine} />}
+          figRight={<Figure value={models.value} word={models.word} m={m} lift={m.stacked ? 0 : lift('figure', m.smallFont, 'figure', m.figFont)} />}
           days={snap.models.days}
           palette={SERIES}
           width={m.innerLeft}
@@ -540,16 +649,16 @@ export function StatsWidget({
         />
 
         <Half
-          icon={glyph(WRENCH_ICON, colors.inkDim)}
+          icon={glyph(WRENCH_ICON, softInk())}
           title={tools.title}
           headRight={
             snap.tools.total ? (
-              <Figure value={String(snap.tools.on)} word={`/${count(snap.tools.total)}`} m={m} line={m.smallLine} tight />
+              <Figure value={String(snap.tools.on)} word={`/${count(snap.tools.total)}`} m={m} font={m.headAside} tight />
             ) : null
           }
           big={tools.big}
           unit={tools.unit}
-          figRight={<Figure value={tools.value} word={tools.word} m={m} line={m.figLine} />}
+          figRight={<Figure value={tools.value} word={tools.word} m={m} lift={m.stacked ? 0 : lift('figure', m.smallFont, 'figure', m.figFont)} />}
           days={snap.tools.days}
           palette={TOOL_COLORS}
           width={m.innerRight}
