@@ -40,6 +40,7 @@ import { NewBelow } from '../components/NewBelow';
 import { ErrorText, Glyph, IconButton, LoadError } from '../components/ui';
 import { orchStrings } from '../lib/orchStrings';
 import { layLatest, PAGE, putOlder } from '../lib/paging';
+import { authorHeads } from '../lib/authors';
 import { asChatMessage, ROOM_ICON, ROOM_LABEL } from '../lib/rooms';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { useBus, useLive } from '../live/LiveContext';
@@ -225,6 +226,20 @@ export function RoomScreen({
     }
   };
 
+  /**
+   * Whose line is whose, where the thread has more than one voice in it: the
+   * agent's and a second person's lines look alike on the left, so the first
+   * line after a change says who (lib/authors).
+   */
+  const heads = useMemo(() => {
+    const list = lines ?? [];
+    const got = authorHeads(
+      list.map((l) => l.by?.name ?? null),
+      list.map((l) => !!user && !!l.by?.id && l.by.id === user.id),
+    );
+    return new Map(list.map((l, i) => [l.id, got[i]]));
+  }, [lines, user]);
+
   const last = lines?.[lines.length - 1];
   const waiting = !!last && last.role === 'user' && !last.seen_at && !!user && last.by?.id === user.id;
 
@@ -269,7 +284,11 @@ export function RoomScreen({
             data={[...lines].reverse()}
             keyExtractor={(l, i) => l.id || String(i)}
             renderItem={({ item }) => (
-              <MessageItem m={asChatMessage(item)} mine={!!user && item.by?.id === user.id} />
+              <MessageItem
+                m={asChatMessage(item)}
+                mine={!!user && item.by?.id === user.id}
+                head={heads.get(item.id) ?? null}
+              />
             )}
             onScroll={scrolled}
             onScrollBeginDrag={reader.begin}

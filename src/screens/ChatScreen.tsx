@@ -8,7 +8,7 @@
  * and is taken first (lib/answer.ts applyPiece), and the account's bus
  * (`cc`) says when the conversation changed elsewhere: it is read again.
  */
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -38,6 +38,7 @@ import { ActionList, Sheet } from '../components/Sheet';
 import { Button, ErrorText, Glyph, IconButton, LoadError } from '../components/ui';
 import { VoiceNoteSheet } from '../components/VoiceNoteSheet';
 import { applyEvent, applyPiece, type ConversationView } from '../lib/answer';
+import { authorHeads } from '../lib/authors';
 import { chatDetailStrings } from '../lib/chatDetail';
 import { copy } from '../lib/feel';
 import { greeting } from '../lib/groups';
@@ -274,6 +275,20 @@ export function ChatScreen({
     if (view.stale) load();
   }, [view.stale, load]);
 
+  /**
+   * Whose line is whose: told from the side while there is one other voice -
+   * but an answer can come from another model once someone switches, and then
+   * the first line after the change carries its name (lib/authors).
+   */
+  const heads = useMemo(() => {
+    const list = view.messages;
+    const got = authorHeads(
+      list.map((m) => (m.role === 'assistant' ? modelName(m.model) || 'Workbench' : (m.by?.name ?? null))),
+      list.map((m) => !m.by?.id || (!!user && m.by.id === user.id)),
+    );
+    return new Map(list.map((m, i) => [m.id, got[i]]));
+  }, [view.messages, user]);
+
   const send = async (text: string): Promise<boolean> => {
     if (!client) return false;
     followEnd();
@@ -447,6 +462,7 @@ export function ChatScreen({
               animate={!!seen.current && !seen.current.has(item.id)}
               onMenu={setMenu}
               dw={dw}
+              head={heads.get(item.id) ?? null}
             />
           )}
           onContentSizeChange={toEnd}

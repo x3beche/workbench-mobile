@@ -6,8 +6,41 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { copy } from '../lib/feel';
 import { parseMarkdown, type Block, type Inline } from '../lib/markdown';
 import { colors, fonts, radius, type } from '../theme/tokens';
-import { Check, Copy } from './icons';
+import { Check, ChevronRight, Copy } from './icons';
 import { Glyph, wrapAnywhere } from './ui';
+
+/**
+ * A box wider than the phone: code, a table. It scrolls sideways - and says
+ * so, with a chevron at the edge it runs off, until the reader reaches that
+ * edge. Without it a wide table just looked cut off.
+ */
+function Sideways({ style, hint, children }: { style?: object; hint: string; children: React.ReactNode }) {
+  const [box, setBox] = useState(0);
+  const [content, setContent] = useState(0);
+  const [at, setAt] = useState(0);
+  const runsOff = content > box + 2 && at + box < content - 2;
+  return (
+    <View style={style}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        accessibilityHint={hint}
+        onLayout={(e) => setBox(e.nativeEvent.layout.width)}
+        onContentSizeChange={(w) => setContent(w)}
+        onScroll={(e) => setAt(e.nativeEvent.contentOffset.x)}
+        scrollEventThrottle={32}
+        contentContainerStyle={s.preIn}
+      >
+        {children}
+      </ScrollView>
+      {runsOff ? (
+        <View style={s.moreMark} pointerEvents="none" testID="sideways-more">
+          <Glyph icon={ChevronRight} size={13} color={colors.inkDim} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 /** A code block: its language and a Copy button above, the code scrolling sideways below. */
 function Code({ lang, text }: { lang: string; text: string }) {
@@ -37,9 +70,9 @@ function Code({ lang, text }: { lang: string; text: string }) {
           )}
         </Pressable>
       </View>
-      <ScrollView horizontal contentContainerStyle={s.preIn} showsHorizontalScrollIndicator={false}>
+      <Sideways hint="The rest of the code is to the right: swipe sideways.">
         <Text style={s.preText}>{text}</Text>
-      </ScrollView>
+      </Sideways>
     </View>
   );
 }
@@ -104,9 +137,9 @@ function BlockView({ b }: { b: Block }) {
       return <Code lang={b.lang} text={b.text} />;
     case 'table':
       return (
-        <ScrollView horizontal style={s.table} contentContainerStyle={s.preIn} showsHorizontalScrollIndicator={false}>
+        <Sideways style={s.table} hint="The rest of the table is to the right: swipe sideways.">
           <Text style={s.preText}>{b.text}</Text>
-        </ScrollView>
+        </Sideways>
       );
     case 'list':
       return (
@@ -167,7 +200,17 @@ const s = StyleSheet.create({
   copy: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 32, paddingHorizontal: 4 },
   copyText: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   copyPressed: { color: colors.ink },
-  table: { borderRadius: radius.lg, backgroundColor: colors.surface2 },
+  table: { borderRadius: radius.lg, backgroundColor: colors.surface2, overflow: 'hidden' },
+  // The chevron at the edge something runs off: the page is wider than the phone.
+  moreMark: {
+    position: 'absolute',
+    right: 4,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    paddingLeft: 6,
+    borderRadius: radius.round,
+  },
   preIn: { paddingHorizontal: 12, paddingVertical: 10 },
   preText: { fontFamily: fonts.mono, fontSize: type.small, lineHeight: type.smallLine, color: colors.ink },
   list: { gap: 4 },

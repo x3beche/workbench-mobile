@@ -14,6 +14,7 @@ import { ActivityIndicator, Animated, Easing, Platform, Pressable, StyleSheet, T
 import type { ChatDetail, ChatMessage, Step } from '../api/types';
 import type { Writing } from '../lib/answer';
 import { activityWords, chatDetailStrings, type ChatDetailStrings } from '../lib/chatDetail';
+import { initials } from '../lib/groups';
 import { useSmoothText } from '../lib/drain';
 import { stepDetail, stepLabel, stepState } from '../lib/steps';
 import { colors, fonts, gutter, motion, space, type } from '../theme/tokens';
@@ -202,6 +203,7 @@ export const MessageItem = memo(function MessageItem({
   animate,
   onMenu,
   dw,
+  head,
 }: {
   m: ChatMessage;
   mine: boolean;
@@ -210,11 +212,15 @@ export const MessageItem = memo(function MessageItem({
   onMenu?: (m: ChatMessage) => void;
   /** The detail setting's words; English when the caller does not say. */
   dw?: ChatDetailStrings;
+  /** Whose line this is, when the thread has more than one other voice in it
+   *  and this is where it changes (lib/authors). */
+  head?: string | null;
 }) {
   const words = dw ?? chatDetailStrings('en');
   const body =
     m.role === 'user' ? (
       <View style={[s.msg, s.user]} testID="msg-user">
+        {head ? <Who name={head} mine testID="msg-head" /> : null}
         <Pressable
           onLongPress={onMenu ? () => onMenu(m) : undefined}
           delayLongPress={350}
@@ -231,6 +237,7 @@ export const MessageItem = memo(function MessageItem({
         style={s.msg}
         testID="msg-answer"
       >
+        {head ? <Who name={head} testID="msg-head" /> : null}
         {/* Everything it did to get there, behind one line; a tap opens it. */}
         {m.thinking || m.steps?.length ? (
           <CompactWork
@@ -256,6 +263,20 @@ export const MessageItem = memo(function MessageItem({
     </Appear>
   );
 });
+
+/** A name over the line that starts a run by that author: their initials, and who they are. */
+function Who({ name, mine = false, testID }: { name: string; mine?: boolean; testID?: string }) {
+  return (
+    <View style={[s.who, mine && s.whoMine]} testID={testID} accessibilityElementsHidden>
+      <View style={s.whoMark}>
+        <Text style={s.whoMarkText}>{initials(name).slice(0, 2)}</Text>
+      </View>
+      <Text style={s.whoName} numberOfLines={1}>
+        {name}
+      </Text>
+    </View>
+  );
+}
 
 /** The person's line, shown at once while it is on its way to the server. */
 export function PendingItem({ text }: { text: string }) {
@@ -363,4 +384,16 @@ const s = StyleSheet.create({
   dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.ink },
   error: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: type.smallLine, color: colors.danger },
   note: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  who: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  whoMine: { alignSelf: 'flex-end' },
+  whoMark: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.hover,
+  },
+  whoMarkText: { fontFamily: fonts.sansSemi, fontSize: 9, color: colors.inkDim },
+  whoName: { flexShrink: 1, fontFamily: fonts.sansMedium, fontSize: type.micro, color: colors.inkDim },
 });
