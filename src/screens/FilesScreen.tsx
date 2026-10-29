@@ -663,7 +663,7 @@ export const FilesScreen = forwardRef<
                   disabled={last}
                   accessibilityRole="button"
                   accessibilityLabel={c.name}
-                  hitSlop={8}
+                  hitSlop={14}
                 >
                   {({ pressed }) => (
                     <Text style={[s.crumbText, last && s.crumbOn, pressed && s.dim]} numberOfLines={1}>

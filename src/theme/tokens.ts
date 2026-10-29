@@ -142,6 +142,22 @@ export function readableOn(colour: string, bg: string): string {
   return toward;
 }
 
+/**
+ * `bg` moved toward black (or white, if that is the way) until `fg` reads on
+ * it at `need`: white on a mid red is 3.8:1, and 12px of it needs 4.5.
+ */
+export function groundUnder(fg: string, bg: string, need = 4.5): string {
+  if (!channels(fg) || !channels(bg)) return bg;
+  if (contrast(fg, bg) >= need) return bg;
+  for (const toward of ['#000000', '#ffffff']) {
+    for (let a = 0.04; a <= 0.8; a += 0.02) {
+      const mixed = mixOn(toward, bg, a);
+      if (contrast(fg, mixed) >= need) return mixed;
+    }
+  }
+  return bg;
+}
+
 /** The theme for a stored choice: the one named, the phone's for "system", the default for anything unknown. */
 export function themeFor(choice: string | null, scheme: string | null | undefined): ThemeDef {
   const id = choice === SYSTEM_THEME ? (scheme === 'light' ? SYSTEM_LIGHT : SYSTEM_DARK) : choice || DEFAULT_THEME;

@@ -346,11 +346,17 @@ export function SettingsScreen({
             <Text style={s.label}>{t.about}</Text>
             <Text style={s.text}>{t.aboutText}</Text>
             <Text style={s.dim}>
-              Workbench mobile {version ?? ''} · {t.licence} ·{' '}
-              <Text style={s.link} onPress={() => Linking.openURL(SOURCE)} accessibilityRole="link">
-                {t.source}
-              </Text>
+              Workbench mobile {version ?? ''} · {t.licence}
             </Text>
+            {/* Its own row: a link inside a line of text is 15px tall, and a thumb is not. */}
+            <Pressable
+              onPress={() => Linking.openURL(SOURCE)}
+              accessibilityRole="link"
+              style={s.sourceRow}
+              testID="settings-source"
+            >
+              <Text style={s.link}>{t.source}</Text>
+            </Pressable>
           </View>,
         )}
       </ScrollView>
@@ -466,7 +472,8 @@ const s = StyleSheet.create({
   gap: { gap: 8 },
   label: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim, marginTop: 4 },
   text: { fontFamily: fonts.sans, fontSize: type.small, color: colors.ink },
-  link: { textDecorationLine: 'underline' },
+  sourceRow: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
+  link: { textDecorationLine: 'underline', color: colors.inkDim },
   acct: { flexDirection: 'row', alignItems: 'center' },
   row: { flex: 1, minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 8 },
   ico: { width: 32, alignItems: 'center' },

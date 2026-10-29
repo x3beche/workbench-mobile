@@ -45,7 +45,7 @@ export function Tabs<T extends string>({
 
 const s = StyleSheet.create({
   row: { flexDirection: 'row', paddingHorizontal: gutter - 8 },
-  tab: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  tab: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   label: { fontFamily: fonts.sans, fontSize: type.small + 1, color: colors.inkDim },
   on: { fontFamily: fonts.sansSemi, color: colors.inkBright },
   pressed: { color: colors.ink },

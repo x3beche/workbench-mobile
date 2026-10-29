@@ -16,6 +16,8 @@ export interface ChromeStrings {
   writingAnswer: string;
   /** The conversation's name in its header: back to it from the model chooser. */
   backToName: string;
+  /** Under a conversation's name: what a sideways swipe (or a tap on it) shows. */
+  titleHint: string;
   /** A dialog whose work failed, with no better reason from the server. */
   failed: string;
 }
@@ -27,6 +29,7 @@ const en: ChromeStrings = {
   closeConversations: 'Close the conversations',
   writingAnswer: 'Writing the answer',
   backToName: "Back to the conversation's name",
+  titleHint: "Swiping sideways shows this account's activity",
   failed: 'That did not work.',
 };
 
@@ -37,6 +40,7 @@ const tr: ChromeStrings = {
   closeConversations: 'Sohbetleri kapat',
   writingAnswer: 'Yanıt yazılıyor',
   backToName: 'Sohbetin adına dön',
+  titleHint: 'Yana kaydırınca bu hesabın etkinliği görünür',
   failed: 'Bu iş yapılamadı.',
 };
 

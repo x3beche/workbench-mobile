@@ -183,6 +183,7 @@ export function CompactWork({
     <>
       <Pressable
         onPress={() => setOpen((v) => !v)}
+        hitSlop={8}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         style={s.step}

@@ -13,7 +13,7 @@ import { useContext, useRef, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 
-import { colors, fonts, type } from '../theme/tokens';
+import { colors, fonts, groundUnder, type } from '../theme/tokens';
 import { DrawerGesture } from './drawerGestures';
 import type { LucideIcon } from './icons';
 import { Glyph } from './ui';
@@ -85,7 +85,8 @@ const s = StyleSheet.create({
   actions: { flexDirection: 'row' },
   action: { width: WIDTH, alignItems: 'center', justifyContent: 'center', gap: 3 },
   plain: { backgroundColor: colors.hover },
-  danger: { backgroundColor: colors.danger },
+  // White on the theme's red is 3.8:1: a shade of it is what a 12px word needs.
+  danger: { backgroundColor: groundUnder(colors.inkBright, colors.danger) },
   pressed: { opacity: 0.8 },
   label: { fontFamily: fonts.sansMedium, fontSize: type.tiny, color: colors.ink },
   labelDanger: { color: colors.inkBright },

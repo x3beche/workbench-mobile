@@ -419,6 +419,7 @@ export function ChatScreen({
           <Pressable
             testID="open-models"
             onPress={() => setModels(true)}
+            hitSlop={11}
             accessibilityRole="button"
             accessibilityLabel={t.chooseModel(model.model || 'the server')}
             style={({ pressed }) => [st.pill, pressed && st.pillPressed]}

@@ -198,9 +198,10 @@ export function ChatHeader({
               >
                 <Pressable
                   onPress={turn}
+                  hitSlop={9}
                   accessibilityRole="button"
                   accessibilityLabel={title}
-                  accessibilityHint="Swiping sideways shows this account's activity"
+                  accessibilityHint={c.titleHint}
                   accessibilityState={{ expanded: front === 1 }}
                   testID={titleTestID}
                   style={({ pressed }) => [s.titleRow, pressed && s.titlePressed]}

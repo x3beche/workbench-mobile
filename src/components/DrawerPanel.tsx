@@ -884,7 +884,7 @@ const s = StyleSheet.create({
   },
   // A narrow phone: the tabs give way (a label ends in an ellipsis), Select never does.
   tabs: { flex: 1, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  tab: { minWidth: 0, flexShrink: 1, paddingVertical: 8 },
+  tab: { minWidth: 0, flexShrink: 1, minHeight: 44, justifyContent: 'center' },
   tabText: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   tabOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
   tabPressed: { color: colors.ink },
@@ -911,7 +911,7 @@ const s = StyleSheet.create({
     paddingLeft: gutter,
     paddingRight: space.sm,
   },
-  pickAll: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: 8 },
+  pickAll: { flex: 1, minWidth: 0, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: space.sm },
   pickBox: {
     width: 16,
     height: 16,
