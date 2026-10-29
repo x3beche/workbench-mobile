@@ -12,7 +12,7 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/04-new-chat.png" width="200" alt="A new conversation: greeting and example questions">
   <img src="docs/screenshots/05-drawer.png" width="200" alt="The drawer: search, New chat, conversations by day, the account">
   <img src="docs/screenshots/06-chat.png" width="200" alt="A conversation with the tools it ran and a code block">
-  <img src="docs/screenshots/06c-chat-activity.png" width="200" alt="The bar turned: the account's activity, tokens a second and their chart, in place of the name">
+  <img src="docs/screenshots/06c-chat-activity.png" width="200" alt="The bar turned: the account's activity across it - tokens a second and their chart, the range's tokens, Claude's prompts, jobs, CPU and memory">
   <img src="docs/screenshots/07c-chat-streaming.png" width="200" alt="An answer being written">
 </p>
 <p>
@@ -70,7 +70,7 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/74c-ccpool-sessions.png" width="200" alt="Claude pool: My sessions">
 </p>
 <p>
-  <img src="docs/screenshots/48-activity-strip.png" width="200" alt="The bar turned to the activity: tokens a second and their chart">
+  <img src="docs/screenshots/48-activity-strip.png" width="200" alt="The bar turned to the activity: every metric switched on, across the bar">
   <img src="docs/screenshots/49-activity-sheet.png" width="200" alt="Activity opened: ranges, figures, tokens by source">
   <img src="docs/screenshots/72b-analytics-tools-split.png" width="200" alt="Tools: Workbench, Claude Code and OpenCode calls, 14 days by source">
   <img src="docs/screenshots/91b-claude-suggestion.png" width="200" alt="Claude Code's suggestion in the empty box, with Use">
@@ -282,16 +282,21 @@ Then you sign in with the same e-mail address and password as on the web.
   top bar - the drawer button on the left, the conversation's name in the
   middle with what it is doing under it (in the Chat, the model), its own
   buttons on the right (closing the session, or the chat's more and new).
-  The middle is two pages that flip: a swipe carries the name out and the
-  account's live Activity in its place - tokens a second and their chart -
-  and a swipe either way turns it again, looping, so the name comes back and
-  the activity after it. Nothing opens downward: both pages are the same bar
-  at the same height, and the conversation keeps the screen it had. A swipe
-  under a third of the way lets go and snaps back, a flick carries it on, and
-  a tap turns it too (which is also what a screen reader uses). A tap on the
-  activity itself opens the sheet with everything else - the range's tokens,
-  prompts, jobs, CPU and memory. The drawer's own swipe to the right is held
-  off for it (`components/drawerGestures.ts`).
+  The bar is two pages that flip: a swipe carries the name out and the
+  account's live Activity in its place - tokens a second and their chart,
+  the range's tokens, Claude's prompts, jobs, CPU and memory, whichever are
+  switched on - and a swipe either way turns it again, looping, so the name
+  comes back and the activity after it. Nothing opens downward: both pages
+  are the same bar at the same height, and the conversation keeps the screen
+  it had. The name turns inside the middle; the activity is wider than a
+  middle and comes in over the whole bar (from 1.7.4) - the drawer button and
+  the bar's own buttons are under it until the name is back - so what the
+  sheet was ticked for is in it, on two lines of cells rather than the two
+  that fit a middle. A swipe under a third of the way lets go and snaps back,
+  a flick carries it on, and a tap turns it too (which is also what a screen
+  reader uses). A tap on the activity itself opens the sheet with everything
+  else. The drawer's own swipe to the right is held off for it
+  (`components/drawerGestures.ts`).
 - **Folds and pins** (from 1.6.1): the Claude and OpenCode groups fold and
   open by their header (a chevron, and folded a live dot; no count - how many
   there are is the fold's business, as on the web), and a
@@ -356,12 +361,13 @@ Then you sign in with the same e-mail address and password as on the web.
   uppercase labels (LLM, Agents, Work, Tools, Server), two cards a row where
   they fit. A card the server has no route for, or the account may not see,
   is left out.
-- **Activity** (from 1.6.3), the web top bar's: in the bar's turn (1.7.3) the
+- **Activity** (from 1.6.3), the web top bar's: in the bar's turn the
   tokens a second written now (its dot green while they flow) and a small
-  chart of the tokens over the range chosen. Opened - a tap on it, or
-  Analytics' Activity card - it is the whole strip: those, their total
-  ("18.0M tok · 24h"), and whichever of Claude prompts, jobs, CPU and memory
-  are switched on, what does not fit left out from the end.
+  chart of the tokens over the range chosen - and, since 1.7.4, everything
+  else switched on as well: the range's total ("18.0M tok · 24h"), Claude's
+  prompts, jobs, CPU and memory, on two lines across the bar. Opened - a tap
+  on it, or Analytics' Activity card - it is the whole strip with the
+  figures behind it.
   A tap (or a tap on Analytics' Activity card) opens it: the range (30m to
   30d, or one's own from 1m to 30d), the figures (tokens in, out and cache,
   now by source, calls, Claude's prompts and calls, jobs, CPU, memory), the

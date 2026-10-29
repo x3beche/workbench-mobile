@@ -73,9 +73,13 @@ const bar = (extra: Record<string, unknown> = {}) => (
 
     await fireEvent.press(screen.getByTestId('chat-title'));
     expect(page().props.pointerEvents).toBe('auto');
-    // It is the account's own strip, with what is going on now, in the bar itself.
+    // It is the account's own strip, with what is going on now, in the bar itself - and all of it:
+    // the activity page is the bar's width, not the middle's, so what the sheet was ticked for fits.
     expect(screen.getByTestId('activity-strip')).toBeTruthy();
     expect(screen.getByText('42.4')).toBeTruthy();
+    for (const label of ['tok · 24h', 'prompts', 'Jobs', 'CPU', 'RAM']) {
+      expect(screen.getByText(label)).toBeTruthy();
+    }
 
     await fireEvent.press(screen.getByTestId('activity-back'));
     expect(page().props.pointerEvents).toBe('none');

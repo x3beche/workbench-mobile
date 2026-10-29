@@ -1,9 +1,9 @@
 /**
  * The web top bar's Activity (1.6.3), against the made-up server: the bar
- * turned to it (1.7.3 - the name's own place, one page of the same bar), its
- * sheet (range, figures, the chart by source, what the strip shows), a range
- * of one's own, Turkish, and the sheet from Analytics. Run by scripts/shots.sh
- * with SHOTS=activity.
+ * turned to it (1.7.4 - the activity is the bar's whole width, so every cell
+ * ticked for shows), its sheet (range, figures, the chart by source, what the
+ * strip shows), a range of one's own, Turkish, and the sheet from Analytics.
+ * Run by scripts/shots.sh with SHOTS=activity.
  */
 const puppeteer = require('puppeteer');
 
@@ -16,6 +16,20 @@ const tid = (id) => `[data-testid="${id}"]`;
 async function turnBar(page) {
   await page.click(tid('chat-title'));
   await sleep(700);
+}
+
+/** The activity covers the bar's own buttons while it is in front: a swipe right brings the name back. */
+async function backBar(page) {
+  const box = await (await page.$(tid('chat-header'))).boundingBox();
+  const y = box.y + box.height / 2;
+  const x0 = box.x + 40;
+  await page.touchscreen.touchStart(x0, y);
+  for (let i = 1; i <= 12; i++) {
+    await page.touchscreen.touchMove(x0 + (200 * i) / 12, y);
+    await sleep(16);
+  }
+  await page.touchscreen.touchEnd();
+  await sleep(800);
 }
 
 async function shot(page, name) {
@@ -65,7 +79,8 @@ async function shot(page, name) {
   await sleep(400);
   await shot(page, '49d-activity-strip-own');
 
-  // From Analytics.
+  // From Analytics: the drawer button is under the activity until the name is back.
+  await backBar(page);
   await page.click(tid('open-drawer'));
   await page.waitForSelector(tid('open-analytics'));
   await sleep(300);

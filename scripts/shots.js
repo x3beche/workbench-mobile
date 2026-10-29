@@ -253,10 +253,11 @@ async function connect(page, base, address) {
   await shot(page, '06-chat');
 
   // A swipe to the right on the top bar pulls the account's activity out of it,
-  // and a swipe back puts it away (the same bar on rooms and both sessions).
-  await dragBar(page, 150);
+  // and a swipe back puts it away (the same bar on rooms and both sessions). The
+  // page it brings in is the bar's whole width, so the finger travels that far.
+  await dragBar(page, 200);
   await shot(page, '06c-chat-activity');
-  await dragBar(page, -150);
+  await dragBar(page, -200);
 
   // The top bar's "…": rename, pin, archive, export, delete.
   await page.click(tid('header-more'));

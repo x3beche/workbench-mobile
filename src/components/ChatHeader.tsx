@@ -12,9 +12,10 @@
  * the width and it goes back where it was. A tap turns it too, for whoever
  * does not think of swiping (a screen reader cannot swipe the bar).
  *
- * Only the middle moves: the drawer button and the bar's own buttons stay
- * where they are, so the bar never changes height and the conversation under
- * it never jumps.
+ * The bar never changes height and the conversation under it never jumps. The
+ * name turns inside the middle, between the drawer button and the bar's own
+ * buttons; the activity is wider than that middle and comes in over the whole
+ * bar - buttons and all - so what the person ticked in the sheet has room.
  *
  * The swipe is a gesture-handler pan that blocks the drawer's own swipe to
  * the right (DrawerPull), which would otherwise pull the drawer out from
@@ -96,8 +97,6 @@ export function ChatHeader({
   const reduce = useReduceMotion();
   /** The page in front, for what a screen reader reads: 0 the name, 1 the activity. */
   const [front, setFront] = useState(0);
-  /** The middle's own width, for what fits in it (the activity page's strip). */
-  const [midW, setMidW] = useState(0);
   // The turn, as the worklets hold it: `from` is the page leaving, `to` the one coming in,
   // `dir` the side the leaving one goes to (+1 right), `p` 0 at the first and 1 at the second.
   const from = useSharedValue(0);
@@ -106,8 +105,10 @@ export function ChatHeader({
   const at = useSharedValue(0);
   const dir = useSharedValue(1);
   const p = useSharedValue(0);
-  /** How far one page slides: the middle's own width. */
+  /** How far the name slides: the middle's own width. */
   const span = useSharedValue(0);
+  /** How far the activity slides: the bar's whole width, which is what it covers. */
+  const barW = useSharedValue(0);
   /** The finger turned the bar: the direction is known, so the drag is a turn and not a tap. */
   const turned = useSharedValue(0);
 
@@ -115,9 +116,9 @@ export function ChatHeader({
     transform: [{ translateX: pageX(0, from.get(), to.get(), dir.get(), p.get(), span.get()) }],
   }));
   const actStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: pageX(1, from.get(), to.get(), dir.get(), p.get(), span.get()) }],
-    // Nothing measured yet: the pair sits on top of each other, and the strip would show through the name.
-    opacity: span.get() ? 1 : 0,
+    transform: [{ translateX: pageX(1, from.get(), to.get(), dir.get(), p.get(), barW.get()) }],
+    // Nothing measured yet: the page covers the bar, and the name would be hidden behind it.
+    opacity: barW.get() ? 1 : 0,
   }));
 
   /** Turn the bar by hand: the page in front leaves to the right, the other comes in. */
@@ -154,7 +155,8 @@ export function ChatHeader({
           p.set(0);
           turned.set(1);
         }
-        const w = span.get();
+        // The wider of the two pages sets the pace: the activity travels the bar, so it follows the finger.
+        const w = Math.max(span.get(), barW.get());
         if (w > 0) p.set(Math.min(1, Math.abs(dx) / w));
       })
       .onEnd((e) => {
@@ -167,68 +169,70 @@ export function ChatHeader({
         scheduleOnRN(setFront, go ? to.get() : from.get());
       });
     return pull ? g.blocksExternalGesture(pull) : g;
-  }, [pull, reduce, turned, from, to, at, dir, p, span]);
+  }, [pull, reduce, turned, from, to, at, dir, p, span, barW]);
 
   return (
     <View style={[s.root, under && s.rootUnder]} testID={testID}>
       <GestureDetector gesture={swipe}>
-        <View style={s.head}>
-          {!wide && onMenu ? (
-            <IconButton icon={Menu} label={menuLabel} onPress={onMenu} testID={menuTestID} />
-          ) : (
-            <View style={s.side} />
-          )}
-          {left}
+        <View style={s.head} onLayout={(e) => barW.set(e.nativeEvent.layout.width)}>
+          {/* The name's half of the bar - everything the activity covers while it is in front. */}
           <View
-            style={s.mid}
-            onLayout={(e) => {
-              span.set(e.nativeEvent.layout.width);
-              setMidW(Math.round(e.nativeEvent.layout.width));
-            }}
+            style={s.row}
+            importantForAccessibility={front === 0 ? 'auto' : 'no-hide-descendants'}
+            accessibilityElementsHidden={front !== 0}
           >
-            <Reanimated.View
-              style={[s.namePage, nameStyle]}
-              pointerEvents={front === 0 ? 'auto' : 'none'}
-              importantForAccessibility={front === 0 ? 'auto' : 'no-hide-descendants'}
-              accessibilityElementsHidden={front !== 0}
-            >
-              <Pressable
-                onPress={turn}
-                accessibilityRole="button"
-                accessibilityLabel={title}
-                accessibilityHint="Swiping sideways shows this account's activity"
-                accessibilityState={{ expanded: front === 1 }}
-                testID={titleTestID}
-                style={({ pressed }) => [s.titleRow, pressed && s.titlePressed]}
+            {!wide && onMenu ? (
+              <IconButton icon={Menu} label={menuLabel} onPress={onMenu} testID={menuTestID} />
+            ) : (
+              <View style={s.side} />
+            )}
+            {left}
+            <View style={s.mid} onLayout={(e) => span.set(e.nativeEvent.layout.width)}>
+              <Reanimated.View
+                style={[s.namePage, nameStyle]}
+                pointerEvents={front === 0 ? 'auto' : 'none'}
+                importantForAccessibility={front === 0 ? 'auto' : 'no-hide-descendants'}
+                accessibilityElementsHidden={front !== 0}
               >
-                {icon}
-                <Text style={s.title} numberOfLines={1} accessibilityRole="header">
-                  {title}
-                </Text>
-              </Pressable>
-              {sub ? <View style={s.subRow}>{sub}</View> : null}
-            </Reanimated.View>
-            <Reanimated.View
-              style={[s.actPage, actStyle]}
-              pointerEvents={front === 1 ? 'auto' : 'none'}
-              importantForAccessibility={front === 1 ? 'auto' : 'no-hide-descendants'}
-              accessibilityElementsHidden={front !== 1}
-              testID="activity-page"
-            >
-              {/* A tap beside the strip turns the name back: a screen reader cannot swipe the bar. */}
-              <Pressable
-                style={StyleSheet.absoluteFill}
-                onPress={turn}
-                accessibilityRole="button"
-                accessibilityLabel="Back to the conversation's name"
-                testID="activity-back"
-              />
-              {/* On a phone the middle is ~200 px: only the two that read at a glance fit there. */}
-              <ActivityStrip client={client} scope={session?.account?.id ?? 'local'} lang={uiLang(lang)}
-                             brief={midW > 0 && midW < 360} />
-            </Reanimated.View>
+                <Pressable
+                  onPress={turn}
+                  accessibilityRole="button"
+                  accessibilityLabel={title}
+                  accessibilityHint="Swiping sideways shows this account's activity"
+                  accessibilityState={{ expanded: front === 1 }}
+                  testID={titleTestID}
+                  style={({ pressed }) => [s.titleRow, pressed && s.titlePressed]}
+                >
+                  {icon}
+                  <Text style={s.title} numberOfLines={1} accessibilityRole="header">
+                    {title}
+                  </Text>
+                </Pressable>
+                {sub ? <View style={s.subRow}>{sub}</View> : null}
+              </Reanimated.View>
+            </View>
+            {right ?? <View style={s.side} />}
           </View>
-          {right ?? <View style={s.side} />}
+          {/* The activity is the bar's page and not the middle's: it comes in over the whole bar -
+              the drawer button and the bar's own buttons under it - so every cell the person ticked
+              in the sheet finds room there. */}
+          <Reanimated.View
+            style={[s.actPage, actStyle]}
+            pointerEvents={front === 1 ? 'auto' : 'none'}
+            importantForAccessibility={front === 1 ? 'auto' : 'no-hide-descendants'}
+            accessibilityElementsHidden={front !== 1}
+            testID="activity-page"
+          >
+            {/* A tap beside the strip turns the name back: a screen reader cannot swipe the bar. */}
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={turn}
+              accessibilityRole="button"
+              accessibilityLabel="Back to the conversation's name"
+              testID="activity-back"
+            />
+            <ActivityStrip client={client} scope={session?.account?.id ?? 'local'} lang={uiLang(lang)} brief />
+          </Reanimated.View>
         </View>
       </GestureDetector>
       {below}
@@ -245,12 +249,24 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: space.xs + 2,
+    // The activity page waits off the bar's side until it is turned in.
+    overflow: 'hidden',
   },
+  row: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   side: { width: touch, height: touch },
   // The two pages turn inside this, one in the flow (it is what sizes the bar) and one over it.
   mid: { flex: 1, minWidth: 0, overflow: 'hidden' },
   namePage: { alignItems: 'center', paddingVertical: space.xs },
-  actPage: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, justifyContent: 'center' },
+  actPage: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    justifyContent: 'center',
+    // Opaque: it goes over the bar's own buttons while it is in front.
+    backgroundColor: colors.surface,
+  },
   titleRow: {
     maxWidth: '100%',
     minHeight: 26,

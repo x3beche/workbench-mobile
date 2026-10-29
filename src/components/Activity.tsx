@@ -180,9 +180,9 @@ export function ActivityStrip({
   scope: string;
   lang: 'en' | 'tr';
   testID?: string;
-  /** In the top bar's turn, where one page is ~200 px: only what reads at a
-   *  glance - the tokens a second being written and their chart. The rest is a
-   *  tap away, in the sheet. */
+  /** In the top bar's turn, where it has the bar's whole width: the cells wrap
+   *  onto a second line instead of the last ones being cut off (or left out), so
+   *  everything the person ticked is there. The sheet is still one tap away. */
   brief?: boolean;
 }) {
   const feed = useActivity(client, scope);
@@ -192,10 +192,7 @@ export function ActivityStrip({
   if (!data && !now) return null;
   const live = now?.live?.tps ?? 0;
   const m = now?.machine;
-  // In the bar the pair is cut down to the two that read without being read twice.
-  const reads = prefs.show.filter((x) => x === 'tps' || x === 'spark');
-  const only = brief ? (reads.length ? reads : prefs.show.slice(0, 1)) : null;
-  const show = (x: ActMetric) => (only ? only.includes(x) : prefs.show.includes(x));
+  const show = (x: ActMetric) => prefs.show.includes(x);
   const spark = data?.n ? sparkPaths(data, 56, 16) : null;
   return (
     <>
@@ -203,10 +200,10 @@ export function ActivityStrip({
         onPress={() => setOpen(true)}
         accessibilityRole="button"
         accessibilityLabel={t('Activity of this account - a tap opens it')}
-        style={({ pressed }) => [s.strip, pressed && s.stripPressed]}
+        style={({ pressed }) => [s.strip, brief && s.stripBar, pressed && s.stripPressed]}
         testID={testID}
       >
-        <View style={s.cells}>
+        <View style={[s.cells, brief && s.cellsBar]}>
           {show('tps') ? (
             <View style={s.cell}>
               <View style={[s.dot, live > 0 && s.dotOn]} testID={live > 0 ? 'activity-dot-on' : undefined} />
@@ -628,6 +625,9 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
   stripPressed: { backgroundColor: colors.hover },
+  // In the bar: two lines of cells, in the bar's own height.
+  stripBar: { height: 48 },
+  cellsBar: { height: 42, rowGap: 2 },
   // One line: a cell that does not fit wraps onto the next line, which is cut off.
   cells: {
     height: 20,
