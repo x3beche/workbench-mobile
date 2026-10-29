@@ -41,7 +41,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { WorkbenchClient } from '../api/client';
+import { ApiError, type WorkbenchClient } from '../api/client';
 import type { AgentState, AgentTree, OrchEvent, OrchMessage, OrchPart, OrchStatus, OrchTranscript } from '../api/types';
 import { AgentSheet } from '../components/AgentSheet';
 import { Appear } from '../components/Appear';
@@ -51,7 +51,7 @@ import { McpSheet } from '../components/McpSheet';
 import { NewBelow } from '../components/NewBelow';
 import { modelName } from '../components/MessageItem';
 import { StateDot } from '../components/StateDot';
-import { Glyph, IconButton, wrapAnywhere } from '../components/ui';
+import { Glyph, IconButton, LoadError, wrapAnywhere } from '../components/ui';
 import {
   applyEvent,
   author,
@@ -107,6 +107,8 @@ export const OrchestratorScreen = forwardRef<
   }
 >(function OrchestratorScreen({ client, t, lang, wide = false, onMenu, initial = null, onStatus }, ref) {
   const [st, setSt] = useState<OrchStatus | null>(initial);
+  /** It could not be read at all: what it said, and the way to try again. */
+  const [error, setError] = useState<string | null>(null);
   const [tree, setTree] = useState<AgentTree | null>(null);
   const [view, setView] = useState<string | null>(null);
   /** The transcript read, by the session it is of: only the one shown is drawn. */
@@ -166,11 +168,15 @@ export const OrchestratorScreen = forwardRef<
       (got) => {
         if (!mounted.current) return;
         setSt(got);
+        setError(null);
         onStatus?.(got);
       },
-      () => undefined, // the next look
+      (e) => {
+        // What was read before stays on screen: the next look may well work.
+        if (mounted.current) setError(e instanceof ApiError ? e.message : t.cantRead);
+      },
     );
-  }, [client, onStatus]);
+  }, [client, onStatus, t.cantRead]);
 
   const stRef = useRef(st);
   useEffect(() => {
@@ -624,6 +630,8 @@ export const OrchestratorScreen = forwardRef<
             <View style={s.center}>
               <ActivityIndicator color={colors.inkDim} />
             </View>
+          ) : !st && error ? (
+            <LoadError text={error} onRetry={loadStatus} centered />
           ) : (
             <View style={s.pad}>
               {st && running ? <Text style={s.none}>{t.nothingYet}</Text> : null}

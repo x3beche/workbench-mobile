@@ -50,7 +50,7 @@ import { CompactWork, Steps, Thinking, TypingDots } from '../components/MessageI
 import { NewBelow } from '../components/NewBelow';
 import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
-import { ErrorText, Glyph, IconButton, wrapAnywhere } from '../components/ui';
+import { ErrorText, Glyph, IconButton, LoadError, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
 import { chatDetailStrings } from '../lib/chatDetail';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
@@ -134,7 +134,10 @@ export function OpencodeSessionScreen({
     [],
   );
   const [count, setCount] = useState(TURNS_PAGE);
+  /** The session could not be read: what it said, and the way to try again. */
   const [error, setError] = useState<string | null>(null);
+  /** A line or an answer could not be sent: told beside the box, while the box has it back. */
+  const [sendError, setSendError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [below, setBelow] = useState(false);
   const [answering, setAnswering] = useState(false);
@@ -292,13 +295,13 @@ export function OpencodeSessionScreen({
   const answer = async (a: WboAsk, body: WboAnswer) => {
     if (!client || !s?.may_send) return;
     setAnswering(true);
-    setError(null);
+    setSendError(null);
     try {
       const got = await client.wboAnswer(sid, a.id, body);
       if (mounted.current) setS((now) => (now ? putAsk(now, got) : now));
     } catch (e) {
       if (mounted.current) {
-        setError(fail(e, t.notDelivered));
+        setSendError(fail(e, t.notDelivered));
         refresh();
       }
     } finally {
@@ -365,7 +368,7 @@ export function OpencodeSessionScreen({
     if (!client || !s?.may_send) return false;
     const with_ = pics;
     if (!text && !with_.length) return false;
-    setError(null);
+    setSendError(null);
     setNotice(null);
     setPicError(null);
     try {
@@ -381,7 +384,7 @@ export function OpencodeSessionScreen({
       return true;
     } catch (e) {
       if (mounted.current) {
-        setError(fail(e, t.notDelivered));
+        setSendError(fail(e, t.notDelivered));
         refresh();
       }
       return false;
@@ -578,7 +581,9 @@ export function OpencodeSessionScreen({
             <ActivityIndicator color={colors.inkDim} accessibilityLabel={t.reading} />
           </View>
         ) : !items.length ? (
-          error ? null : (
+          error ? (
+            <LoadError text={error} onRetry={refresh} centered />
+          ) : (
             <Appear fill duration={motion.enter}>
               <View style={st.empty} testID="wbo-empty">
                 <Glyph icon={SquareCode} size={28} color={colors.inkDim} />
@@ -626,9 +631,15 @@ export function OpencodeSessionScreen({
         )}
         {below ? <NewBelow label={t.newBelow} onPress={toBottom} /> : null}
       </View>
-      {error || notice ? (
+      {error || sendError || notice ? (
         <View style={[st.msg, wide && st.column]}>
-          {error ? <ErrorText>{error}</ErrorText> : <Text style={st.note}>{notice}</Text>}
+          {error ? (
+            <LoadError text={error} onRetry={refresh} />
+          ) : sendError ? (
+            <ErrorText>{sendError}</ErrorText>
+          ) : (
+            <Text style={st.note}>{notice}</Text>
+          )}
         </View>
       ) : null}
       {s ? (
@@ -641,6 +652,7 @@ export function OpencodeSessionScreen({
               writing={false}
               placeholder={t.placeholder}
               ready={pics.length > 0}
+              draftKey={`wbo:${sid}`}
               onSend={send}
               onStop={() => undefined}
               above={

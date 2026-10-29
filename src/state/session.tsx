@@ -15,6 +15,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 import { WorkbenchClient, type ClientDeps } from '../api/client';
 import type { AuthState, User } from '../api/types';
+import { setDraftScope } from '../lib/drafts';
 import * as prefs from '../storage/prefs';
 import {
   addAccount,
@@ -89,6 +90,11 @@ export function SessionProvider({ children, deps }: { children: ReactNode; deps?
   const sessions = useRef<Record<string, string | null>>({});
 
   const account = useMemo(() => accounts.find((a) => a.id === accountId) ?? null, [accounts, accountId]);
+
+  // Drafts belong to the account: the one open now is whose box comes back.
+  useEffect(() => {
+    setDraftScope(account?.id ?? '');
+  }, [account?.id]);
 
   const client = useMemo(
     () =>

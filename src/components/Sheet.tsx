@@ -83,17 +83,22 @@ export function Dialog({
   title,
   text,
   confirm,
+  cancel,
   danger,
   input,
+  testID,
   onCancel,
   onConfirm,
 }: {
   title: string;
   text?: string;
   confirm: string;
+  /** The way out's own words (Cancel when it is not given). */
+  cancel?: string;
   danger?: boolean;
   /** Ask for a line of text (a new name) instead of a yes. */
   input?: { value: string; label: string };
+  testID?: string;
   onCancel: () => void;
   onConfirm: (value: string) => Promise<void>;
 }) {
@@ -116,6 +121,8 @@ export function Dialog({
       await onConfirm(value.trim());
     } catch (e) {
       setError((e as Error).message || 'That did not work.');
+    } finally {
+      // The dialog may be closing; a dialog that fails keeps its buttons for another go.
       setBusy(false);
     }
   };
@@ -125,7 +132,7 @@ export function Dialog({
       <View style={s.center}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} accessibilityLabel="Cancel" />
         <Appear fill={false} duration={motion.sheet} style={s.dialogWrap}>
-          <View style={s.dialog} accessibilityViewIsModal testID="dialog">
+          <View style={s.dialog} accessibilityViewIsModal testID={testID ?? 'dialog'}>
             <Text style={s.dialogTitle}>{title}</Text>
             {text ? <Text style={s.dialogText}>{text}</Text> : null}
             {input ? (
@@ -145,7 +152,7 @@ export function Dialog({
             ) : null}
             {error ? <ErrorText>{error}</ErrorText> : null}
             <View style={s.dialogRow}>
-              <Button label="Cancel" variant="quiet" onPress={onCancel} />
+              <Button label={cancel ?? 'Cancel'} variant="quiet" onPress={onCancel} />
               <Button
                 testID="dialog-confirm"
                 label={confirm}

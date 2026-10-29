@@ -45,11 +45,23 @@ export function VoiceNoteSheet({
     onClose();
   };
 
-  // Sent into the conversation, which follows the answer; the sheet closes at once.
-  const send = () => {
-    if (!text?.trim()) return;
-    onSend(text.trim());
-    onClose();
+  // Sent into the conversation, which follows the answer. The sheet waits for
+  // the send: a line that did not go stays here with its words, to try again.
+  const [sending, setSending] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const send = async () => {
+    const t = text?.trim();
+    if (!t || sending) return;
+    setSending(true);
+    setFailed(null);
+    try {
+      if (await onSend(t)) onClose();
+      else setFailed('The note did not go. It is still here - try again.');
+    } catch (e) {
+      setFailed((e as Error).message || 'The note did not go. It is still here - try again.');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -84,6 +96,7 @@ export function VoiceNoteSheet({
                 selectionColor={colors.inkDim}
               />
               <Hint>Read it over and correct it before sending.</Hint>
+              {failed ? <ErrorText>{failed}</ErrorText> : null}
               <View style={s.row}>
                 <Button label="Discard" variant="quiet" onPress={close} />
                 <Button
@@ -97,6 +110,7 @@ export function VoiceNoteSheet({
                   label="Send"
                   variant="primary"
                   disabled={!text.trim()}
+                  busy={sending}
                   onPress={send}
                   testID="voice-note-send"
                 />

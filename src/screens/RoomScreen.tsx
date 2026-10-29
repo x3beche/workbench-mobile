@@ -37,7 +37,7 @@ import { X } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { MessageItem } from '../components/MessageItem';
 import { NewBelow } from '../components/NewBelow';
-import { ErrorText, Glyph, IconButton } from '../components/ui';
+import { ErrorText, Glyph, IconButton, LoadError } from '../components/ui';
 import { orchStrings } from '../lib/orchStrings';
 import { layLatest, PAGE, putOlder } from '../lib/paging';
 import { asChatMessage, ROOM_ICON, ROOM_LABEL } from '../lib/rooms';
@@ -82,7 +82,10 @@ export function RoomScreen({
   onSeen?: () => void;
 }) {
   const [lines, setLines] = useState<RoomLine[] | null>(null);
+  /** The thread could not be read: what it said, and the way to try again. */
   const [error, setError] = useState<string | null>(null);
+  /** A line could not be sent: told beside the box, while the box has it back. */
+  const [sendError, setSendError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const mounted = useRef(true);
   // The newest agent line marked as read here, so it is written once per line and not per poll.
@@ -207,7 +210,7 @@ export function RoomScreen({
 
   const send = async (text: string): Promise<boolean> => {
     if (!client) return false;
-    setError(null);
+    setSendError(null);
     setNotice(null);
     try {
       await client.sayRoom(room, text);
@@ -217,7 +220,7 @@ export function RoomScreen({
       await load();
       return true;
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'The line could not be sent.');
+      setSendError(e instanceof ApiError ? e.message : 'The line could not be sent.');
       return false;
     }
   };
@@ -244,7 +247,9 @@ export function RoomScreen({
             <ActivityIndicator color={colors.inkDim} accessibilityLabel="Reading the room" />
           </View>
         ) : !lines?.length ? (
-          error ? null : (
+          error ? (
+            <LoadError text={error} onRetry={load} centered />
+          ) : (
             <Appear fill duration={motion.enter}>
               <View style={st.empty}>
                 <Text style={st.emptyTitle}>Nothing in this room yet</Text>
@@ -293,10 +298,12 @@ export function RoomScreen({
         )}
         {below ? <NewBelow label={newBelow} onPress={toBottom} /> : null}
       </View>
-      {error || notice || waiting ? (
+      {error || sendError || notice || waiting ? (
         <View style={st.msg}>
           {error ? (
-            <ErrorText>{error}</ErrorText>
+            <LoadError text={error} onRetry={load} />
+          ) : sendError ? (
+            <ErrorText>{sendError}</ErrorText>
           ) : waiting ? (
             <Text style={st.note}>The agent has not read this yet.</Text>
           ) : (
@@ -312,6 +319,7 @@ export function RoomScreen({
           writing={false}
           onSend={send}
           onStop={() => undefined}
+          draftKey={`room:${room}`}
         />
       </View>
       <KeyboardSpacer />

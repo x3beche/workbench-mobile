@@ -182,6 +182,36 @@ export function Hint({ children }: { children: ReactNode }) {
   return <Text style={s.hint}>{children}</Text>;
 }
 
+/**
+ * What could not be read, and the one thing to do about it.
+ *
+ * Every screen that reads something of the server says it the same way: the
+ * reason in the words the server or the app has, and Try again beside it - so
+ * "could not load" is never a dead end that needs the app restarted. A screen
+ * with nothing to show yet centres it; one that already has lines puts it in
+ * the strip above the box.
+ */
+export function LoadError({
+  text,
+  onRetry,
+  retryLabel = 'Try again',
+  centered = false,
+  testID = 'load-error',
+}: {
+  text: string;
+  onRetry: () => void;
+  retryLabel?: string;
+  centered?: boolean;
+  testID?: string;
+}) {
+  return (
+    <View style={[s.loadError, centered && s.loadErrorCentered]} testID={testID}>
+      <ErrorText>{text}</ErrorText>
+      <Button label={retryLabel} variant="quiet" onPress={onRetry} testID={`${testID}-retry`} />
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   btn: {
     minHeight: touch,
@@ -226,4 +256,14 @@ const s = StyleSheet.create({
   lead: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 20, color: colors.inkDim },
   error: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.danger },
   hint: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },
+  loadError: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  loadErrorCentered: { flex: 1, flexDirection: 'column', paddingVertical: 32, gap: 8 },
 });

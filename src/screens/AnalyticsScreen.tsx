@@ -74,7 +74,7 @@ import {
 } from '../components/icons';
 import { modelName } from '../components/MessageItem';
 import { StateDot } from '../components/StateDot';
-import { Glyph, IconButton } from '../components/ui';
+import { Glyph, IconButton, LoadError } from '../components/ui';
 import { compact, dayLabel, money, seconds } from '../lib/numbers';
 import { failureWord, stateWord, statusDot, whenOf } from '../lib/orchestrator';
 import type { OrchStrings } from '../lib/orchStrings';
@@ -123,8 +123,10 @@ export function AnalyticsScreen({
 }) {
   const [data, setData] = useState<Data | null>(null);
   const [busy, setBusy] = useState(false);
+  /** A refresh where some sections could not be read: what is on screen is what was read before. */
+  const [missed, setMissed] = useState(false);
 
-  const fetchAll = useCallback(async (): Promise<Data | null> => {
+  const fetchAll = useCallback(async (): Promise<{ got: Data; missed: number } | null> => {
     if (!client) return null;
     const [summary, usage, tools, orch, incidents, pool, adminPool, sandboxes] = await Promise.all([
       soft(client.llmSummary(14)),
@@ -137,16 +139,39 @@ export function AnalyticsScreen({
       admin ? soft(client.adminSandboxes()) : Promise.resolve(null),
     ]);
     const tree = orch && (orch.desired === 'running' || orch.session) ? await soft(client.orchestratorTree()) : null;
-    return { summary, usage, tools, orch, tree, incidents, pool, adminPool, sandboxes };
+    const got: Data = { summary, usage, tools, orch, tree, incidents, pool, adminPool, sandboxes };
+    // A section that could not be read this time keeps what it showed: the
+    // figures are a reading, not a live truth, and blanking them is worse than
+    // a minute-old number.
+    const missed = [summary, usage, tools, orch, incidents, pool, admin ? adminPool : {}, admin ? sandboxes : {}].filter(
+      (x) => x === null || x === undefined,
+    ).length;
+    return { got, missed };
   }, [client, admin]);
+
+  /** What was read now over what was there: a section that failed keeps the older reading. */
+  const keep = useCallback((got: Data) => {
+    setData((was) => {
+      if (!was) return got;
+      const next: Data = { ...was };
+      for (const key of Object.keys(got) as (keyof Data)[]) {
+        if (got[key] !== null && got[key] !== undefined) Object.assign(next, { [key]: got[key] });
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let live = true;
-    fetchAll().then((got) => live && got && setData(got));
+    fetchAll().then((r) => {
+      if (!live || !r) return;
+      keep(r.got);
+      setMissed(r.missed > 0);
+    });
     return () => {
       live = false;
     };
-  }, [fetchAll]);
+  }, [fetchAll, keep]);
 
   // The live figures: the account's `activity` stream while it is up, else a look every 5 s.
   const hub = useLive();
@@ -226,8 +251,11 @@ export function AnalyticsScreen({
 
   const load = () => {
     setBusy(true);
-    fetchAll().then((got) => {
-      if (got) setData(got);
+    fetchAll().then((r) => {
+      if (r) {
+        keep(r.got);
+        setMissed(r.missed > 0);
+      }
       setBusy(false);
     });
   };
@@ -251,7 +279,7 @@ export function AnalyticsScreen({
       </View>
       {!d ? (
         <View style={s.center}>
-          <ActivityIndicator color={colors.inkDim} />
+          <ActivityIndicator color={colors.inkDim} accessibilityLabel={t.refresh} />
         </View>
       ) : (
         <ScrollView
@@ -295,7 +323,11 @@ export function AnalyticsScreen({
               {d.adminPool ? <FinishedCard all={d.adminPool} t={t} /> : null}
             </Group>
           ) : null}
-          {!d.summary && !d.usage && !d.tools && !d.orch && !d.pool ? <Text style={s.none}>{t.cannotRead}</Text> : null}
+          {!d.summary && !d.usage && !d.tools && !d.orch && !d.pool ? (
+            <LoadError text={t.cannotRead} onRetry={load} centered />
+          ) : missed ? (
+            <Text style={s.none}>{t.someMissed}</Text>
+          ) : null}
         </ScrollView>
       )}
     </SafeAreaView>

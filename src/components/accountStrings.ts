@@ -21,6 +21,9 @@ export interface AccountStrings {
   removeTitle: (who: string) => string;
   removeText: string;
   remove: string;
+  /** Signing the open account out: the one that keeps everything it had open. */
+  signOutTitle: string;
+  signOutText: string;
   sessionEnded: string;
   /** The voice choices' labels, by id (Türkçe and English stay as they are). */
   options: Record<string, string>;
@@ -42,6 +45,9 @@ const en: AccountStrings = {
   removeTitle: (who) => `Sign out of ${who}?`,
   removeText: 'Only this account is signed out and taken off this phone; the others stay signed in.',
   remove: 'Sign out',
+  signOutTitle: 'Sign out of Workbench?',
+  signOutText:
+    'The conversation you have open stays on this phone, and a draft stays in the box. You need your password to come back.',
   sessionEnded: 'Signed out',
   options: {},
 };
@@ -62,6 +68,9 @@ const tr: AccountStrings = {
   removeTitle: (who) => `${who} hesabından çıkılsın mı?`,
   removeText: 'Yalnızca bu hesaptan çıkılır ve bu telefondan kaldırılır; diğerleri oturum açık kalır.',
   remove: 'Çıkış yap',
+  signOutTitle: 'Workbench\u2019ten çıkılsın mı?',
+  signOutText:
+    'Açık konuşma bu telefonda kalır, yazdığın taslak kutuda durur. Geri dönmek için şifren gerekir.',
   sessionEnded: 'Oturum kapalı',
   options: { auto: 'Otomatik', live: 'Konuşurken', record: 'Kayıt bitince' },
 };

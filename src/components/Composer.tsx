@@ -8,10 +8,11 @@
  * while they are spoken - settled ones in ink, the unsure tail dimmed - and
  * stay there, when it is stopped, to read over like any other.
  */
-import { forwardRef, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { VoiceLang, WorkbenchClient } from '../api/client';
+import { readDraft, writeDraft } from '../lib/drafts';
 import { tick } from '../lib/feel';
 import { colors, fonts, radius, space, type } from '../theme/tokens';
 import { joinWords } from '../voice/live';
@@ -58,12 +59,35 @@ export const Composer = forwardRef<
      *  that puts it in (Claude Code's own suggestion; phones have no Tab).
      *  Gone once something is typed or sent, until another comes. */
     suggestion?: { text: string; use: string } | null;
+    /** Which conversation the box is writing to: its text is kept there while
+     *  the app runs, so a screen drawn afresh (another conversation, a session
+     *  that ended) brings the draft back (lib/drafts). */
+    draftKey?: string;
   }
 >(function Composer(
-  { client, lang, mode = 'record', writing, onSend, onStop, onVoiceNote, placeholder = 'Message', above, tool, ready = false, suggestion = null },
+  { client, lang, mode = 'record', writing, onSend, onStop, onVoiceNote, placeholder = 'Message', above, tool, ready = false, suggestion = null, draftKey },
   ref,
 ) {
-  const [text, setText] = useState('');
+  // Read from the conversation's kept draft: coming back to it finds the text.
+  const [text, setBox] = useState(() => (draftKey ? readDraft(draftKey) : ''));
+  /** Every way the text changes writes it to the conversation's draft. */
+  const setText = (next: string | ((now: string) => string)) => {
+    setBox((now) => {
+      const v = typeof next === 'function' ? next(now) : next;
+      if (draftKey) writeDraft(draftKey, v);
+      return v;
+    });
+  };
+  // A new conversation takes the box's text with it (its first line makes it
+  // a conversation, and the draft belongs to it from then on).
+  const keyWas = useRef(draftKey);
+  useEffect(() => {
+    if (keyWas.current === draftKey) return;
+    keyWas.current = draftKey;
+    if (draftKey) writeDraft(draftKey, text);
+    // The text is the same box, only kept elsewhere now.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
   // Native multiline inputs grow by themselves between min and max height;
   // the web's textarea does not, so there its content height is followed.
   const [webHeight, setWebHeight] = useState(MIN_H);
@@ -93,17 +117,27 @@ export const Composer = forwardRef<
   }));
 
   // The box empties at once; `onSend` resolves only when the answer is
-  // written, and a line that could not be sent comes back to the box.
+  // written, and a line that could not be sent comes back to the box - above
+  // whatever was typed since, so neither line is lost.
+  const sending = useRef(false);
   const send = () => {
     const t = text.trim();
     if (!t && !ready) return;
+    if (sending.current) return;
     tick();
     if (suggestion) setDropped(suggestion.text);
     setText('');
     setWebHeight(MIN_H);
-    onSend(t).then((ok) => {
-      if (!ok) setText((now) => now || t);
-    });
+    sending.current = true;
+    onSend(t)
+      .then(
+        (ok) => ok,
+        () => false,
+      )
+      .then((ok) => {
+        sending.current = false;
+        if (!ok) setText((now) => (now ? `${t}\n\n${now}` : t));
+      });
   };
 
   const notice = voice.notice ? (

@@ -108,6 +108,25 @@ export function suggestionsFrom(ideas: Ideas | null): Suggestion[] {
 /** What is open: a conversation (by id, with what the list knew of it) or a new one. */
 type Open = { key: number; chat: Chat | null };
 
+/**
+ * A bulk action, one conversation at a time: one that fails (a conversation
+ * deleted elsewhere, a server that blinked) does not take the rest with it.
+ * What went through is returned to be taken off the list, and how many stayed.
+ */
+async function settle<T>(items: T[], run: (item: T) => Promise<unknown>): Promise<{ done: T[]; failed: number }> {
+  const got = await Promise.allSettled(items.map(run));
+  const done = items.filter((_, i) => got[i].status === 'fulfilled');
+  return { done, failed: items.length - done.length };
+}
+
+/** What a bulk action did, and what it could not: “3 conversations archived; 1 could not be reached and stayed.” */
+function bulkWords(n: number, done: (n: number) => string, failed: number): { text: string; bad: boolean } {
+  if (!failed) return { text: done(n), bad: false };
+  const stayed = failed === 1 ? 'one conversation' : `${failed} conversations`;
+  if (!n) return { text: `Nothing changed: ${stayed} could not be reached.`, bad: true };
+  return { text: `${done(n)}; ${stayed} could not be reached and stayed.`, bad: true };
+}
+
 export function Workspace({
   lang,
   onLang,
@@ -711,22 +730,25 @@ export function Workspace({
 
   /**
    * The drawer's Select: what was ticked, all of it at once - the same routes a
-   * swipe reaches, one conversation at a time, and one word about them all.
+   * swipe reaches, one conversation at a time. One that fails does not take the
+   * others with it: what was done is done, and what stayed says so.
    */
   const bulk = (picked: Chat[], what: BulkWhat) => {
     if (!client || !picked.length) return;
     if (what === 'delete') return setAsk({ chats: picked, what: 'delete-many' });
     if (what === 'forever') return setAsk({ chats: picked, what: 'forever-many' });
     const on = what === 'archive';
-    Promise.all(picked.map((c) => client.archive(c.id, on)))
-      .then(() => {
-        picked.forEach((c) => dropped(c, on));
-        if (!on) load();
-        say(
-          `${picked.length} ${picked.length === 1 ? 'conversation' : 'conversations'} ${on ? 'archived' : 'back in Conversations'}`,
-        );
-      })
-      .catch((e) => fail(e, on ? 'They could not be archived.' : 'They could not be unarchived.'));
+    const c = client;
+    settle(picked, (x) => c.archive(x.id, on)).then(({ done, failed }) => {
+      done.forEach((x) => dropped(x, on));
+      if (!on) load();
+      const words = bulkWords(
+        done.length,
+        (n) => `${n} ${n === 1 ? 'conversation' : 'conversations'} ${on ? 'archived' : 'back in Conversations'}`,
+        failed,
+      );
+      say(words.text, words.bad);
+    });
   };
 
   const restore = (chat: Chat) =>
@@ -1084,10 +1106,12 @@ export function Workspace({
           onConfirm={async () => {
             if (!client) return;
             const many = ask.chats;
-            await Promise.all(many.map((c) => client.remove(c.id)));
-            many.forEach((c) => dropped(c));
+            const c = client;
+            const { done, failed } = await settle(many, (x) => c.remove(x.id));
+            done.forEach((x) => dropped(x));
             setAsk(null);
-            say(`${many.length} moved to Trash`);
+            const words = bulkWords(done.length, (n) => `${n} moved to Trash`, failed);
+            say(words.text, words.bad);
           }}
         />
       ) : null}
@@ -1101,10 +1125,12 @@ export function Workspace({
           onConfirm={async () => {
             if (!client) return;
             const many = ask.chats;
-            await Promise.all(many.map((c) => client.removeForever(c.id)));
-            many.forEach((c) => dropped(c));
+            const c = client;
+            const { done, failed } = await settle(many, (x) => c.removeForever(x.id));
+            done.forEach((x) => dropped(x));
             setAsk(null);
-            say(`${many.length} deleted for good`);
+            const words = bulkWords(done.length, (n) => `${n} deleted for good`, failed);
+            say(words.text, words.bad);
           }}
         />
       ) : null}

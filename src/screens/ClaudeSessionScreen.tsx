@@ -49,7 +49,7 @@ import { Markdown } from '../components/Markdown';
 import { NewBelow } from '../components/NewBelow';
 import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
-import { ErrorText, Glyph, IconButton, wrapAnywhere } from '../components/ui';
+import { ErrorText, Glyph, IconButton, LoadError, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import {
@@ -117,7 +117,10 @@ export function ClaudeSessionScreen({
   const [turns, setTurns] = useState<WbcTurn[] | null>(null);
   const [more, setMore] = useState(false);
   const [older, setOlder] = useState(false);
+  /** The session could not be read: what it said, and the way to try again. */
   const [error, setError] = useState<string | null>(null);
+  /** A line could not be sent: told beside the box, while the box has it back. */
+  const [sendError, setSendError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [below, setBelow] = useState(false);
   const [pics, setPics] = useState<Picked[]>([]);
@@ -342,7 +345,7 @@ export function ClaudeSessionScreen({
     const with_ = pics;
     if (!text && !with_.length) return false;
     setSuggestion(null);
-    setError(null);
+    setSendError(null);
     setNotice(null);
     setPicError(null);
     try {
@@ -359,7 +362,7 @@ export function ClaudeSessionScreen({
       return true;
     } catch (e) {
       if (mounted.current) {
-        setError(fail(e, t.notDelivered));
+        setSendError(fail(e, t.notDelivered));
         refresh();
       }
       return false;
@@ -439,7 +442,9 @@ export function ClaudeSessionScreen({
             <ActivityIndicator color={colors.inkDim} accessibilityLabel={t.reading} />
           </View>
         ) : !items.length ? (
-          error ? null : (
+          error ? (
+            <LoadError text={error} onRetry={() => refresh(true)} centered />
+          ) : (
             <Appear fill duration={motion.enter}>
               <View style={st.empty} testID="wbc-empty">
                 <Glyph icon={SquareTerminal} size={28} color={colors.inkDim} />
@@ -482,9 +487,15 @@ export function ClaudeSessionScreen({
         )}
         {below ? <NewBelow label={t.newBelow} onPress={toBottom} /> : null}
       </View>
-      {error || notice ? (
+      {error || sendError || notice ? (
         <View style={[st.msg, wide && st.column]}>
-          {error ? <ErrorText>{error}</ErrorText> : <Text style={st.note}>{notice}</Text>}
+          {error ? (
+            <LoadError text={error} onRetry={() => refresh(true)} />
+          ) : sendError ? (
+            <ErrorText>{sendError}</ErrorText>
+          ) : (
+            <Text style={st.note}>{notice}</Text>
+          )}
         </View>
       ) : null}
       {s ? (
@@ -498,6 +509,7 @@ export function ClaudeSessionScreen({
               placeholder={t.placeholder}
               suggestion={suggestion ? { text: suggestion, use: t.useSuggestion } : null}
               ready={pics.length > 0}
+              draftKey={`wbc:${sid}`}
               onSend={send}
               onStop={() => undefined}
               above={

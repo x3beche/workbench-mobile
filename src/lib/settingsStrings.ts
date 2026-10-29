@@ -68,6 +68,8 @@ export interface SettingsStrings {
   adminsOnly: string;
   nothing: string;
   cannotRead: string;
+  /** Some figures could not be read now: the ones on screen are the last that were. */
+  someMissed: string;
   refresh: string;
   /** Analytics' groups, above their cards. */
   groups: { llm: string; agents: string; work: string; tools: string; server: string };
@@ -146,6 +148,7 @@ const en: SettingsStrings = {
   adminsOnly: 'only the owner and the admins see this',
   nothing: 'Nothing yet.',
   cannotRead: 'This could not be read.',
+  someMissed: 'Some figures could not be read just now: the ones shown are the last that were.',
   refresh: 'Refresh',
   groups: { llm: 'LLM', agents: 'Agents', work: 'Work', tools: 'Tools', server: 'Server' },
   period: { month: 'this month', days30: '30 days', week: 'this week', now: 'now', latest: 'latest' },
@@ -220,6 +223,7 @@ const tr: SettingsStrings = {
   adminsOnly: 'yalnızca sahip ve yöneticiler görür',
   nothing: 'Henüz bir şey yok.',
   cannotRead: 'Bu okunamadı.',
+  someMissed: 'Bazı rakamlar şu an okunamadı: görünenler en son okunanlar.',
   refresh: 'Yenile',
   groups: { llm: 'LLM', agents: 'Ajanlar', work: 'İşler', tools: 'Araçlar', server: 'Sunucu' },
   period: { month: 'bu ay', days30: '30 gün', week: 'bu hafta', now: 'şu an', latest: 'son' },

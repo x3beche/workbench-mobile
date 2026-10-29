@@ -94,6 +94,8 @@ export function SettingsScreen({
 }) {
   const { user, client, signOut, account, accounts, switchTo, remove, addAnother, clientFor } = useSession();
   const [asking, setAsking] = useState<Account | null>(null);
+  /** Signing out of the open account asks first: one tap used to end the session. */
+  const [askOut, setAskOut] = useState(false);
   const [wear, setWear] = useState<{ id: string; name: string } | null>(null);
   const a = accountStrings(ui);
   const recheck = update?.recheck;
@@ -199,7 +201,7 @@ export function SettingsScreen({
             </Pressable>
             {user ? (
               <Pressable
-                onPress={signOut}
+                onPress={() => setAskOut(true)}
                 accessibilityRole="button"
                 style={({ pressed }) => [s.row, pressed && s.pressed]}
                 testID="action-sign-out"
@@ -352,6 +354,21 @@ export function SettingsScreen({
           </View>,
         )}
       </ScrollView>
+      {askOut ? (
+        <Dialog
+          title={a.signOutTitle}
+          text={a.signOutText}
+          confirm={a.signOut}
+          cancel={a.cancel}
+          danger
+          testID="signout"
+          onCancel={() => setAskOut(false)}
+          onConfirm={async () => {
+            setAskOut(false);
+            await signOut();
+          }}
+        />
+      ) : null}
       {asking ? (
         <Dialog
           title={a.removeTitle(asking.user?.name || asking.user?.email || a.localMode)}

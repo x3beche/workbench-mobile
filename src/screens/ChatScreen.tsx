@@ -35,7 +35,7 @@ import { Mark } from '../components/Mark';
 import { MessageItem, modelName, PendingItem, WritingItem } from '../components/MessageItem';
 import { ModelSheet } from '../components/ModelSheet';
 import { ActionList, Sheet } from '../components/Sheet';
-import { ErrorText, Glyph, IconButton, Button } from '../components/ui';
+import { Button, ErrorText, Glyph, IconButton, LoadError } from '../components/ui';
 import { VoiceNoteSheet } from '../components/VoiceNoteSheet';
 import { applyEvent, applyPiece, type ConversationView } from '../lib/answer';
 import { chatDetailStrings } from '../lib/chatDetail';
@@ -471,7 +471,7 @@ export function ChatScreen({
             !loaded ? (
               <View style={st.center}>
                 {error ? (
-                  <Button label="Try again" onPress={() => load()} testID="chat-retry" />
+                  <LoadError text={error} onRetry={() => load()} centered testID="chat-retry" />
                 ) : (
                   <ActivityIndicator color={colors.inkDim} accessibilityLabel="Reading the conversation" />
                 )}
@@ -554,6 +554,7 @@ export function ChatScreen({
           onSend={send}
           onStop={stop}
           onVoiceNote={() => setVoiceNote(true)}
+          draftKey={`chat:${id ?? 'new'}`}
         />
       </View>
       <KeyboardSpacer />
