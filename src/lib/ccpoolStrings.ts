@@ -56,10 +56,13 @@ export interface CcpoolStrings {
   dAgo: (n: number) => string;
   units: { s: string; min: string; h: string; d: string };
   refresh: string;
+  /** The way back out, said by the arrow: not the title again. */
+  back: string;
 }
 
 const en: CcpoolStrings = {
   title: 'Claude pool',
+  back: 'Back',
   about: "who may use this server's Claude account",
   subscription: 'Subscription usage',
   sharedPlan: "the server's Claude plan, shared by every key",
@@ -112,6 +115,7 @@ const en: CcpoolStrings = {
 };
 
 const tr: CcpoolStrings = {
+  back: 'Geri',
   title: 'Claude havuzu',
   about: 'bu sunucunun Claude hesabını kimler kullanabilir',
   subscription: 'Abonelik kullanımı',

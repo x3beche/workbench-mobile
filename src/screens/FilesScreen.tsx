@@ -25,11 +25,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ApiError, type WorkbenchClient } from '../api/client';
+import { ApiError, type VoiceLang, type WorkbenchClient } from '../api/client';
 import type { FileFolder, StoredFile, TrashFile, UploadPart, User } from '../api/types';
 
 import { FileThumb } from '../components/FileThumb';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { filesStrings } from '../lib/filesStrings';
+import { uiLang } from '../update/strings';
 import { Toast, useToast } from '../components/Toast';
 import {
   Camera,
@@ -104,11 +106,7 @@ type Ask =
   | { what: 'purge'; file: TrashFile }
   | { what: 'new-folder' };
 
-const SIDES: { id: Side; label: string }[] = [
-  { id: 'mine', label: 'My files' },
-  { id: 'app', label: 'In the app' },
-  { id: 'trash', label: 'Deleted' },
-];
+const SIDES: Side[] = ['mine', 'app', 'trash'];
 
 const errText = (e: unknown, fallback: string) =>
   e instanceof ApiError ? e.message : (e as Error)?.message || fallback;
@@ -122,8 +120,11 @@ export const FilesScreen = forwardRef<
     can: string[] | null;
     wide?: boolean;
     onMenu?: () => void;
+    /** The app's language: Files' own words follow it. */
+    lang?: VoiceLang;
   }
->(function FilesScreen({ client, user, can, wide = false, onMenu }, ref) {
+>(function FilesScreen({ client, user, can, wide = false, onMenu, lang = 'auto' }, ref) {
+  const f = useMemo(() => filesStrings(uiLang(lang)), [lang]);
   const rights = useMemo(() => rightsOf(can ?? ['view', 'draw', 'delete']), [can]);
   const [side, setSide] = useState<Side>('mine');
   const [here, setHere] = useState<Record<'mine' | 'app', string>>({ mine: '', app: '' });
@@ -182,10 +183,10 @@ export const FilesScreen = forwardRef<
         setError(null);
       },
       (e) => {
-        if (mounted.current) setError(errText(e, 'Files could not be read.'));
+        if (mounted.current) setError(errText(e, f.couldNotRead));
       },
     );
-  }, [client]);
+  }, [client, f]);
 
   const loadTrash = useCallback((): Promise<void> => {
     if (!client) return Promise.resolve();
@@ -194,10 +195,10 @@ export const FilesScreen = forwardRef<
         if (mounted.current) setTrash(got);
       },
       (e) => {
-        if (mounted.current) setError(errText(e, 'Deleted files could not be read.'));
+        if (mounted.current) setError(errText(e, f.deletedCouldNotRead));
       },
     );
-  }, [client]);
+  }, [client, f]);
 
   useEffect(() => {
     load();
@@ -221,13 +222,13 @@ export const FilesScreen = forwardRef<
         );
       },
       (e) => {
-        if (live && mounted.current) setError(errText(e, 'This folder could not be read.'));
+        if (live && mounted.current) setError(errText(e, f.folderCouldNotRead));
       },
     );
     return () => {
       live = false;
     };
-  }, [client, missing, here.app]);
+  }, [client, missing, here.app, f]);
 
   // A search of In the app looks through everything: the whole tree and every upload, read once.
   const wantAll = !!data && side === 'app' && !!q.trim() && !data.tree;
@@ -239,13 +240,13 @@ export const FilesScreen = forwardRef<
         if (live && mounted.current) setData((d) => (d ? { ...d, tree, every } : d));
       },
       (e) => {
-        if (live && mounted.current) setError(errText(e, 'Files could not be searched.'));
+        if (live && mounted.current) setError(errText(e, f.searchFailed));
       },
     );
     return () => {
       live = false;
     };
-  }, [client, wantAll]);
+  }, [client, wantAll, f]);
 
   useEffect(() => {
     if (side === 'trash') loadTrash();
@@ -322,26 +323,26 @@ export const FilesScreen = forwardRef<
     }
   };
 
-  const restore = (f: TrashFile) =>
+  const restore = (file: TrashFile) =>
     doing(
       async () => {
-        const got = await client!.restoreFiles([f.id]);
-        if (got.refused.length) throw new Error(got.refused[0].why || 'It could not be restored.');
+        const got = await client!.restoreFiles([file.id]);
+        if (got.refused.length) throw new Error(got.refused[0].why || f.notRestored);
         await Promise.all([loadTrash(), load()]);
       },
-      `${f.name} is back in ${f.folder_path || 'My files'}`,
-      'It could not be restored.',
+      f.restored(file.name, file.folder_path || f.mine),
+      f.notRestored,
     );
 
   const actionsFor = (t: Target, inPreview = false): Action[] => {
     const ro = roTarget(t);
     const out: Action[] = [];
     if (t.kind === 'trash') {
-      out.push({ id: 'restore', label: 'Restore', icon: RotateCcw, onPress: () => restore(t.file) });
+      out.push({ id: 'restore', label: f.restore, icon: RotateCcw, onPress: () => restore(t.file) });
       if (rights.change && mayDelete({ by: t.file.by }, rights, user?.id))
         out.push({
           id: 'purge',
-          label: 'Delete forever',
+          label: f.deleteForever,
           icon: Trash,
           danger: true,
           onPress: () => setAsk({ what: 'purge', file: t.file }),
@@ -349,39 +350,39 @@ export const FilesScreen = forwardRef<
       return out;
     }
     if (t.kind === 'file' && !inPreview) {
-      out.push({ id: 'open', label: 'Open', icon: FolderOpen, onPress: () => setPreview(t.file) });
+      out.push({ id: 'open', label: f.openFile, icon: FolderOpen, onPress: () => setPreview(t.file) });
       out.push({
         id: 'share',
-        label: 'Share',
+        label: f.share,
         icon: Share,
-        onPress: () => share(t.file).catch((e) => say(errText(e, 'It could not be shared.'), true)),
+        onPress: () => share(t.file).catch((e) => say(errText(e, f.notShared), true)),
       });
       if (canSave)
         out.push({
           id: 'save-phone',
-          label: 'Save to phone',
+          label: f.saveToPhone,
           icon: Download,
-          onPress: () => keep(t.file).catch((e) => say(errText(e, 'It could not be saved.'), true)),
+          onPress: () => keep(t.file).catch((e) => say(errText(e, f.notSaved), true)),
         });
     }
     if (ro) {
       if (t.kind === 'file' && rights.change)
         out.push({
           id: 'copy',
-          label: 'Save to My files',
+          label: f.saveToMine,
           icon: FileDown,
           onPress: () => setPicker({ mode: 'copy', target: t }),
         });
       return out;
     }
     if (rights.change) {
-      out.push({ id: 'rename', label: 'Rename', icon: Pencil, onPress: () => setAsk({ what: 'rename', target: t }) });
+      out.push({ id: 'rename', label: f.rename, icon: Pencil, onPress: () => setAsk({ what: 'rename', target: t }) });
       out.push({ id: 'move', label: 'Move', icon: FolderInput, onPress: () => setPicker({ mode: 'move', target: t }) });
     }
     if (t.kind === 'file' ? mayDelete(t.file, rights, user?.id) : rights.change)
       out.push({
         id: 'delete',
-        label: 'Delete',
+        label: f.delete,
         icon: Trash,
         danger: true,
         onPress: () => setAsk({ what: 'delete', target: t }),
@@ -430,22 +431,16 @@ export const FilesScreen = forwardRef<
         } catch (e) {
           if (ctl.signal.aborted) break;
           failed += 1;
-          if (parts.length === 1) say(errText(e, 'The upload did not go through.'), true);
+          if (parts.length === 1) say(errText(e, f.uploadFailed), true);
         }
       }
       if (done) await load();
       if (!failed && !ctl.signal.aborted) {
-        say(parts.length === 1 ? `Uploaded ${parts[0].name}` : `Uploaded ${plural(parts.length, 'file')}`);
+        say(parts.length === 1 ? f.uploadedOne(parts[0].name) : f.uploadedMany(parts.length));
       } else if (ctl.signal.aborted) {
-        say(
-          done ? `Stopped: ${done} of ${plural(parts.length, 'file')} uploaded` : 'Stopped: nothing was uploaded',
-          true,
-        );
+        say(done ? f.stoppedAt(done, parts.length) : f.stoppedNothing, true);
       } else {
-        say(
-          `${done} of ${plural(parts.length, 'file')} uploaded; ${failed === 1 ? 'one did not go through' : `${failed} did not go through`}`,
-          true,
-        );
+        say(f.uploadPartial(done, parts.length, failed), true);
       }
     } finally {
       uploadStop.current = null;
@@ -469,7 +464,7 @@ export const FilesScreen = forwardRef<
     if (camera) {
       const ok = await ImagePicker.requestCameraPermissionsAsync();
       if (!ok.granted) {
-        say('The camera is not allowed for Workbench. Allow it in the phone’s settings.', true);
+        say(f.cameraBlocked, true);
         return;
       }
     }
@@ -493,17 +488,17 @@ export const FilesScreen = forwardRef<
       ? trash === null
         ? null
         : q.trim()
-          ? `Nothing deleted matches “${q.trim()}”.`
-          : `Nothing deleted. Deleted files are kept ${trash.days} days.`
+          ? f.nothingFound(q.trim())
+          : f.nothingDeleted
       : data === null
         ? null
         : q.trim()
-          ? `Nothing found for “${q.trim()}”.`
+          ? f.nothingFound(q.trim())
           : side === 'app'
-            ? 'Nothing here yet.'
+            ? f.emptyNothing
             : at
-              ? 'This folder is empty.'
-              : 'No files yet.';
+              ? f.emptyFolder
+              : f.emptyNoFiles;
 
   const renderRow = ({ item }: { item: Row }) => {
     const target: Target =
@@ -516,17 +511,23 @@ export const FilesScreen = forwardRef<
     const meta =
       item.kind === 'folder'
         ? data
-          ? countIn(data, side, item.folder.id, item.folder.count)
+          ? countIn(data, side, item.folder.id, item.folder.count, uiLang(lang))
           : ''
         : item.kind === 'trash'
           ? [
               size(item.file.bytes),
-              item.file.days_left == null ? '' : `${plural(item.file.days_left, 'day')} left`,
+              item.file.days_left == null
+                ? ''
+                : uiLang(lang) === 'tr'
+                  ? `${plural(item.file.days_left, 'gün', 'tr')} kaldı`
+                  : `${plural(item.file.days_left, 'day')} left`,
               item.file.folder_path ? `from ${item.file.folder_path}` : '',
             ]
               .filter(Boolean)
               .join(' · ')
-          : [size(item.file.bytes), shortTime(item.file.created_at)].filter(Boolean).join(' · ');
+          : [size(item.file.bytes, uiLang(lang)), shortTime(item.file.created_at, new Date(), uiLang(lang))]
+              .filter(Boolean)
+              .join(' · ');
     const acts = actionsFor(target);
     return (
       <Pressable
@@ -591,15 +592,13 @@ export const FilesScreen = forwardRef<
                 value={q}
                 onChangeText={setQ}
                 autoFocus
-                placeholder={
-                  side === 'trash' ? 'Search deleted files' : side === 'app' ? 'Search In the app' : 'Search My files'
-                }
+                placeholder={side === 'trash' ? f.searchDeleted : side === 'app' ? f.searchApp : f.searchMine}
                 placeholderTextColor={colors.inkDim}
                 selectionColor={colors.inkDim}
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
-                accessibilityLabel="Search the files"
+                accessibilityLabel={f.search}
               />
             </View>
           ) : undefined
@@ -609,7 +608,7 @@ export const FilesScreen = forwardRef<
             {finding ? (
               <IconButton
                 icon={X}
-                label="Close the search"
+                label={f.closeSearch}
                 onPress={() => {
                   setFinding(false);
                   setQ('');
@@ -619,7 +618,7 @@ export const FilesScreen = forwardRef<
             ) : (
               <IconButton
                 icon={Search}
-                label="Search the files"
+                label={f.search}
                 onPress={() => setFinding(true)}
                 testID="files-search-open"
               />
@@ -627,7 +626,7 @@ export const FilesScreen = forwardRef<
             {canUpload ? (
               <IconButton
                 icon={Plus}
-                label="Upload or make a folder"
+                label={f.upload}
                 onPress={() => setAdding(true)}
                 testID="files-add"
               />
@@ -637,7 +636,12 @@ export const FilesScreen = forwardRef<
           </>
         }
       />
-      <Tabs tabs={SIDES} value={side} onChange={setSide} testID="files-tabs" />
+      <Tabs
+        tabs={SIDES.map((id) => ({ id, label: id === 'mine' ? f.mine : id === 'app' ? f.inApp : f.deleted }))}
+        value={side}
+        onChange={setSide}
+        testID="files-tabs"
+      />
       {side !== 'trash' && !q.trim() && trail.length > 1 ? (
         <ScrollView
           horizontal
@@ -745,37 +749,37 @@ export const FilesScreen = forwardRef<
       {adding ? (
         <Sheet
           onClose={() => setAdding(false)}
-          title={`Add to ${trail[trail.length - 1]?.name ?? 'My files'}`}
+          title={f.addTo(trail[trail.length - 1]?.name ?? f.mine)}
           testID="upload-sheet"
         >
           <ActionList
             actions={[
               {
                 id: 'pick-files',
-                label: 'Files on the phone',
+                label: f.filesOnPhone,
                 icon: Upload,
-                onPress: () => pickFiles().catch((e) => say(errText(e, 'The files could not be read.'), true)),
+                onPress: () => pickFiles().catch((e) => say(errText(e, f.filesUnreadable), true)),
               },
               {
                 id: 'pick-photos',
-                label: 'Photos and videos',
+                label: f.photosVideos,
                 icon: Images,
-                onPress: () => pickPhotos(false).catch((e) => say(errText(e, 'The photos could not be read.'), true)),
+                onPress: () => pickPhotos(false).catch((e) => say(errText(e, f.photosUnreadable), true)),
               },
               ...(Platform.OS === 'web'
                 ? []
                 : [
                     {
                       id: 'camera',
-                      label: 'Take a photo',
+                      label: f.takePhoto,
                       icon: Camera,
                       onPress: () =>
-                        pickPhotos(true).catch((e) => say(errText(e, 'The camera could not be opened.'), true)),
+                        pickPhotos(true).catch((e) => say(errText(e, f.cameraNotOpened), true)),
                     },
                   ]),
               {
                 id: 'new-folder',
-                label: 'New folder',
+                label: f.newFolder,
                 icon: FolderPlus,
                 onPress: () => {
                   setAdding(false);
@@ -789,7 +793,7 @@ export const FilesScreen = forwardRef<
 
       {picker && data ? (
         <FolderPicker
-          title={picker.mode === 'copy' ? 'Save to My files' : 'Move to'}
+          title={picker.mode === 'copy' ? f.saveToMineTitle : f.moveTo}
           folders={data.folders}
           current={
             picker.mode === 'move'
@@ -811,7 +815,7 @@ export const FilesScreen = forwardRef<
             } else if (t.kind === 'folder') await client.moveFiles([], [t.folder.id], to);
             else if (t.kind === 'file') await client.moveFiles([t.file.id], [], to);
             setPicker(null);
-            if (picker.mode === 'move') say('Moved');
+            if (picker.mode === 'move') say(f.moved);
             await load();
           }}
         />
@@ -852,7 +856,7 @@ export const FilesScreen = forwardRef<
       ) : null}
       {ask?.what === 'delete' && ask.target.kind !== 'trash' ? (
         <Dialog
-          title={ask.target.kind === 'folder' ? 'Delete this folder?' : 'Delete this file?'}
+          title={ask.target.kind === 'folder' ? f.deleteFolderQ : f.deleteFileQ}
           text={
             ask.target.kind === 'folder'
               ? `“${ask.target.folder.name}” and everything in it go to Deleted files, kept ${trash?.days ?? 30} days.`
@@ -868,7 +872,7 @@ export const FilesScreen = forwardRef<
               if (at === ask.target.folder.id) go(ask.target.folder.parent);
             } else await client.deleteFile(ask.target.file.id);
             setAsk(null);
-            say('Moved to Deleted files');
+            say(f.movedToDeleted);
             await load();
             if (trash) loadTrash();
           }}
@@ -899,6 +903,7 @@ export const FilesScreen = forwardRef<
           onShare={share}
           onSave={keep}
           onClose={() => setPreview(null)}
+          lang={lang}
         />
       ) : null}
     </SafeAreaView>

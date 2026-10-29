@@ -582,7 +582,7 @@ export function OpencodeSessionScreen({
           </View>
         ) : !items.length ? (
           error ? (
-            <LoadError text={error} onRetry={refresh} centered />
+            <LoadError text={error} onRetry={refresh} retryLabel={t.retry} centered />
           ) : (
             <EmptyState icon={SquareCode} title={s?.name || t.session} text={t.nothingYet} testID="wbo-empty" />
           )
@@ -628,7 +628,7 @@ export function OpencodeSessionScreen({
       {error || sendError || notice ? (
         <View style={[st.msg, wide && st.column]}>
           {error ? (
-            <LoadError text={error} onRetry={refresh} />
+            <LoadError text={error} onRetry={refresh} retryLabel={t.retry} />
           ) : sendError ? (
             <ErrorText>{sendError}</ErrorText>
           ) : (

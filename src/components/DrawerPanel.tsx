@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CHAT_TRASH_DAYS, type WorkbenchClient } from '../api/client';
+import { CHAT_TRASH_DAYS, type VoiceLang, type WorkbenchClient } from '../api/client';
 import { displayServer } from '../api/server';
 import type {
   Chat,
@@ -38,7 +38,7 @@ import type {
   WboSession,
 } from '../api/types';
 import { chatSnippet, filterChats, groupChats, groupOf, rowTime } from '../lib/groups';
-import { ROOM_ICON, ROOM_LABEL, roomSnippet, unread as unreadOf } from '../lib/rooms';
+import { ROOM_ICON, roomName, roomSnippet, unread as unreadOf } from '../lib/rooms';
 import { ago } from '../lib/time';
 import { isOpen, isPinned, SIDE_EMPTY } from '../lib/side';
 import { bridgeLine, isoOf, liveDot, shownSessions, stateWord } from '../lib/wbc';
@@ -68,15 +68,14 @@ import { StateDot } from './StateDot';
 import { GroupHead, SessionGroup, type SessionRowData } from './SessionGroup';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
 import { Button, ErrorText, Glyph } from './ui';
+import { drawerStrings, type DrawerStrings } from '../lib/drawerStrings';
+import { uiLang } from '../update/strings';
+
 
 /** What Select may be asked to do with the conversations it ticks. */
 export type BulkWhat = 'archive' | 'unarchive' | 'restore' | 'delete' | 'forever';
 
-const SCOPES: { id: ChatScope; label: string }[] = [
-  { id: 'live', label: 'Conversations' },
-  { id: 'archived', label: 'Archived' },
-  { id: 'trash', label: 'Trash' },
-];
+const SCOPES: ChatScope[] = ['live', 'archived', 'trash'];
 
 /** Typing stops this long before the server is asked to search what was said. */
 const SEARCH_WAIT = 300;
@@ -121,6 +120,7 @@ export function DrawerPanel({
   side = SIDE_EMPTY,
   onFold,
   onPin,
+  lang = 'auto',
 }: {
   client: WorkbenchClient | null;
   server: string | null;
@@ -177,6 +177,8 @@ export function DrawerPanel({
   side?: SidePrefs;
   onFold?: (group: FoldGroup, open: boolean) => void;
   onPin?: (group: SideGroup, id: string, pinned: boolean) => void;
+  /** The app's language: the drawer's own words follow it. */
+  lang?: VoiceLang;
 }) {
   const [q, setQ] = useState('');
   const [found, setFound] = useState<{ q: string; scope: ChatScope; chats: Chat[] } | null>(null);
@@ -197,6 +199,8 @@ export function DrawerPanel({
       return next;
     });
   const allTicked = !!chats?.length && chats.every((c) => sel.has(c.id));
+  const t = useMemo(() => drawerStrings(uiLang(lang)), [lang]);
+
   const pickOff = () => {
     setPicking(false);
     setSel(new Set());
@@ -230,15 +234,15 @@ export function DrawerPanel({
   const sections = useMemo(() => {
     const all = chats ?? [];
     if (!q.trim()) {
-      if (scope === 'trash') return all.length ? [{ title: 'Deleted, newest first', data: all }] : [];
-      return groupChats(all).map((g) => ({ title: g.name as string, data: g.chats }));
+      if (scope === 'trash') return all.length ? [{ title: t.deletedFirst, data: all }] : [];
+      return groupChats(all).map((g) => ({ title: t.groups[g.name], data: g.chats }));
     }
     const here = filterChats(all, q);
     const there = found && found.q === q.trim() && found.scope === scope ? found.chats : [];
     const seen = new Set(here.map((c) => c.id));
     const data = [...here, ...there.filter((c) => !seen.has(c.id))];
-    return data.length ? [{ title: 'Results', data }] : [];
-  }, [chats, q, found, scope]);
+    return data.length ? [{ title: t.results, data }] : [];
+  }, [chats, q, found, scope, t]);
 
   const refresh = async () => {
     setRefreshing(true);
@@ -246,7 +250,7 @@ export function DrawerPanel({
     setRefreshing(false);
   };
 
-  const who = user?.name || user?.email || 'Local mode';
+  const who = user?.name || user?.email || t.localMode;
   // The connected ones, the last day's and the pinned ones, as on the web; a search narrows them.
   const claude = useMemo<SessionRowData[]>(() => {
     if (!wbc || !onWbc) return [];
@@ -259,11 +263,11 @@ export function DrawerPanel({
       name: x.name,
       note: bridgeLine(x.bridge, wbc.t),
       says: [stateWord(x, wbc.t), x.computer].filter(Boolean).join(' · '),
-      when: x.last_ts ? ago(isoOf(x.last_ts)) : '',
+      when: x.last_ts ? ago(isoOf(x.last_ts), new Date(), uiLang(lang)) : '',
       dot: liveDot(x.bridge),
       live: !!x.bridge?.connected,
     }));
-  }, [wbc, onWbc, q, openWbc, side]);
+  }, [wbc, onWbc, q, openWbc, side, lang]);
   const opencode = useMemo<SessionRowData[]>(() => {
     if (!wbo || !onWbo) return [];
     return shownWbo(wbo.rows, q, openWbo, (id) => isPinned(side, 'opencode', id)).map((x) => ({
@@ -271,11 +275,11 @@ export function DrawerPanel({
       name: x.name,
       note: wboLine(x, wbo.t),
       says: [wboWord(x, wbo.t), x.computer].filter(Boolean).join(' · '),
-      when: x.updated ? ago(new Date(x.updated).toISOString()) : '',
+      when: x.updated ? ago(new Date(x.updated).toISOString(), new Date(), uiLang(lang)) : '',
       dot: wboDot(x),
       live: !!x.bridge?.connected,
     }));
-  }, [wbo, onWbo, q, openWbo, side]);
+  }, [wbo, onWbo, q, openWbo, side, lang]);
   const fold = onFold ?? (() => undefined);
   // The rooms are open until folded by hand (kept as the session groups' folds); folded, their unread is on the header.
   const roomsOpen = isOpen(side, 'rooms', true);
@@ -294,7 +298,7 @@ export function DrawerPanel({
             onPress={() => setSel(allTicked ? new Set() : new Set((chats ?? []).map((c) => c.id)))}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: allTicked }}
-            accessibilityLabel={allTicked ? 'Untick every conversation' : 'Tick every conversation'}
+            accessibilityLabel={allTicked ? t.untickAll : t.tickAll}
             style={s.pickAll}
           >
             <View style={[s.pickBox, allTicked && s.pickBoxOn]}>
@@ -307,10 +311,10 @@ export function DrawerPanel({
           <View style={s.pickActs}>
             {scope === 'trash' ? (
               <>
-                <PickAct icon={RotateCcw} label="Restore" testID="chat-bulk-restore" onPress={() => bulk('restore')} />
+                <PickAct icon={RotateCcw} label={t.bulkRestore} testID="chat-bulk-restore" onPress={() => bulk('restore')} />
                 <PickAct
                   icon={Trash}
-                  label="Delete forever"
+                  label={t.bulkForever}
                   testID="chat-bulk-forever"
                   danger
                   onPress={() => bulk('forever')}
@@ -320,11 +324,11 @@ export function DrawerPanel({
               <>
                 <PickAct
                   icon={scope === 'archived' ? ArchiveRestore : Archive}
-                  label={scope === 'archived' ? 'Unarchive' : 'Archive'}
+                  label={scope === 'archived' ? t.bulkUnarchive : t.bulkArchive}
                   testID={scope === 'archived' ? 'chat-bulk-unarchive' : 'chat-bulk-archive'}
                   onPress={() => bulk(scope === 'archived' ? 'unarchive' : 'archive')}
                 />
-                <PickAct icon={Trash} label="Delete" testID="chat-bulk-delete" danger onPress={() => bulk('delete')} />
+                <PickAct icon={Trash} label={t.bulkDelete} testID="chat-bulk-delete" danger onPress={() => bulk('delete')} />
               </>
             )}
           </View>
@@ -342,19 +346,19 @@ export function DrawerPanel({
                 onChangeText={setQ}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
-                placeholder="Search"
+                placeholder={t.search}
                 placeholderTextColor={colors.inkDim}
                 selectionColor={colors.inkDim}
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="search"
-                accessibilityLabel="Search the conversations"
+                accessibilityLabel={t.searchChats}
               />
               {q ? (
                 <Pressable
                   onPress={() => setQ('')}
                   accessibilityRole="button"
-                  accessibilityLabel="Clear the search"
+                  accessibilityLabel={t.clearSearch}
                   hitSlop={10}
                   style={s.clear}
                 >
@@ -367,13 +371,13 @@ export function DrawerPanel({
             testID="new-chat"
             onPress={onNew}
             accessibilityRole="button"
-            accessibilityLabel="New chat"
+            accessibilityLabel={t.newChat}
             style={s.newRow}
           >
             {({ pressed }) => (
               <>
                 <Glyph icon={SquarePen} size={20} color={pressed ? colors.inkDim : colors.ink} />
-                <Text style={[s.newText, pressed && s.dimText]}>New chat</Text>
+                <Text style={[s.newText, pressed && s.dimText]}>{t.newChat}</Text>
               </>
             )}
           </Pressable>
@@ -383,19 +387,20 @@ export function DrawerPanel({
         // The web's tab row: small tabs at the left, Select at the right (.tcv-cc-tabrow, .tcv-cc-tabs).
         <View style={s.tabRow}>
           <View style={s.tabs} accessibilityRole="tablist">
-            {SCOPES.map((t) => {
-              const on = t.id === scope;
+            {SCOPES.map((id) => {
+              const on = id === scope;
+              const label = id === 'live' ? t.conversations : id === 'archived' ? t.archived : t.trash;
               return (
                 <Pressable
-                  key={t.id}
-                  testID={`chat-scope-${t.id}`}
+                  key={id}
+                  testID={`chat-scope-${id}`}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: on }}
-                  accessibilityLabel={t.label}
+                  accessibilityLabel={label}
                   onPress={() => {
                     // Another scope's conversations are another list: nothing ticked carries over.
                     setSel(new Set());
-                    onScope(t.id);
+                    onScope(id);
                   }}
                   style={s.tab}
                 >
@@ -405,7 +410,7 @@ export function DrawerPanel({
                       numberOfLines={1}
                       ellipsizeMode="tail"
                     >
-                      {t.label}
+                      {label}
                     </Text>
                   )}
                 </Pressable>
@@ -418,7 +423,7 @@ export function DrawerPanel({
               onPress={() => (picking ? pickOff() : setPicking(true))}
               accessibilityRole="button"
               accessibilityState={{ selected: picking }}
-              accessibilityLabel={picking ? 'Done selecting' : 'Select several conversations'}
+              accessibilityLabel={picking ? t.doneSelecting : t.selectSeveral}
               hitSlop={8}
               style={[s.selBtn, picking && s.selBtnOn]}
             >
@@ -426,7 +431,7 @@ export function DrawerPanel({
                 <>
                   <Glyph icon={ListChecks} size={13} color={picking || pressed ? colors.inkBright : colors.inkDim} />
                   <Text style={[s.selText, picking && s.selTextOn, pressed && !picking && s.tabPressed]}>
-                    {picking ? 'Done' : 'Select'}
+                    {picking ? t.done : t.select}
                   </Text>
                 </>
               )}
@@ -455,6 +460,8 @@ export function DrawerPanel({
               trash={scope === 'trash'}
               check={sel.has(item.id)}
               onPress={() => tick(item.id)}
+              t={t}
+              lang={lang}
             />
           ) : (
             <SwipeRow actions={swipeActions?.(item) ?? []} testID={`swipe-${item.id}`}>
@@ -465,6 +472,8 @@ export function DrawerPanel({
                 onPress={() => (scope === 'trash' ? onActions(item) : onOpen(item))}
                 onLongPress={() => onActions(item)}
                 onMore={() => onActions(item)}
+                t={t}
+                lang={lang}
               />
             </SwipeRow>
           )
@@ -487,17 +496,17 @@ export function DrawerPanel({
             {!picking && scope === 'live' && !q.trim() && ((onRoom && rooms?.length) || (orchestrator && onOrchestrator)) ? (
               <View testID="drawer-rooms">
                 <GroupHead
-                  label="Rooms"
+                  label={t.rooms}
                   open={roomsOpen}
                   onPress={() => fold('rooms', !roomsOpen)}
-                  hint={roomsOpen ? 'Folds the rooms' : 'Opens the rooms'}
+                  hint={roomsOpen ? t.foldsRooms : t.opensRooms}
                   right={
                     roomsOpen ? null : roomsWaiting ? (
-                      <View testID="drawer-rooms-dot" accessibilityLabel="A question waits for an answer">
+                      <View testID="drawer-rooms-dot" accessibilityLabel={t.questionWaits}>
                         <StateDot s="retry" size={7} />
                       </View>
                     ) : roomsUnread ? (
-                      <View style={s.news} testID="drawer-rooms-dot" accessibilityLabel="unread" />
+                      <View style={s.news} testID="drawer-rooms-dot" accessibilityLabel={t.unreadSomeone} />
                     ) : null
                   }
                   testID="drawer-rooms-fold"
@@ -512,6 +521,8 @@ export function DrawerPanel({
                     on={r.room === openRoom}
                     unread={unreadOf(r, roomsSeen?.[r.room])}
                     onPress={() => onRoom?.(r.room)}
+                    t={t}
+                    lang={lang}
                   />
                 ))}
               </View>
@@ -551,30 +562,30 @@ export function DrawerPanel({
             {error ? (
               <View style={s.note}>
                 <ErrorText>{error}</ErrorText>
-                <Button label="Try again" onPress={refresh} testID="chats-retry" />
+                <Button label={t.tryAgain} onPress={refresh} testID="chats-retry" />
               </View>
             ) : !picking && scope === 'trash' && chats?.length && !q.trim() && onEmptyTrash ? (
               <View style={s.trashHead}>
-                <Text style={s.trashNote}>Kept {trashDays} days, then deleted for good.</Text>
-                <Button label="Empty trash" variant="danger" onPress={onEmptyTrash} testID="empty-trash" />
+                <Text style={s.trashNote}>{t.keptDays(trashDays)}</Text>
+                <Button label={t.emptyTrash} variant="danger" onPress={onEmptyTrash} testID="empty-trash" />
               </View>
             ) : null}
           </>
         }
         ListEmptyComponent={
           chats === null && !error ? (
-            <ActivityIndicator style={s.wait} color={colors.inkDim} accessibilityLabel="Reading the conversations" />
+            <ActivityIndicator style={s.wait} color={colors.inkDim} accessibilityLabel={t.reading} />
           ) : searching ? (
-            <ActivityIndicator style={s.wait} color={colors.inkDim} accessibilityLabel="Searching" />
+            <ActivityIndicator style={s.wait} color={colors.inkDim} accessibilityLabel={t.searching} />
           ) : q.trim() ? (
-            <Text style={s.empty}>Nothing found for “{q.trim()}”.</Text>
+            <Text style={s.empty}>{t.nothingFound(q.trim())}</Text>
           ) : !error ? (
             <Text style={s.empty}>
               {scope === 'trash'
-                ? `The trash is empty. Deleted conversations stay here ${trashDays} days.`
+                ? t.emptyTrashDays(trashDays)
                 : scope === 'archived'
-                  ? 'Nothing archived. A swipe to the left on a conversation archives it.'
-                  : 'No conversations yet. Conversations started on the web show here too.'}
+                  ? t.emptyArchived
+                  : t.emptyLive}
             </Text>
           ) : null
         }
@@ -585,14 +596,14 @@ export function DrawerPanel({
           testID="open-files"
           onPress={onFiles}
           accessibilityRole="button"
-          accessibilityLabel="Files"
+          accessibilityLabel={t.files}
           accessibilityState={{ selected: filesOn }}
           style={s.filesRow}
         >
           {({ pressed }) => (
             <>
               <Glyph icon={FolderOpen} size={20} color={pressed ? colors.inkDim : colors.ink} />
-              <Text style={[s.newText, filesOn && s.titleOn, pressed && s.dimText]}>Files</Text>
+              <Text style={[s.newText, filesOn && s.titleOn, pressed && s.dimText]}>{t.files}</Text>
             </>
           )}
         </Pressable>
@@ -618,7 +629,7 @@ export function DrawerPanel({
         testID="open-account"
         onPress={onAccount}
         accessibilityRole="button"
-        accessibilityLabel={`Account: ${who}${updateNote ? `. ${updateNote}` : ''}`}
+        accessibilityLabel={t.account(who, updateNote)}
         accessibilityState={{ selected: accountOn }}
         style={s.account}
       >
@@ -653,16 +664,31 @@ export function DrawerPanel({
  * A room in the drawer: its icon and name, when it was last written in - or
  * how much of it is unread - and the last line, cut at two lines.
  */
-function RoomRow({ room, on, unread, onPress }: { room: Room; on: boolean; unread: number; onPress: () => void }) {
+function RoomRow({
+  room,
+  on,
+  unread,
+  onPress,
+  t,
+  lang,
+}: {
+  room: Room;
+  on: boolean;
+  unread: number;
+  onPress: () => void;
+  t: DrawerStrings;
+  lang: VoiceLang;
+}) {
   const Icon = ROOM_ICON[room.room];
+  const name = roomName(room.room, uiLang(lang));
   return (
     <Pressable
       testID={`room-${room.room}`}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: on }}
-      accessibilityLabel={ROOM_LABEL[room.room]}
-      accessibilityHint="The agent's own thread for this room"
+      accessibilityLabel={name}
+      accessibilityHint={t.roomHint}
       style={s.room}
     >
       {({ pressed }) => (
@@ -673,18 +699,18 @@ function RoomRow({ room, on, unread, onPress }: { room: Room; on: boolean; unrea
           <View style={s.roomText}>
             <View style={s.roomTop}>
               <Text style={[s.title, on && s.titleOn, pressed && s.dimText]} numberOfLines={1}>
-                {ROOM_LABEL[room.room]}
+                {name}
               </Text>
               {unread ? (
                 <View
                   style={s.badge}
                   testID={`room-${room.room}-unread`}
-                  accessibilityLabel={unread === 1 ? 'One line not read' : `${unread} lines not read`}
+                  accessibilityLabel={t.unread(unread)}
                 >
-                  <Text style={s.badgeText}>{unread > 99 ? '99+' : unread} new</Text>
+                  <Text style={s.badgeText}>{t.newLines(unread)}</Text>
                 </View>
               ) : null}
-              {room.last ? <Text style={s.when}>{ago(room.last.at)}</Text> : null}
+              {room.last ? <Text style={s.when}>{ago(room.last.at, new Date(), uiLang(lang))}</Text> : null}
             </View>
             <Text style={s.snip} numberOfLines={2}>
               {roomSnippet(room)}
@@ -766,6 +792,8 @@ function Row({
   onPress,
   onLongPress,
   onMore,
+  t,
+  lang,
 }: {
   chat: Chat;
   on: boolean;
@@ -775,24 +803,27 @@ function Row({
   onPress: () => void;
   onLongPress?: () => void;
   onMore?: () => void;
+  t: DrawerStrings;
+  lang: VoiceLang;
 }) {
   return (
     <DrawerRow
       title={chat.title}
-      when={trash ? (chat.days_left == null ? '' : `${chat.days_left} d left`) : rowTime(chat, groupOf(chat))}
+      when={
+        trash
+          ? chat.days_left == null
+            ? ''
+            : t.dLeft(chat.days_left)
+          : rowTime(chat, groupOf(chat), new Date(), uiLang(lang))
+      }
       sub={trash ? undefined : chatSnippet(chat)}
       check={check}
       on={on}
       onPress={onPress}
       onLongPress={onLongPress}
       onMore={onMore}
-      hint={
-        check !== undefined
-          ? 'Ticks it, for the buttons above'
-          : trash
-            ? 'Restore or delete forever'
-            : 'Archive, delete and more: its … at the end of the row'
-      }
+      hint={check !== undefined ? t.rowHintTick : trash ? t.rowHintTrash : t.rowHintChat}
+      moreLabel={t.actionsFor(chat.title)}
       testID={`chat-${chat.id}`}
     />
   );

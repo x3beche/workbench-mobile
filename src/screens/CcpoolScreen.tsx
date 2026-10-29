@@ -110,7 +110,7 @@ export function CcpoolScreen({
     <SafeAreaView style={s.safe} edges={['top', 'left', 'right', 'bottom']} testID="ccpool-screen">
       <ScreenHeader
         title={t.title}
-        left={<IconButton icon={ArrowLeft} label={t.title} onPress={onClose} testID="ccpool-back" />}
+        left={<IconButton icon={ArrowLeft} label={t.back} onPress={onClose} testID="ccpool-back" />}
         right={
           <IconButton
             icon={RotateCcw}

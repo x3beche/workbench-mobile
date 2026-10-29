@@ -36,6 +36,8 @@ export interface WbcStrings {
   nothingYet: string;
   readingOlder: string;
   reading: string;
+  /** The button under a read that failed. */
+  retry: string;
   /** The box's empty words: the web's "write to this Claude Code session…", short enough for one line on a phone. */
   placeholder: string;
   /** The chip that puts Claude Code's suggestion in the box. */
@@ -115,6 +117,7 @@ const en: WbcStrings = {
   nothingYet: 'Nothing recorded yet: prompts and answers appear here as the session uses the Claude pool.',
   readingOlder: 'Reading earlier turns',
   reading: 'Reading the session',
+  retry: 'Try again',
   placeholder: 'Write to this session…',
   useSuggestion: 'Use',
   sentWaiting: 'sent — waiting for the computer',
@@ -188,6 +191,7 @@ const tr: WbcStrings = {
   nothingYet: 'Henüz kayıt yok: oturum Claude havuzunu kullandıkça istemler ve yanıtlar burada görünür.',
   readingOlder: 'Önceki turlar okunuyor',
   reading: 'Oturum okunuyor',
+  retry: 'Yeniden dene',
   placeholder: 'Bu oturuma yazın…',
   useSuggestion: 'Kullan',
   sentWaiting: 'gönderildi — bilgisayar bekleniyor',

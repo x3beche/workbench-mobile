@@ -5,6 +5,7 @@
  */
 import type { Room, RoomId } from '../api/types';
 import { Box, CircuitBoard, Cpu } from '../components/icons';
+import type { UiLang } from '../update/strings';
 
 /** What each room is about, in the words the web app uses. */
 export const ROOM_LABEL: Record<RoomId, string> = {
@@ -12,6 +13,13 @@ export const ROOM_LABEL: Record<RoomId, string> = {
   pcb: 'PCB Design',
   firmware: 'Firmware',
 };
+
+/** The room's name in the app's language (the web's own words for them). */
+export function roomName(room: RoomId, lang: UiLang): string {
+  if (lang !== 'tr') return ROOM_LABEL[room];
+  const tr: Record<RoomId, string> = { cad: '3B Çizim', pcb: 'PCB Tasarım', firmware: 'Gömülü Yazılım' };
+  return tr[room] ?? ROOM_LABEL[room];
+}
 
 /** The room's icon, the same family the web app draws them with. */
 export const ROOM_ICON = { cad: Box, pcb: CircuitBoard, firmware: Cpu };

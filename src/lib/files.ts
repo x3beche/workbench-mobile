@@ -15,6 +15,7 @@
  * files. Pure: no network, no React.
  */
 import type { FileFolder, StoredFile, TrashFile, VirtualFolder, VirtualTree, Who } from '../api/types';
+import type { UiLang } from '../update/strings';
 
 export type Side = 'mine' | 'app' | 'trash';
 
@@ -149,16 +150,23 @@ export function searchTrash(files: TrashFile[], q: string): TrashFile[] {
  * files" - counted here, or as the server counted a read-only folder it
  * answered one at a time (`count`).
  */
-export function countIn(data: FilesData, side: Side, id: string, count?: FileFolder['count']): string {
+export function countIn(
+  data: FilesData,
+  side: Side,
+  id: string,
+  count?: FileFolder['count'],
+  lang: UiLang = 'en',
+): string {
   const got =
     side === 'app' && count && !data.app?.[id]
       ? { folders: { length: count.folders }, files: { length: count.files } }
       : side === 'app'
         ? appAt(data, id)
         : mineAt(data, id);
+  const words = lang === 'tr' ? { folder: 'klasör', file: 'dosya' } : { folder: 'folder', file: 'file' };
   const parts: string[] = [];
-  if (got.folders.length) parts.push(plural(got.folders.length, 'folder'));
-  if (got.files.length || !got.folders.length) parts.push(plural(got.files.length, 'file'));
+  if (got.folders.length) parts.push(plural(got.folders.length, words.folder, lang));
+  if (got.files.length || !got.folders.length) parts.push(plural(got.files.length, words.file, lang));
   return parts.join(', ');
 }
 
@@ -312,16 +320,26 @@ export function viewerOf(f: { name: string; preview?: string; kind?: string }): 
   return 'other';
 }
 
-export function size(b: number): string {
+/** A size as the reader's own decimal separator writes it: 2,0 kB in Turkish, 2.0 kB in English. */
+export function size(b: number, lang: UiLang = 'en'): string {
   if (!Number.isFinite(b) || b < 0) return '';
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(b < 10240 ? 1 : 0)} kB`;
-  if (b < 1024 ** 3) return `${(b / 1024 / 1024).toFixed(1)} MB`;
-  return `${(b / 1024 ** 3).toFixed(2)} GB`;
+  const n = (v: number, digits: number) =>
+    new Intl.NumberFormat(lang === 'tr' ? 'tr-TR' : 'en-US', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(v);
+  if (b < 1024) return `${n(b, 0)} B`;
+  if (b < 1024 * 1024) return `${n(b / 1024, b < 10240 ? 1 : 0)} kB`;
+  if (b < 1024 ** 3) return `${n(b / 1024 / 1024, 1)} MB`;
+  return `${n(b / 1024 ** 3, 2)} GB`;
 }
 
-export function plural(n: number, word: string): string {
-  return `${n} ${word}${n === 1 ? '' : 's'}`;
+/**
+ * "3 files" - or "3 dosya": Turkish takes no plural suffix after a number, so
+ * the caller passes the word it wants and the language decides the rest.
+ */
+export function plural(n: number, word: string, lang: UiLang = 'en'): string {
+  return lang === 'tr' ? `${n} ${word}` : `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
 /** The type a picked file is sent as, when the phone did not say. */

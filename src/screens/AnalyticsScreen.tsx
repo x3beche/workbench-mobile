@@ -321,7 +321,7 @@ export function AnalyticsScreen({
             </Group>
           ) : null}
           {!d.summary && !d.usage && !d.tools && !d.orch && !d.pool ? (
-            <LoadError text={t.cannotRead} onRetry={load} centered />
+            <LoadError text={t.cannotRead} onRetry={load} retryLabel={t.refresh} centered />
           ) : missed ? (
             <Text style={s.none}>{t.someMissed}</Text>
           ) : null}

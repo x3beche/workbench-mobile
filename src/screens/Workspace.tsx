@@ -70,6 +70,7 @@ import { shareFile, sharePdf } from '../lib/share';
 import { useSession } from '../state/session';
 import * as prefs from '../storage/prefs';
 import { colors, drawerMax, fonts, motion, radius, type, wideAt } from '../theme/tokens';
+import { workspaceStrings } from '../lib/workspaceStrings';
 import { uiLang, updateStrings } from '../update/strings';
 import { useUpdate } from '../update/useUpdate';
 import type { VoiceMode } from '../voice/voice';
@@ -126,13 +127,6 @@ async function settle<T>(items: T[], run: (item: T) => Promise<unknown>): Promis
 }
 
 /** What a bulk action did, and what it could not: “3 conversations archived; 1 could not be reached and stayed.” */
-function bulkWords(n: number, done: (n: number) => string, failed: number): { text: string; bad: boolean } {
-  if (!failed) return { text: done(n), bad: false };
-  const stayed = failed === 1 ? 'one conversation' : `${failed} conversations`;
-  if (!n) return { text: `Nothing changed: ${stayed} could not be reached.`, bad: true };
-  return { text: `${done(n)}; ${stayed} could not be reached and stayed.`, bad: true };
-}
-
 export function Workspace({
   lang,
   onLang,
@@ -209,6 +203,7 @@ export function Workspace({
   const stt = useMemo(() => settingsStrings(ui), [ui]);
   const wt = useMemo(() => wbcStrings(ui), [ui]);
   const ct = useMemo(() => wboStrings(ui), [ui]);
+  const wst = useMemo(() => workspaceStrings(ui), [ui]);
   const updateNote =
     update.check.state === 'available' ? updateStrings(uiLang(lang)).drawer(update.check.release.version) : null;
 
@@ -727,7 +722,7 @@ export function Workspace({
           now ? { ...now, chats: now.chats.map((c) => (c.id === chat.id ? { ...c, pinned: got.pinned } : c)) } : now,
         );
       })
-      .catch((e) => fail(e, 'It could not be pinned.'));
+      .catch((e) => fail(e, wst.couldNotPin));
 
   /**
    * The drawer's Select: what was ticked, all of it at once - the same routes a
@@ -743,11 +738,7 @@ export function Workspace({
     settle(picked, (x) => c.archive(x.id, on)).then(({ done, failed }) => {
       done.forEach((x) => dropped(x, on));
       if (!on) load();
-      const words = bulkWords(
-        done.length,
-        (n) => `${n} ${n === 1 ? 'conversation' : 'conversations'} ${on ? 'archived' : 'back in Conversations'}`,
-        failed,
-      );
+      const words = wst.bulk(on ? 'archive' : 'unarchive', done.length, failed);
       say(words.text, words.bad);
     });
   };
@@ -758,9 +749,9 @@ export function Workspace({
       .then(() => {
         dropped(chat, false);
         load();
-        say(`“${chat.title}” is back`);
+        say(wst.restored(chat.title));
       })
-      .catch((e) => fail(e, 'It could not be restored.'));
+      .catch((e) => fail(e, wst.couldNotRestore));
 
   /**
    * The server writes the file (Files > In the app > Chat/Exports) and the
@@ -774,7 +765,7 @@ export function Workspace({
         const made = await client.exportChat(chat.id, as);
         const blob = await client.fileBlob(made.id);
         await shareFile(blob, made.name, as === 'md' ? 'text/markdown' : 'application/pdf');
-        say(`Exported to Chat/Exports: ${made.name}`);
+        say(wst.exported(made.name));
         return;
       } catch (e) {
         if (!isMissingRoute(e)) throw e;
@@ -783,7 +774,7 @@ export function Workspace({
       if (as === 'md') await shareFile(chatToMarkdown(full), exportName(full, 'md'), 'text/markdown');
       else await sharePdf(chatToHtml(full), exportName(full, 'pdf'));
     } catch (e) {
-      fail(e, 'It could not be exported.');
+      fail(e, wst.couldNotExport);
     }
   };
 
@@ -897,6 +888,7 @@ export function Workspace({
       side={side}
       onFold={foldGroup}
       onPin={pinSession}
+      lang={lang}
     />
   );
 
@@ -1010,7 +1002,15 @@ export function Workspace({
           </Appear>
         ) : page === 'files' ? (
           <Appear key="files" duration={motion.fade}>
-            <FilesScreen ref={files} client={client} user={user} can={can} wide={wide} onMenu={() => setDrawer(true)} />
+            <FilesScreen
+              ref={files}
+              client={client}
+              user={user}
+              can={can}
+              wide={wide}
+              onMenu={() => setDrawer(true)}
+              lang={lang}
+            />
           </Appear>
         ) : ready ? (
           <Appear key={open.key} duration={motion.fade}>
@@ -1052,9 +1052,9 @@ export function Workspace({
       ) : null}
       {ask?.what === 'rename' ? (
         <Dialog
-          title="Rename"
-          confirm="Save"
-          input={{ value: ask.chat.title, label: 'Name' }}
+          title={wst.rename}
+          confirm={wst.save}
+          input={{ value: ask.chat.title, label: wst.name }}
           onCancel={() => setAsk(null)}
           onConfirm={async (title) => {
             if (!client) return;
@@ -1068,9 +1068,9 @@ export function Workspace({
       ) : null}
       {ask?.what === 'delete' ? (
         <Dialog
-          title="Delete this conversation?"
-          text={`“${ask.chat.title}” goes to the trash. It can be restored from Trash for ${client?.chatTrashDays ?? CHAT_TRASH_DAYS} days, then it is deleted for good.`}
-          confirm="Delete"
+          title={wst.deleteTitle}
+          text={wst.deleteText(ask.chat.title, client?.chatTrashDays ?? CHAT_TRASH_DAYS)}
+          confirm={wst.delete}
           danger
           onCancel={() => setAsk(null)}
           onConfirm={async () => {
@@ -1078,15 +1078,15 @@ export function Workspace({
             await client.remove(ask.chat.id);
             dropped(ask.chat);
             setAsk(null);
-            say('Moved to Trash');
+            say(wst.movedToTrash);
           }}
         />
       ) : null}
       {ask?.what === 'forever' ? (
         <Dialog
-          title="Delete forever?"
-          text={`“${ask.chat.title}” is deleted for good, with every line in it. This cannot be undone.`}
-          confirm="Delete forever"
+          title={wst.foreverTitle}
+          text={wst.foreverText(ask.chat.title)}
+          confirm={wst.deleteForever}
           danger
           onCancel={() => setAsk(null)}
           onConfirm={async () => {
@@ -1099,9 +1099,9 @@ export function Workspace({
       ) : null}
       {ask?.what === 'delete-many' ? (
         <Dialog
-          title={`Delete ${ask.chats.length} conversations?`}
-          text={`They go to the trash and can be restored from Trash for ${client?.chatTrashDays ?? CHAT_TRASH_DAYS} days, then they are deleted for good.`}
-          confirm="Delete"
+          title={wst.deleteManyTitle(ask.chats.length)}
+          text={wst.deleteManyText(client?.chatTrashDays ?? CHAT_TRASH_DAYS)}
+          confirm={wst.delete}
           danger
           onCancel={() => setAsk(null)}
           onConfirm={async () => {
@@ -1111,16 +1111,16 @@ export function Workspace({
             const { done, failed } = await settle(many, (x) => c.remove(x.id));
             done.forEach((x) => dropped(x));
             setAsk(null);
-            const words = bulkWords(done.length, (n) => `${n} moved to Trash`, failed);
+            const words = wst.bulk('delete', done.length, failed);
             say(words.text, words.bad);
           }}
         />
       ) : null}
       {ask?.what === 'forever-many' ? (
         <Dialog
-          title={`Delete ${ask.chats.length} conversations forever?`}
-          text="They are deleted for good, with every line in them. This cannot be undone."
-          confirm="Delete forever"
+          title={wst.foreverManyTitle(ask.chats.length)}
+          text={wst.foreverManyText}
+          confirm={wst.deleteForever}
           danger
           onCancel={() => setAsk(null)}
           onConfirm={async () => {
@@ -1130,16 +1130,16 @@ export function Workspace({
             const { done, failed } = await settle(many, (x) => c.removeForever(x.id));
             done.forEach((x) => dropped(x));
             setAsk(null);
-            const words = bulkWords(done.length, (n) => `${n} deleted for good`, failed);
+            const words = wst.bulk('forever', done.length, failed);
             say(words.text, words.bad);
           }}
         />
       ) : null}
       {ask?.what === 'empty' ? (
         <Dialog
-          title="Empty the trash?"
-          text="Every conversation in the trash is deleted for good. This cannot be undone."
-          confirm="Empty trash"
+          title={wst.emptyTitle}
+          text={wst.emptyText}
+          confirm={wst.emptyConfirm}
           danger
           onCancel={() => setAsk(null)}
           onConfirm={async () => {
@@ -1147,7 +1147,7 @@ export function Workspace({
             const got = await client.emptyTrash();
             setAsk(null);
             await loadScoped('trash');
-            if (got.kept) say(`${got.kept} kept: only their authors or someone who may delete can remove them.`);
+            if (got.kept) say(wst.keptBack(got.kept));
           }}
         />
       ) : null}

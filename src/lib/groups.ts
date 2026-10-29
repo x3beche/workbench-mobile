@@ -6,6 +6,7 @@
 import type { Chat } from '../api/types';
 import { previewText } from './markdown';
 import { ago, clock } from './time';
+import type { UiLang } from '../update/strings';
 
 export type GroupName = 'Pinned' | 'Today' | 'Yesterday' | 'Previous 7 days' | 'Older';
 
@@ -47,11 +48,11 @@ export function groupChats(chats: Chat[], now: Date = new Date()): ChatGroup[] {
 
 /** When a conversation was last written in, as its group needs it: "12 min ago"
  *  today, "14:05" yesterday, "Tue" this week, "6 Oct" before. */
-export function rowTime(c: Chat, group: GroupName, now: Date = new Date()): string {
+export function rowTime(c: Chat, group: GroupName, now: Date = new Date(), lang: UiLang = 'en'): string {
   const t = new Date(c.updated_at || c.created_at || 0);
   if (Number.isNaN(t.getTime())) return '';
   if (group === 'Yesterday') return clock(t.toISOString());
-  return ago(t.toISOString(), now);
+  return ago(t.toISOString(), now, lang);
 }
 
 /** The one line under a conversation's title: who wrote last and what, or that
@@ -83,8 +84,9 @@ export function filterChats(chats: Chat[], q: string): Chat[] {
 }
 
 /** "Good morning" before noon, "Good afternoon" until six, then "Good evening". */
-export function greeting(now: Date = new Date()): string {
+export function greeting(now: Date = new Date(), lang: UiLang = 'en'): string {
   const h = now.getHours();
+  if (lang === 'tr') return h >= 5 && h < 12 ? 'Günaydın' : h >= 12 && h < 18 ? 'İyi günler' : 'İyi akşamlar';
   if (h >= 5 && h < 12) return 'Good morning';
   if (h >= 12 && h < 18) return 'Good afternoon';
   return 'Good evening';

@@ -52,6 +52,7 @@ export function SessionGroup({
   onPin,
   testID,
   prefix,
+  actionsFor,
 }: {
   group: SideGroup;
   label: string;
@@ -66,6 +67,8 @@ export function SessionGroup({
   testID: string;
   /** Its rows' testIDs: `<prefix>-<id>`, their dots `<prefix>-dot-<id>`. */
   prefix: string;
+  /** What a row's … says it is for, in the drawer's words. */
+  actionsFor?: (name: string) => string;
 }) {
   const [more, setMore] = useState(false);
   const [menu, setMenu] = useState<SessionRowData | null>(null);
@@ -102,6 +105,7 @@ export function SessionGroup({
             onPress={() => onOpen(r.id)}
             onLongPress={() => setMenu(r)}
             onMore={() => setMenu(r)}
+            moreLabel={actionsFor?.(r.name)}
             label={`${r.name}${pinned ? `, ${t.pinned}` : ''}, ${r.says}`}
             testID={`${prefix}-${r.id}`}
           />

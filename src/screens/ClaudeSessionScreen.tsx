@@ -443,7 +443,7 @@ export function ClaudeSessionScreen({
           </View>
         ) : !items.length ? (
           error ? (
-            <LoadError text={error} onRetry={() => refresh(true)} centered />
+            <LoadError text={error} onRetry={() => refresh(true)} retryLabel={t.retry} centered />
           ) : (
             <EmptyState icon={SquareTerminal} title={s?.name || t.session} text={t.nothingYet} testID="wbc-empty" />
           )
@@ -484,7 +484,7 @@ export function ClaudeSessionScreen({
       {error || sendError || notice ? (
         <View style={[st.msg, wide && st.column]}>
           {error ? (
-            <LoadError text={error} onRetry={() => refresh(true)} />
+            <LoadError text={error} onRetry={() => refresh(true)} retryLabel={t.retry} />
           ) : sendError ? (
             <ErrorText>{sendError}</ErrorText>
           ) : (

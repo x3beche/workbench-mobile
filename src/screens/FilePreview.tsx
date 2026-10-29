@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ApiError, type TableData, type TextHead, type WorkbenchClient } from '../api/client';
+import { ApiError, type TableData, type TextHead, type VoiceLang, type WorkbenchClient } from '../api/client';
 import type { StoredFile } from '../api/types';
 import { Appear } from '../components/Appear';
 import { FileThumb } from '../components/FileThumb';
@@ -30,6 +30,8 @@ import { Markdown } from '../components/Markdown';
 import { ActionList, Sheet, type Action } from '../components/Sheet';
 import { Button, ErrorText, IconButton } from '../components/ui';
 import { previewWorth, size, viewerOf } from '../lib/files';
+import { filesStrings } from '../lib/filesStrings';
+import { uiLang } from '../update/strings';
 import { canSave } from '../lib/share';
 import { shortTime } from '../lib/time';
 import { colors, fonts, gutter, indicatorStyle, motion, paper, space, type } from '../theme/tokens';
@@ -43,6 +45,7 @@ export function FilePreview({
   onShare,
   onSave,
   onClose,
+  lang = 'auto',
 }: {
   client: WorkbenchClient | null;
   file: StoredFile;
@@ -51,14 +54,17 @@ export function FilePreview({
   onShare: (f: StoredFile) => Promise<void>;
   onSave: (f: StoredFile) => Promise<void>;
   onClose: () => void;
+  /** The app's language: the page tag and the sizes follow it. */
+  lang?: VoiceLang;
 }) {
+  const f = filesStrings(uiLang(lang));
   const [viewer, setViewer] = useState(() => viewerOf(file));
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState<'share' | 'save' | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** Which page of a PDF is under the eye: said beside the name, not over the page. */
   const [page, setPage] = useState<string | null>(null);
-  const onPage = useCallback((n: number, all: number) => setPage(all > 1 ? `Page ${n} of ${all}` : null), []);
+  const onPage = useCallback((n: number, all: number) => setPage(all > 1 ? f.pageOf(n, all) : null), [f]);
 
   const run = async (what: 'share' | 'save') => {
     setBusy(what);
@@ -66,20 +72,27 @@ export function FilePreview({
     try {
       await (what === 'share' ? onShare(file) : onSave(file));
     } catch (e) {
-      setError((e as Error).message || 'That did not work.');
+      setError((e as Error).message || f.didNotWork);
     } finally {
       setBusy(null);
     }
   };
 
-  const meta = [size(file.bytes), shortTime(file.created_at), file.by?.name, page].filter(Boolean).join(' · ');
+  const meta = [
+    size(file.bytes, uiLang(lang)),
+    shortTime(file.created_at, new Date(), uiLang(lang)),
+    file.by?.name,
+    page,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <Modal visible animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <SafeAreaView style={s.safe} edges={['top', 'bottom', 'left', 'right']} testID="file-preview">
         <Appear duration={motion.sheet}>
           <View style={s.head}>
-            <IconButton icon={X} label="Close" onPress={onClose} testID="preview-close" />
+            <IconButton icon={X} label={f.close} onPress={onClose} testID="preview-close" />
             <View style={s.title}>
               <Text style={s.name} numberOfLines={1} ellipsizeMode="middle">
                 {file.name}

@@ -41,7 +41,8 @@ import { ErrorText, Glyph, IconButton, LoadError } from '../components/ui';
 import { orchStrings } from '../lib/orchStrings';
 import { layLatest, PAGE, putOlder } from '../lib/paging';
 import { authorHeads } from '../lib/authors';
-import { asChatMessage, ROOM_ICON, ROOM_LABEL } from '../lib/rooms';
+import { chatStrings } from '../lib/chatStrings';
+import { asChatMessage, ROOM_ICON, roomName } from '../lib/rooms';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { useBus, useLive } from '../live/LiveContext';
 import * as prefs from '../storage/prefs';
@@ -106,6 +107,8 @@ export function RoomScreen({
     linesRef.current = lines;
   }, [lines]);
   const newBelow = orchStrings(uiLang(lang)).newBelow;
+  const t = chatStrings(uiLang(lang));
+  const name = roomName(room, uiLang(lang));
 
   useEffect(
     () => () => {
@@ -129,10 +132,10 @@ export function RoomScreen({
         setError(null);
       },
       (e) => {
-        if (mounted.current) setError(e instanceof ApiError ? e.message : 'The room could not be read.');
+        if (mounted.current) setError(e instanceof ApiError ? e.message : t.roomUnreadable);
       },
     );
-  }, [client, room, reader]);
+  }, [client, room, reader, t.roomUnreadable]);
 
   useEffect(() => {
     load();
@@ -215,13 +218,13 @@ export function RoomScreen({
     setNotice(null);
     try {
       await client.sayRoom(room, text);
-      setNotice('Sent. The agent that works in this room answers here.');
+      setNotice(t.sent);
       // One's own line: the way down to it, wherever one was reading.
       toBottom();
       await load();
       return true;
     } catch (e) {
-      setSendError(e instanceof ApiError ? e.message : 'The line could not be sent.');
+      setSendError(e instanceof ApiError ? e.message : t.couldNotSendLine);
       return false;
     }
   };
@@ -246,7 +249,7 @@ export function RoomScreen({
   return (
     <SafeAreaView style={st.safe} edges={['top', 'left', 'right', 'bottom']} testID={`room-screen-${room}`}>
       <ChatHeader
-        title={ROOM_LABEL[room]}
+        title={name}
         icon={<Glyph icon={Icon} size={17} color={colors.inkDim} />}
         lang={lang}
         client={client}
@@ -254,24 +257,21 @@ export function RoomScreen({
         onMenu={onMenu}
         menuTestID="room-open-drawer"
         titleTestID="room-title"
-        right={<IconButton icon={X} label="Close the room" onPress={() => onClose?.()} testID="room-close" />}
+        right={<IconButton icon={X} label={t.closeRoom} onPress={() => onClose?.()} testID="room-close" />}
       />
       <View style={st.flex}>
         {lines === null && !error ? (
           <View style={st.center}>
-            <ActivityIndicator color={colors.inkDim} accessibilityLabel="Reading the room" />
+            <ActivityIndicator color={colors.inkDim} accessibilityLabel={t.reading} />
           </View>
         ) : !lines?.length ? (
           error ? (
-            <LoadError text={error} onRetry={load} centered />
+            <LoadError text={error} onRetry={load} retryLabel={t.retry} centered />
           ) : (
             <Appear fill duration={motion.enter}>
               <View style={st.empty}>
-                <Text style={st.emptyTitle}>Nothing in this room yet</Text>
-                <Text style={st.emptyLead}>
-                  Say what is to be done in it - the agent working on the drawings, the board or the firmware
-                  reads this room and answers here.
-                </Text>
+                <Text style={st.emptyTitle}>{t.nothingYet}</Text>
+                <Text style={st.emptyLead}>{t.roomWhy}</Text>
               </View>
             </Appear>
           )
@@ -287,6 +287,7 @@ export function RoomScreen({
               <MessageItem
                 m={asChatMessage(item)}
                 mine={!!user && item.by?.id === user.id}
+                md={t.markdown}
                 head={heads.get(item.id) ?? null}
               />
             )}
@@ -303,12 +304,15 @@ export function RoomScreen({
             // Upside down, the footer is the top: the older page coming in, or where the thread starts.
             ListFooterComponent={
               older ? (
-                <ActivityIndicator style={st.older} color={colors.inkDim} accessibilityLabel="Reading older lines" testID="room-older" />
+                <ActivityIndicator
+                  style={st.older}
+                  color={colors.inkDim}
+                  accessibilityLabel={t.readingOlder}
+                  testID="room-older"
+                />
               ) : more ? null : (
                 <View style={st.intro}>
-                  <Text style={st.introText}>
-                    {ROOM_LABEL[room]} - the workspace keeps its own thread here, apart from your conversations.
-                  </Text>
+                  <Text style={st.introText}>{t.intro(name)}</Text>
                 </View>
               )
             }
@@ -320,11 +324,11 @@ export function RoomScreen({
       {error || sendError || notice || waiting ? (
         <View style={st.msg}>
           {error ? (
-            <LoadError text={error} onRetry={load} />
+            <LoadError text={error} onRetry={load} retryLabel={t.retry} />
           ) : sendError ? (
             <ErrorText>{sendError}</ErrorText>
           ) : waiting ? (
-            <Text style={st.note}>The agent has not read this yet.</Text>
+            <Text style={st.note}>{t.notReadYet}</Text>
           ) : (
             <Text style={st.note}>{notice}</Text>
           )}
@@ -334,6 +338,7 @@ export function RoomScreen({
         <Composer
           client={client}
           lang={lang}
+          placeholder={t.message}
           mode={voiceMode}
           writing={false}
           onSend={send}

@@ -208,7 +208,7 @@ export function ActivityStrip({
             <View style={s.cell}>
               <View style={[s.dot, live > 0 && s.dotOn]} testID={live > 0 ? 'activity-dot-on' : undefined} />
               <Text style={s.b}>{tps(live)}</Text>
-              <Text style={s.small}>{t('out tok/s')}</Text>
+              <Text style={s.small}>{t('tokens out/s')}</Text>
             </View>
           ) : null}
           {show('spark') && spark ? (
@@ -312,7 +312,11 @@ export function ActivitySheet({ feed, lang, onClose }: { feed: ActivityFeed; lan
   const liveLine = by ? (on.length ? on.map((s) => `${t(s.label)} ${tps(by[s.id] ?? 0)}`).join(' · ') : t('idle')) : '';
   const j = now?.jobs;
   const jobsLine = j
-    ? [t('{n} running', j.running), ...(j.queued ? [t('{n} waiting', j.queued)] : []), t('{n} agents', j.agents)].join(' · ')
+    ? [
+        t('{n} running', j.running),
+        ...(j.queued ? [t('{n} waiting', j.queued)] : []),
+        j.agents === 1 ? t('1 agent') : t('{n} agents', j.agents),
+      ].join(' · ')
     : '';
   const m = now?.machine;
   const boxes = !m?.sampled && !m?.parts?.length ? t('not measured yet') : (() => {
@@ -327,7 +331,7 @@ export function ActivitySheet({ feed, lang, onClose }: { feed: ActivityFeed; lan
 
   const figs: { k: string; label: string; value: string; unit?: string; sub: string }[] = [
     { k: 'tokens', label: `${t('Tokens')} · ${t(prefs.range)}`, value: x ? tok(x.tokens) : '–', sub: split },
-    { k: 'now', label: t('Now'), value: tps(now?.live?.tps ?? 0), unit: t('out tok/s'), sub: liveLine },
+    { k: 'now', label: t('Now'), value: tps(now?.live?.tps ?? 0), unit: t('tokens out/s'), sub: liveLine },
     { k: 'calls', label: t('Calls'), value: (x?.calls ?? 0).toLocaleString('en-US'), sub: t('in-app models') },
     ...(claude
       ? [{ k: 'claude', label: 'Claude', value: claude.prompts.toLocaleString('en-US'), unit: t('prompts'),

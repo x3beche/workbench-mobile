@@ -24,6 +24,8 @@ export interface OrchStrings {
   reconnecting: string;
   readOnly: string;
   nothingYet: string;
+  /** The button under a read that failed. */
+  retry: string;
   onlyLatest: string;
   thinking: string;
   thinkingTitle: string;
@@ -44,6 +46,8 @@ export interface OrchStrings {
   failed: string;
   mcpTools: string;
   mcpAbout: string;
+  /** Under "MCP tools": its version and how many it has, said plainly. */
+  mcpCount: (version: string, tools: number) => string;
   findTool: string;
   noTool: string;
   close: string;
@@ -98,6 +102,7 @@ const en: OrchStrings = {
   reconnecting: 'Reconnecting…',
   readOnly: 'Read-only: write in a room - the Orchestrator answers there.',
   nothingYet: 'Nothing yet: it wakes when someone writes in a room or a note is queued.',
+  retry: 'Try again',
   onlyLatest: 'Only the latest messages are shown.',
   thinking: 'thinking',
   thinkingTitle: 'Thinking',
@@ -118,6 +123,7 @@ const en: OrchStrings = {
   failed: 'Error',
   mcpTools: 'MCP tools',
   mcpAbout: "Workbench's MCP tools: what the Orchestrator and its agents can use",
+  mcpCount: (version, tools) => `v${version} · ${tools} ${tools === 1 ? 'tool' : 'tools'}`,
   findTool: 'Find a tool',
   noTool: 'No tool matches.',
   close: 'Close',
@@ -184,6 +190,7 @@ const tr: OrchStrings = {
   reconnecting: 'Yeniden bağlanıyor…',
   readOnly: 'Salt okunur: bir odaya yazın, orkestratör orada yanıt verir.',
   nothingYet: 'Henüz bir şey yok: bir odaya yazıldığında ya da bir not kuyruğa girdiğinde uyanır.',
+  retry: 'Yeniden dene',
   onlyLatest: 'Yalnızca son mesajlar gösteriliyor.',
   thinking: 'düşünüyor',
   thinkingTitle: 'Düşünme',
@@ -204,6 +211,7 @@ const tr: OrchStrings = {
   failed: 'Hata',
   mcpTools: 'MCP araçları',
   mcpAbout: 'Workbench’in MCP araçları: orkestratörün ve ajanlarının kullanabildikleri',
+  mcpCount: (version, tools) => `v${version} · ${tools} araç`,
   findTool: 'Araç bul',
   noTool: 'Eşleşen araç yok.',
   close: 'Kapat',

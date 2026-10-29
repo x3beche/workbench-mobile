@@ -47,6 +47,8 @@ export interface WboStrings extends WbcStrings {
   answeredComputer: string;
   noLonger: string;
   readingOlderMsgs: string;
+  /** The button under a read that failed. */
+  retry: string;
   earlier: string;
   /** The stats under an answer: its line and the card it opens (lib/runStats.ts). */
   run: RunWords;
@@ -102,6 +104,7 @@ const en: WboStrings = {
   answeredComputer: 'answered on the computer',
   noLonger: 'no longer asked',
   readingOlderMsgs: 'Reading earlier messages',
+  retry: 'Try again',
   earlier: 'Show earlier',
   run: {
     details: 'Details',
@@ -179,6 +182,7 @@ const tr: WboStrings = {
   answeredComputer: 'bilgisayarda cevaplandı',
   noLonger: 'artık sorulmuyor',
   readingOlderMsgs: 'Önceki mesajlar okunuyor',
+  retry: 'Yeniden dene',
   earlier: 'Öncekileri göster',
   // The web app's i18n.ts, in Turkish, for the stats under an answer.
   run: {

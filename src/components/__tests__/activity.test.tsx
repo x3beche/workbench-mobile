@@ -75,7 +75,8 @@ describe('actSpan', () => {
     expect(screen.getByTestId('activity-sheet')).toBeTruthy();
     expect(screen.getByText('in 1.0M · out 500k · cache 0')).toBeTruthy();
     expect(screen.getByText('Chat 30.0 · Orchestrator 12.4')).toBeTruthy();
-    expect(screen.getByText('2 running · 1 waiting · 1 agents')).toBeTruthy();
+    // One agent is an agent: the strip used to say "1 agents".
+    expect(screen.getByText('2 running · 1 waiting · 1 agent')).toBeTruthy();
     expect(screen.getByText('1 container')).toBeTruthy();
     // Claude is there (a pool key); OpenCode had nothing in the range: no legend for it.
     expect(screen.getByTestId('activity-legend-claude')).toBeTruthy();
@@ -106,7 +107,7 @@ describe('actSpan', () => {
   it('speaks Turkish as the web does', async () => {
     await render(<ActivityStrip client={client()} scope="acct-2" lang="tr" />);
     await settle();
-    expect(screen.getByText('çıkış tok/sn')).toBeTruthy();
+    expect(screen.getByText('çıkış token/sn')).toBeTruthy();
     expect(screen.getByText('tok · 24sa')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('activity-strip'));
     expect(screen.getByText('Etkinlik')).toBeTruthy();

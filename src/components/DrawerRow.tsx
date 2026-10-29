@@ -31,6 +31,7 @@ export function DrawerRow({
   onPress,
   onLongPress,
   onMore,
+  moreLabel,
   label,
   hint,
   testID,
@@ -54,6 +55,8 @@ export function DrawerRow({
    * more mark. Its own label says what it does.
    */
   onMore?: () => void;
+  /** What its … is for, in the caller's words: "Actions for Trip photos". */
+  moreLabel?: string;
   label?: string;
   hint?: string;
   /** `<group>-<id>`: its dot is `<group>-dot-<id>`, its pin `<group>-pin-<id>`, its box `<group>-<id>-check`. */
@@ -114,7 +117,7 @@ export function DrawerRow({
               testID={`${testID}-more`}
               onPress={onMore}
               accessibilityRole="button"
-              accessibilityLabel={`Actions for ${title}`}
+              accessibilityLabel={moreLabel ?? `Actions for ${title}`}
               hitSlop={{ left: 4, right: 4 }}
               style={({ pressed }) => [s.moreBtn, pressed && s.morePressed]}
             >

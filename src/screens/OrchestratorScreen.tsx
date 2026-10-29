@@ -637,7 +637,7 @@ export const OrchestratorScreen = forwardRef<
               <ActivityIndicator color={colors.inkDim} />
             </View>
           ) : !st && error ? (
-            <LoadError text={error} onRetry={loadStatus} centered />
+            <LoadError text={error} onRetry={loadStatus} retryLabel={t.retry} centered />
           ) : (
             <View style={s.pad}>
               {st && running ? <Text style={s.none}>{t.nothingYet}</Text> : null}

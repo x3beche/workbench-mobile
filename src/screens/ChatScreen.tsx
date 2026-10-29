@@ -41,6 +41,7 @@ import { applyEvent, applyPiece, type ConversationView } from '../lib/answer';
 import { authorHeads } from '../lib/authors';
 import { chatDetailStrings } from '../lib/chatDetail';
 import { copy } from '../lib/feel';
+import { chatStrings } from '../lib/chatStrings';
 import { greeting } from '../lib/groups';
 import { useBus, useLive } from '../live/LiveContext';
 import { useSession } from '../state/session';
@@ -119,6 +120,7 @@ export function ChatScreen({
   const { client, user } = useSession();
   /** The detail setting's words, in the app's language. */
   const dw = chatDetailStrings(uiLang(lang));
+  const t = chatStrings(uiLang(lang));
   const [id, setId] = useState<string | null>(initial?.id ?? null);
   const idRef = useRef(id);
   idRef.current = id;
@@ -220,10 +222,10 @@ export function ChatScreen({
           onGone?.();
           return;
         }
-        setError(e instanceof ApiError ? e.message : 'The conversation could not be read.');
+        setError(e instanceof ApiError ? e.message : t.conversationUnreadable);
       },
     );
-  }, [client, follow, onGone]);
+  }, [client, follow, onGone, t.conversationUnreadable]);
 
   useEffect(() => {
     loadRef.current = load;
@@ -309,7 +311,7 @@ export function ChatScreen({
         onCreated?.(made);
       } catch (e) {
         setPending(null);
-        setError(e instanceof ApiError ? e.message : 'A new conversation could not be started.');
+        setError(e instanceof ApiError ? e.message : t.couldNotStart);
         return false;
       }
     }
@@ -322,13 +324,13 @@ export function ChatScreen({
         { onEvent, signal: ctl.signal },
       );
       if (got.queued) {
-        setNotice('An answer is being written. Your message waits and is sent after it.');
+        setNotice(t.answerWaiting);
         load();
       }
       return true;
     } catch (e) {
       if ((e as Error).name === 'AbortError') return true;
-      setError(e instanceof ApiError ? e.message : 'The message could not be sent.');
+      setError(e instanceof ApiError ? e.message : t.couldNotSend);
       load();
       return false;
     } finally {
@@ -347,7 +349,7 @@ export function ChatScreen({
     try {
       await client?.stop(cid);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'The answer could not be stopped.');
+      setError(e instanceof ApiError ? e.message : t.couldNotStop);
     }
   };
 
@@ -406,7 +408,7 @@ export function ChatScreen({
   return (
     <SafeAreaView style={st.safe} edges={['top', 'left', 'right', 'bottom']} testID="chat-screen">
       <ChatHeader
-        title={view.title || 'New chat'}
+        title={view.title || t.newChat}
         lang={lang}
         client={client}
         wide={wide}
@@ -418,11 +420,11 @@ export function ChatScreen({
             testID="open-models"
             onPress={() => setModels(true)}
             accessibilityRole="button"
-            accessibilityLabel={`Model: ${model.model || 'the server’s default'}. Choose another`}
+            accessibilityLabel={t.chooseModel(model.model || 'the server')}
             style={({ pressed }) => [st.pill, pressed && st.pillPressed]}
           >
             <Text style={st.pillText} numberOfLines={1}>
-              {modelName(model.model) || 'Model'}
+              {modelName(model.model) || t.model}
             </Text>
             <Glyph icon={ChevronDown} size={13} color={colors.inkDim} />
           </Pressable>
@@ -441,7 +443,7 @@ export function ChatScreen({
               />
             ) : null}
             {onNew ? (
-              <IconButton icon={SquarePen} label="New chat" onPress={onNew} testID="header-new-chat" disabled={empty} />
+              <IconButton icon={SquarePen} label={t.newChat} onPress={onNew} testID="header-new-chat" disabled={empty} />
             ) : (
               <View style={st.side} />
             )}
@@ -462,6 +464,7 @@ export function ChatScreen({
               animate={!!seen.current && !seen.current.has(item.id)}
               onMenu={setMenu}
               dw={dw}
+              md={t.markdown}
               head={heads.get(item.id) ?? null}
             />
           )}
@@ -487,7 +490,7 @@ export function ChatScreen({
             !loaded ? (
               <View style={st.center}>
                 {error ? (
-                  <LoadError text={error} onRetry={() => load()} centered testID="chat-retry" />
+                  <LoadError text={error} onRetry={() => load()} retryLabel={t.retry} centered testID="chat-retry" />
                 ) : (
                   <ActivityIndicator color={colors.inkDim} accessibilityLabel="Reading the conversation" />
                 )}
@@ -498,9 +501,11 @@ export function ChatScreen({
                   <View style={st.hello}>
                     <Mark size={36} />
                     <Text style={st.greeting} accessibilityRole="header">
-                      {who ? `${greeting()}, ${who}` : greeting()}
+                      {who
+                        ? `${greeting(new Date(), uiLang(lang))}, ${who}`
+                        : greeting(new Date(), uiLang(lang))}
                     </Text>
-                    <Text style={st.lead}>Ask about your boards, parts, firmware or models.</Text>
+                    <Text style={st.lead}>{t.lead}</Text>
                   </View>
                   {suggestions.length ? (
                     <View style={st.chips}>
@@ -530,7 +535,7 @@ export function ChatScreen({
               {pending ? <PendingItem text={pending} /> : null}
               {view.writing ? (
                 <Appear fill={false} duration={motion.fade}>
-                  <WritingItem w={view.writing} dw={dw} />
+                  <WritingItem w={view.writing} dw={dw} md={t.markdown} />
                 </Appear>
               ) : null}
             </>
@@ -563,6 +568,7 @@ export function ChatScreen({
       <View style={wide ? st.column : undefined}>
         <Composer
           ref={composer}
+          placeholder={t.message}
           client={client}
           lang={lang}
           mode={voiceMode}
@@ -598,17 +604,17 @@ export function ChatScreen({
             actions={[
               {
                 id: 'copy',
-                label: 'Copy',
+                label: t.copy,
                 icon: Copy,
                 onPress: () => {
                   const text = menu.content;
                   setMenu(null);
-                  copy(text).then((ok) => setToast(ok ? 'Copied' : 'Could not copy'));
+                  copy(text).then((ok) => setToast(ok ? t.copied : t.couldNotCopy));
                 },
               },
               {
                 id: 'select',
-                label: 'Select text',
+                label: t.selectText,
                 icon: TextSelect,
                 onPress: () => {
                   setReading(menu.content);

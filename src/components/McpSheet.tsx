@@ -50,7 +50,7 @@ export function McpSheet({
   return (
     <TallSheet
       title={t.mcpTools}
-      sub={cat ? `${cat.version} · ${cat.count}` : t.mcpAbout}
+      sub={cat ? t.mcpCount(cat.version, cat.count) : t.mcpAbout}
       closeLabel={t.close}
       onClose={onClose}
       testID="mcp-sheet"

@@ -21,7 +21,7 @@ import { stepDetail, stepLabel, stepState } from '../lib/steps';
 import { colors, fonts, gutter, motion, space, type } from '../theme/tokens';
 import { Appear } from './Appear';
 import { Check, ChevronDown, ChevronRight, CircleAlert, Square } from './icons';
-import { Markdown } from './Markdown';
+import { Markdown, type MarkdownWords } from './Markdown';
 import { useReduceMotion } from './motion';
 import { Glyph, wrapAnywhere } from './ui';
 
@@ -205,6 +205,7 @@ export const MessageItem = memo(function MessageItem({
   onMenu,
   dw,
   head,
+  md,
 }: {
   m: ChatMessage;
   mine: boolean;
@@ -216,6 +217,8 @@ export const MessageItem = memo(function MessageItem({
   /** Whose line this is, when the thread has more than one other voice in it
    *  and this is where it changes (lib/authors). */
   head?: string | null;
+  /** What a code block and a wide table inside the answer say, in the reader's language. */
+  md?: MarkdownWords;
 }) {
   const words = dw ?? chatDetailStrings('en');
   const body =
@@ -259,7 +262,7 @@ export const MessageItem = memo(function MessageItem({
             {m.steps?.length ? <Steps key="steps:opened" steps={m.steps} detail="detailed" ran={words.ran} /> : null}
           </CompactWork>
         ) : null}
-        <Markdown text={m.content || ''} />
+        <Markdown text={m.content || ''} words={md} />
         {m.error ? <Text style={s.error}>{m.error}</Text> : null}
         {m.stopped ? <Text style={s.note}>Stopped</Text> : null}
         {m.interrupted ? <Text style={s.note}>Interrupted: the server restarted while this was written.</Text> : null}
@@ -332,7 +335,7 @@ export function TypingDots() {
 }
 
 /** The answer being written, as far as it got: laid out as the finished answer will be, so nothing jumps when it lands. */
-export function WritingItem({ w, dw }: { w: Writing; dw?: ChatDetailStrings }) {
+export function WritingItem({ w, dw, md }: { w: Writing; dw?: ChatDetailStrings; md?: MarkdownWords }) {
   const reduce = useReduceMotion();
   const words = dw ?? chatDetailStrings('en');
   const waiting = !w.text && !w.thinking && !w.steps.length && !w.error;
@@ -349,7 +352,7 @@ export function WritingItem({ w, dw }: { w: Writing; dw?: ChatDetailStrings }) {
           {w.steps.length ? <Steps key="steps:opened" steps={w.steps} detail="detailed" ran={words.ran} /> : null}
         </CompactWork>
       ) : null}
-      {w.text ? <Markdown text={text} /> : waiting ? <TypingDots /> : null}
+      {w.text ? <Markdown text={text} words={md} /> : waiting ? <TypingDots /> : null}
       {w.error ? <Text style={s.error}>{w.error}</Text> : null}
     </View>
   );

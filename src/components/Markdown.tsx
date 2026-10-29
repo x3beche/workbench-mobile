@@ -42,8 +42,29 @@ function Sideways({ style, hint, children }: { style?: object; hint: string; chi
   );
 }
 
+/** What the pieces of a page say - a code block's tag and Copy button, the
+ *  hint of a box that runs off the edge - so a caller can put them in the
+ *  reader's language. English until it does. */
+export interface MarkdownWords {
+  code: string;
+  copy: string;
+  copied: string;
+  copyCode: string;
+  sidewaysCode: string;
+  sidewaysTable: string;
+}
+
+export const MARKDOWN_WORDS: MarkdownWords = {
+  code: 'code',
+  copy: 'Copy',
+  copied: 'Copied',
+  copyCode: 'Copy the code',
+  sidewaysCode: 'The rest of the code is to the right: swipe sideways.',
+  sidewaysTable: 'The rest of the table is to the right: swipe sideways.',
+};
+
 /** A code block: its language and a Copy button above, the code scrolling sideways below. */
-function Code({ lang, text }: { lang: string; text: string }) {
+function Code({ lang, text, words }: { lang: string; text: string; words: MarkdownWords }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -53,24 +74,24 @@ function Code({ lang, text }: { lang: string; text: string }) {
   return (
     <View style={s.pre}>
       <View style={s.preHead}>
-        <Text style={s.lang}>{lang || 'code'}</Text>
+        <Text style={s.lang}>{lang || words.code}</Text>
         <Pressable
           testID="copy-code"
           onPress={() => copy(text).then(setCopied)}
           accessibilityRole="button"
-          accessibilityLabel={copied ? 'Copied' : 'Copy the code'}
+          accessibilityLabel={copied ? words.copied : words.copyCode}
           hitSlop={10}
           style={s.copy}
         >
           {({ pressed }) => (
             <>
               <Glyph icon={copied ? Check : Copy} size={14} color={pressed ? colors.ink : colors.inkDim} />
-              <Text style={[s.copyText, pressed && s.copyPressed]}>{copied ? 'Copied' : 'Copy'}</Text>
+              <Text style={[s.copyText, pressed && s.copyPressed]}>{copied ? words.copied : words.copy}</Text>
             </>
           )}
         </Pressable>
       </View>
-      <Sideways hint="The rest of the code is to the right: swipe sideways.">
+      <Sideways hint={words.sidewaysCode}>
         <Text style={s.preText}>{text}</Text>
       </Sideways>
     </View>
@@ -119,7 +140,7 @@ function Inlines({ nodes }: { nodes: Inline[] }) {
   );
 }
 
-function BlockView({ b }: { b: Block }) {
+function BlockView({ b, words }: { b: Block; words: MarkdownWords }) {
   switch (b.kind) {
     case 'heading':
       return (
@@ -134,10 +155,10 @@ function BlockView({ b }: { b: Block }) {
         </Text>
       );
     case 'code':
-      return <Code lang={b.lang} text={b.text} />;
+      return <Code lang={b.lang} text={b.text} words={words} />;
     case 'table':
       return (
-        <Sideways style={s.table} hint="The rest of the table is to the right: swipe sideways.">
+        <Sideways style={s.table} hint={words.sidewaysTable}>
           <Text style={s.preText}>{b.text}</Text>
         </Sideways>
       );
@@ -165,12 +186,19 @@ function BlockView({ b }: { b: Block }) {
   }
 }
 
-export const Markdown = memo(function Markdown({ text }: { text: string }) {
+export const Markdown = memo(function Markdown({
+  text,
+  words = MARKDOWN_WORDS,
+}: {
+  text: string;
+  /** In the reader's language, when the caller has it. */
+  words?: MarkdownWords;
+}) {
   const blocks = useMemo(() => parseMarkdown(text), [text]);
   return (
     <View style={s.root}>
       {blocks.map((b, i) => (
-        <BlockView key={i} b={b} />
+        <BlockView key={i} b={b} words={words} />
       ))}
     </View>
   );
