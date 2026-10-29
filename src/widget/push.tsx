@@ -8,6 +8,7 @@
 import React from 'react';
 import { requestWidgetUpdate } from 'react-native-android-widget';
 
+import type { WorkbenchClient } from '../api/client';
 import type { LlmSummary, ToolsUsage } from '../api/types';
 import { snapshotOf, type WidgetSnapshot } from './data';
 import { saveSnapshot } from './source';
@@ -15,8 +16,9 @@ import { StatsWidget } from './StatsWidget';
 import { WIDGET_NAME } from './task';
 import { widgetWords } from './words';
 
-export async function pushWidget(summary: LlmSummary, tools: ToolsUsage): Promise<void> {
-  const snap: WidgetSnapshot = snapshotOf(summary, tools);
+export async function pushWidget(client: WorkbenchClient, summary: LlmSummary, tools: ToolsUsage): Promise<void> {
+  const catalogue = await client.ccTools().then((r) => r.tools).catch(() => null);
+  const snap: WidgetSnapshot = snapshotOf(summary, tools, catalogue);
   await saveSnapshot(snap);
   const { t } = await widgetWords();
   try {

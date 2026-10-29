@@ -444,6 +444,18 @@ export interface ToolsUsage {
   external?: { claude: ExtToolUses | null; opencode: ExtToolUses | null };
 }
 
+/** GET /api/cc/tools: every chat tool, and whether it is on for whoever asks (the Tools page's list). */
+export interface CcToolInfo {
+  name: string;
+  label: string;
+  level?: string;
+  description?: string;
+  default: boolean;
+  /** On for this person: their own choice, else the tool's default. */
+  on: boolean;
+  uses?: number;
+}
+
 /** One outside source's tool calls: each tool's total and week, and each bucket by tool. */
 export interface ExtToolUses {
   tools: Record<string, { uses: number; week: number }>;

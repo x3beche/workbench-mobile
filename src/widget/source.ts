@@ -43,6 +43,11 @@ export async function fetchSnapshot(): Promise<WidgetSnapshot | null> {
   const account = accounts.find((a) => a.id === id) ?? accounts[0];
   const session = account.local ? null : await readSession(account.id);
   const client = new WorkbenchClient(account.server, { session });
-  const [summary, tools] = await Promise.all([client.llmSummary(14), client.toolsUsage('month')]);
-  return snapshotOf(summary, tools);
+  const [summary, tools, catalogue] = await Promise.all([
+    client.llmSummary(14),
+    client.toolsUsage('month'),
+    // The head's "88/298": read when it can be, and the card is drawn without it when it cannot.
+    client.ccTools().then((r) => r.tools).catch(() => null),
+  ]);
+  return snapshotOf(summary, tools, catalogue);
 }

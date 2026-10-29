@@ -8,7 +8,7 @@
  * Numbers only - no colours and no words: the widget wears the theme and the
  * language it is drawn in, and reads neither from here.
  */
-import type { ExtToolUses, LlmSummary, ToolsUsage } from '../api/types';
+import type { CcToolInfo, ExtToolUses, LlmSummary, ToolsUsage } from '../api/types';
 
 /** Days under each card, the count the web card's chart draws. */
 export const WIDGET_DAYS = 14;
@@ -28,6 +28,9 @@ export interface WidgetSnapshot {
     week: number;
     /** How many different tools were used this week. */
     kinds: number;
+    /** The tools the model may use with this person's lines, and how many are on - the web head's 88/298. */
+    on: number;
+    total: number;
     /** One row a day: the Chat, Claude Code, OpenCode. */
     days: number[][];
   };
@@ -76,10 +79,23 @@ export function toolWeek(u: ToolsUsage): number {
   );
 }
 
-export function snapshotOf(summary: LlmSummary, tools: ToolsUsage, at = Date.now()): WidgetSnapshot {
+/** The tools the model may use, and how many of them are on for this person. */
+export function toolSwitchboard(list: { on: boolean }[] | null | undefined): { on: number; total: number } {
+  if (!list?.length) return { on: 0, total: 0 };
+  return { on: list.filter((x) => x.on).length, total: list.length };
+}
+
+export function snapshotOf(
+  summary: LlmSummary,
+  tools: ToolsUsage,
+  /** GET /api/cc/tools, when it could be read: the head's "88/298". */
+  catalogue: CcToolInfo[] | null = null,
+  at = Date.now(),
+): WidgetSnapshot {
+  const switchboard = toolSwitchboard(catalogue);
   return {
     at,
     models: { tokens: summary.month.tokens, calls: summary.month.calls, days: modelDays(summary) },
-    tools: { week: toolWeek(tools), kinds: toolKinds(tools), days: toolDays(tools) },
+    tools: { week: toolWeek(tools), kinds: toolKinds(tools), ...switchboard, days: toolDays(tools) },
   };
 }

@@ -17,6 +17,7 @@ import type {
   AgentTree,
   AuthState,
   Chat,
+  CcToolInfo,
   ChatEvent,
   ChatScope,
   FileFolder,
@@ -545,6 +546,11 @@ export class WorkbenchClient {
 
   toolsUsage(span: 'week' | 'month' = 'week'): Promise<ToolsUsage> {
     return this.request<ToolsUsage>('GET', `/api/cc/tools-usage?span=${span}`);
+  }
+
+  /** The Chat's tools and which of them are on for this person (GET /api/cc/tools). */
+  ccTools(): Promise<{ tools: CcToolInfo[] }> {
+    return this.request<{ tools: CcToolInfo[] }>('GET', '/api/cc/tools');
   }
 
   orchestratorIncidents(): Promise<{ incidents: Incident[] }> {

@@ -93,15 +93,21 @@ Then you sign in with the same e-mail address and password as on the web.
 
 - **The figures, on the home screen** (1.9.0, Android): the Chat tab's two
   cards - the models' month and the tools' week, each with its last 14 days
-  - as a widget of five cells by two, one frame split by a hairline. It is
-  the same reading the Analytics screen makes, counted the same way, so the
-  numbers agree with the screen to the call; the screen hands the widget
-  each reading as it takes one, and Android redraws it on its own every
-  thirty minutes. A phone with no network at that moment keeps the last
-  reading it had rather than showing an empty frame. It wears the app's
-  theme and language, and a tap opens the app. One thing the web card has
-  and this does not: "which tools are on" (88/298) is the Tools page's
-  figure, and the phone has no Tools page to read it from.
+  - as a widget of five cells by two, split by a hairline and sitting on a
+  light grey plate. It is the same reading the Analytics screen makes,
+  counted the same way, so the numbers agree with the screen to the call;
+  the screen hands the widget each reading as it takes one, and Android
+  redraws it on its own every thirty minutes. A phone with no network at
+  that moment keeps the last reading it had rather than showing an empty
+  frame. It is drawn at the web card's own sizes - 11px head, 15px
+  figures, 10.5px asides, 9px padding, the same hairline and bars - and only
+  the chart takes the height the cell has left, so a cell of 320x110 and one
+  of 390x200 read the same and neither leaves a band of nothing. A cell
+  narrower than a phone's shrinks the type to fit rather than spilling. It
+  says the web card's own words, piece for piece - the figures with their
+  small words beside them, "88/298", the tools that are on out of all of
+  them, read from the same route the Tools page reads - and the icons are
+  the web's. It wears the app's theme and language, and a tap opens the app.
 - **Said plainly, and reachable with a thumb** (1.8.0): a pass over every
   screen with the app in front of it. A draft is the person's work - it
   outlives leaving the screen, a restart and a send that fails, and comes

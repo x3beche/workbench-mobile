@@ -1,6 +1,6 @@
 /** What the home screen widget counts: the web Chat tab's two cards, from the same two routes. */
 import type { LlmSummary, ToolsUsage } from '../../api/types';
-import { modelDays, snapshotOf, toolDays, toolKinds, toolWeek } from '../data';
+import { modelDays, snapshotOf, toolDays, toolKinds, toolSwitchboard, toolWeek } from '../data';
 
 const day = (n: number) => `2026-10-${String(n).padStart(2, '0')}`;
 
@@ -91,12 +91,28 @@ describe('the snapshot', () => {
     const snap = snapshotOf(
       summary([{ day: day(1), calls: 1, tokens: 90, cost_usd: null }]),
       usage([{ day: day(1), by: { Read: 3 } }], { Read: { uses: 3, done: 3, week: 3 } }),
+      null,
       7,
     );
     expect(snap).toEqual({
       at: 7,
       models: { tokens: 2_190_000_000, calls: 9807, days: [[90]] },
-      tools: { week: 3, kinds: 1, days: [[3, 0, 0]] },
+      tools: { week: 3, kinds: 1, on: 0, total: 0, days: [[3, 0, 0]] },
     });
+  });
+
+  it('counts the tools that are on, out of all of them, when the list was read', () => {
+    const tools = [
+      { name: 'read', label: 'Read', default: true, on: true },
+      { name: 'bash', label: 'Bash', default: true, on: false },
+      { name: 'edit', label: 'Edit', default: false, on: true },
+    ];
+    expect(toolSwitchboard(tools)).toEqual({ on: 2, total: 3 });
+    const snap = snapshotOf(
+      summary([{ day: day(1), calls: 1, tokens: 1, cost_usd: null }]),
+      usage([], {}),
+      tools,
+    );
+    expect([snap.tools.on, snap.tools.total]).toEqual([2, 3]);
   });
 });
