@@ -21,6 +21,7 @@ import { Check, Search } from './icons';
 import { modelName } from './MessageItem';
 import { Dialog } from './Sheet';
 import { StateDot } from './StateDot';
+import { inFront } from '../live/hub';
 import { TallSheet } from './TallSheet';
 import { Button, ErrorText, Glyph } from './ui';
 
@@ -72,6 +73,7 @@ export function AgentSheet({
   useEffect(() => {
     load();
     const timer = setInterval(() => {
+      if (!inFront()) return;
       if (!pace || pace.due()) load();
     }, 5000);
     return () => clearInterval(timer);

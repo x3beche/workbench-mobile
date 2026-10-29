@@ -69,6 +69,12 @@ export interface FilesStrings {
   // The picture of a file
   notes: string;
   pageOf: (n: number, of: number) => string;
+  readingTable: string;
+  /** Under a table the server cut: "The first 500 of 4200 rows are shown." */
+  rowsShown: (shown: number, total: number) => string;
+  loadingPicture: string;
+  readingPdf: string;
+  readingFile: string;
   nextPage: string;
   prevPage: string;
   close: string;
@@ -133,6 +139,11 @@ const en: FilesStrings = {
   reading: 'Reading the files',
   notes: 'Notes',
   pageOf: (n, of) => `Page ${n} of ${of}`,
+  readingTable: 'Reading the table',
+  rowsShown: (shown, total) => `The first ${shown} of ${total} rows are shown.`,
+  loadingPicture: 'Loading the picture',
+  readingPdf: 'Reading the PDF',
+  readingFile: 'Reading the file',
   nextPage: 'Next page',
   prevPage: 'Previous page',
   close: 'Close',
@@ -196,6 +207,11 @@ const tr: FilesStrings = {
   reading: 'Dosyalar okunuyor',
   notes: 'Notlar',
   pageOf: (n, of) => `Sayfa ${n} / ${of}`,
+  readingTable: 'Tablo okunuyor',
+  rowsShown: (shown, total) => `${total} satırın ilk ${shown} tanesi gösteriliyor.`,
+  loadingPicture: 'Fotoğraf yükleniyor',
+  readingPdf: 'PDF okunuyor',
+  readingFile: 'Dosya okunuyor',
   nextPage: 'Sonraki sayfa',
   prevPage: 'Önceki sayfa',
   close: 'Kapat',

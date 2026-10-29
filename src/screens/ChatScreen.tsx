@@ -456,6 +456,12 @@ export function ChatScreen({
           ref={list}
           testID="chat-list"
           data={view.messages}
+          // A conversation is long and each line a laid-out answer: keep the
+          // screenful above and below, not ten (the default). Heights vary, so
+          // the list measures them all either way.
+          initialNumToRender={12}
+          windowSize={9}
+          maxToRenderPerBatch={10}
           keyExtractor={(m, i) => m.id || String(i)}
           renderItem={({ item }) => (
             <MessageItem

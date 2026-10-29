@@ -385,6 +385,7 @@ export function Workspace({
   const pace = useMemo(() => hub?.pace() ?? null, [hub]);
   useEffect(() => {
     const t = setInterval(() => {
+      if (!inFront()) return;
       if (pace && !pace.due()) return;
       loadRooms();
       loadOrch();

@@ -83,6 +83,7 @@ import type { OrchStrings } from '../lib/orchStrings';
 import { PAGE } from '../lib/paging';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { useBus, useLive } from '../live/LiveContext';
+import { inFront } from '../live/hub';
 import { colors, fonts, gutter, indicatorStyle, motion, radius, space, touch, type } from '../theme/tokens';
 
 /** How often the state is read again, and the tree when the stream says nothing of it. */
@@ -252,10 +253,12 @@ export const OrchestratorScreen = forwardRef<
   useEffect(() => {
     loadStatus().then(() => loadTree());
     const a = setInterval(() => {
+      if (!inFront()) return;
       setNow(Date.now());
       if (!pace || pace.due()) loadStatus();
     }, STATUS_EVERY);
     const b = setInterval(() => {
+      if (!inFront()) return;
       if (s2LiveRef.current && Date.now() - treeAt.current < 60_000) return;
       treeAt.current = Date.now();
       loadTree();

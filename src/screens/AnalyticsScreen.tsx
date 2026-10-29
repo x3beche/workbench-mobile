@@ -80,6 +80,7 @@ import { failureWord, stateWord, statusDot, whenOf } from '../lib/orchestrator';
 import type { OrchStrings } from '../lib/orchStrings';
 import type { SettingsStrings } from '../lib/settingsStrings';
 import { useBus, useLive } from '../live/LiveContext';
+import { inFront } from '../live/hub';
 import { useMaybeSession } from '../state/session';
 import { colors, fonts, gutter, indicatorStyle, space, type } from '../theme/tokens';
 
@@ -206,7 +207,7 @@ export function AnalyticsScreen({
       );
     };
     look();
-    const t = setInterval(look, NOW_EVERY);
+    const t = setInterval(() => inFront() && look(), NOW_EVERY);
     return () => {
       gone = true;
       clearInterval(t);

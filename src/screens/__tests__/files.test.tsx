@@ -283,6 +283,19 @@ describe('Files', () => {
     expect(await screen.findByText('Notes')).toBeTruthy();
   });
 
+  it('draws the rows of a table near the eye, not four thousand of them', async () => {
+    const rows = Array.from({ length: 300 }, (_, i) => [`row ${i}`, `value ${i}`]);
+    files = [...files, file('f5', 'big.csv', '', { preview: 'table', kind: 'table' })];
+    (client.table as jest.Mock).mockResolvedValue({ sheets: [], sheet: 0, rows, total: 4000, truncated: true });
+    await show();
+    await fireEvent.press(screen.getByTestId('file-row-f:f5'));
+    expect(await screen.findByTestId('preview-table-rows')).toBeTruthy();
+    expect(await screen.findByText('row 0')).toBeTruthy();
+    // A list, not a drawn stack: the far end of four thousand rows is not made until it is reached.
+    expect(screen.queryByText('row 299')).toBeNull();
+    expect(await screen.findByText('The first 300 of 4000 rows are shown.')).toBeTruthy();
+  });
+
   it('says what the server says when it refuses', async () => {
     (client.deleteFile as jest.Mock).mockRejectedValueOnce(new Error('as reviewer you cannot delete'));
     await show();

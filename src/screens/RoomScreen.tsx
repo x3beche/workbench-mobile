@@ -47,6 +47,7 @@ import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { useBus, useLive } from '../live/LiveContext';
 import * as prefs from '../storage/prefs';
 import { colors, fonts, gutter, indicatorStyle, motion, space, type } from '../theme/tokens';
+import { inFront } from '../live/hub';
 import { uiLang } from '../update/strings';
 import type { VoiceMode } from '../voice/voice';
 
@@ -198,6 +199,7 @@ export function RoomScreen({
 
   useEffect(() => {
     const t = setInterval(() => {
+      if (!inFront()) return;
       if (!pace || pace.due()) load();
     }, EVERY);
     return () => clearInterval(t);
@@ -282,6 +284,9 @@ export function RoomScreen({
             indicatorStyle={indicatorStyle}
             testID="room-list"
             data={[...lines].reverse()}
+            initialNumToRender={12}
+            windowSize={9}
+            maxToRenderPerBatch={10}
             keyExtractor={(l, i) => l.id || String(i)}
             renderItem={({ item }) => (
               <MessageItem

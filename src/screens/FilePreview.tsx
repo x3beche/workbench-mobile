@@ -119,13 +119,13 @@ export function FilePreview({
           ) : null}
           <View style={s.body}>
             {viewer === 'image' ? (
-              <Picture client={client} file={file} onFail={() => setViewer('other')} />
+              <Picture client={client} file={file} onFail={() => setViewer('other')} lang={lang} />
             ) : viewer === 'pdf' ? (
-              <Pdf client={client} file={file} onFail={() => setViewer('other')} onPage={onPage} />
+              <Pdf client={client} file={file} onFail={() => setViewer('other')} onPage={onPage} lang={lang} />
             ) : viewer === 'markdown' || viewer === 'text' ? (
-              <TextView client={client} file={file} markdown={viewer === 'markdown'} />
+              <TextView client={client} file={file} markdown={viewer === 'markdown'} lang={lang} />
             ) : viewer === 'table' ? (
-              <TableView client={client} file={file} onFail={() => setViewer('text')} />
+              <TableView client={client} file={file} onFail={() => setViewer('text')} lang={lang} />
             ) : (
               <Other client={client} file={file} busy={busy} onShare={() => run('share')} onSave={() => run('save')} />
             )}
@@ -187,7 +187,18 @@ function Failed({ text, onRetry }: { text: string; onRetry?: () => void }) {
  * screen's size (GET /thumb?px=) when the original is large, else - or from
  * a server without sizes, or when that copy fails - the original.
  */
-function Picture({ client, file, onFail }: { client: WorkbenchClient | null; file: StoredFile; onFail: () => void }) {
+function Picture({
+  client,
+  file,
+  onFail,
+  lang = 'auto',
+}: {
+  client: WorkbenchClient | null;
+  file: StoredFile;
+  onFail: () => void;
+  lang?: VoiceLang;
+}) {
+  const f = filesStrings(uiLang(lang));
   const [loaded, setLoaded] = useState(false);
   // A small picture is shown as it is, at once; a large one waits for the server's copy.
   const [shown, setShown] = useState<{ uri: string; sized: boolean } | null>(() =>
@@ -225,7 +236,7 @@ function Picture({ client, file, onFail }: { client: WorkbenchClient | null; fil
       ) : null}
       {!loaded ? (
         <View style={StyleSheet.absoluteFill}>
-          <Waiting label="Loading the picture" />
+          <Waiting label={f.loadingPicture} />
         </View>
       ) : null}
     </View>
@@ -237,13 +248,16 @@ function Pdf({
   file,
   onFail,
   onPage,
+  lang = 'auto',
 }: {
   client: WorkbenchClient | null;
   file: StoredFile;
   onFail: () => void;
   /** The page under the eye, for the header to say (a tag over the page hid its foot). */
   onPage: (n: number, all: number) => void;
+  lang?: VoiceLang;
 }) {
+  const f = filesStrings(uiLang(lang));
   const [pages, setPages] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { width } = useWindowDimensions();
@@ -284,7 +298,7 @@ function Pdf({
         }}
       />
     );
-  if (!pages || !client) return <Waiting label="Reading the PDF" />;
+  if (!pages || !client) return <Waiting label={f.readingPdf} />;
   const pageWidth = Math.min(width, 900) - 2 * space.sm;
   return (
     <FlatList
@@ -330,7 +344,18 @@ function PdfPage({
   );
 }
 
-function TextView({ client, file, markdown }: { client: WorkbenchClient | null; file: StoredFile; markdown: boolean }) {
+function TextView({
+  client,
+  file,
+  markdown,
+  lang = 'auto',
+}: {
+  client: WorkbenchClient | null;
+  file: StoredFile;
+  markdown: boolean;
+  lang?: VoiceLang;
+}) {
+  const f = filesStrings(uiLang(lang));
   const [got, setGot] = useState<TextHead | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(() => {
@@ -350,7 +375,7 @@ function TextView({ client, file, markdown }: { client: WorkbenchClient | null; 
         }}
       />
     );
-  if (!got) return <Waiting label="Reading the file" />;
+  if (!got) return <Waiting label={f.readingFile} />;
   return (
     <ScrollView contentContainerStyle={s.textPad} indicatorStyle={indicatorStyle} testID="preview-text">
       {markdown ? (
@@ -365,34 +390,51 @@ function TextView({ client, file, markdown }: { client: WorkbenchClient | null; 
   );
 }
 
-function TableView({ client, file, onFail }: { client: WorkbenchClient | null; file: StoredFile; onFail: () => void }) {
+function TableView({
+  client,
+  file,
+  onFail,
+  lang = 'auto',
+}: {
+  client: WorkbenchClient | null;
+  file: StoredFile;
+  onFail: () => void;
+  lang?: VoiceLang;
+}) {
+  const f = filesStrings(uiLang(lang));
   const [got, setGot] = useState<TableData | null>(null);
   useEffect(() => {
     if (!client) return;
     client.table(file.id).then(setGot, onFail);
   }, [client, file.id, onFail]);
-  if (!got) return <Waiting label="Reading the table" />;
+  if (!got) return <Waiting label={f.readingTable} />;
   return (
-    <ScrollView contentContainerStyle={s.textPad} indicatorStyle={indicatorStyle} testID="preview-table">
-      <ScrollView horizontal indicatorStyle={indicatorStyle}>
-        <View>
-          {got.rows.map((row, i) => (
-            <View key={i} style={[s.tr, i === 0 && s.th]}>
-              {row.map((cell, j) => (
-                <Text key={j} style={[s.td, i === 0 && s.thText]} numberOfLines={2}>
+    <View style={s.textPad} testID="preview-table">
+      {/* Sideways for the columns, down for the rows: the rows are a list, so a
+          file of four thousand of them draws the dozen near the eye and no more
+          (they were all drawn at once, and a phone remembers every one). */}
+      <ScrollView horizontal indicatorStyle={indicatorStyle} contentContainerStyle={s.tableRow}>
+        <FlatList
+          testID="preview-table-rows"
+          style={s.table}
+          data={got.rows}
+          keyExtractor={(_, i) => String(i)}
+          initialNumToRender={24}
+          windowSize={7}
+          maxToRenderPerBatch={16}
+          renderItem={({ item, index }) => (
+            <View style={[s.tr, index === 0 && s.th]}>
+              {item.map((cell, j) => (
+                <Text key={j} style={[s.td, index === 0 && s.thText]} numberOfLines={2}>
                   {cell}
                 </Text>
               ))}
             </View>
-          ))}
-        </View>
+          )}
+        />
       </ScrollView>
-      {got.truncated ? (
-        <Text style={s.note}>
-          The first {got.rows.length} of {got.total} rows are shown.
-        </Text>
-      ) : null}
-    </ScrollView>
+      {got.truncated ? <Text style={s.note}>{f.rowsShown(got.rows.length, got.total)}</Text> : null}
+    </View>
   );
 }
 
@@ -454,6 +496,8 @@ const s = StyleSheet.create({
   textPad: { padding: gutter, gap: space.md },
   code: { fontFamily: fonts.mono, fontSize: type.small, lineHeight: type.smallLine, color: colors.ink },
   note: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
+  tableRow: { flexGrow: 1 },
+  table: { flex: 1 },
   tr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.line },
   th: { borderBottomColor: colors.pressed },
   td: {
