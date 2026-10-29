@@ -70,7 +70,8 @@ describe('a room row', () => {
     expect(roomSnippet(room())).toBe('No messages yet');
     // The row under a room's name is the app's words too, not the server's.
     expect(roomSnippet(room(), 'tr')).toBe('Henüz mesaj yok');
-    expect(roomSnippet({ ...room(), last: { role: 'agent', text: 'noted' } }, 'tr')).toBe('ajan: noted');
+    const noted = { role: 'agent' as const, text: 'noted', at: '2026-10-15T10:00:00Z' };
+    expect(roomSnippet(room({ last: noted }), 'tr')).toBe('ajan: noted');
   });
 });
 
