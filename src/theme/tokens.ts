@@ -133,6 +133,12 @@ export const type = {
 
 export const radius = { sm: 5, md: 6, lg: 8, bubble: 18, field: 22, round: 999 } as const;
 
+/**
+ * A page of paper: a PDF's page is white in every theme. The app's brightest
+ * ink is not white in a light theme, so a page drawn on it came out black.
+ */
+export const paper = '#ffffff';
+
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 
 /** The side margin of every screen: text and controls never sit closer to the edge. */

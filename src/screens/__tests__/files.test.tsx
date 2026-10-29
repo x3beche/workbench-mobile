@@ -200,6 +200,7 @@ describe('Files', () => {
     expect(client.upload).toHaveBeenCalledWith(
       [{ uri: 'file:///scan.pdf', name: 'scan.pdf', type: 'application/pdf' }],
       'd1',
+      expect.anything(),
     );
     expect(await screen.findByText('Uploaded scan.pdf')).toBeTruthy();
   });
@@ -273,7 +274,8 @@ describe('Files', () => {
 
     await fireEvent.press(screen.getByTestId('file-row-f:f3'));
     expect(await screen.findByTestId('pdf-page-1')).toBeTruthy();
-    expect(screen.getByText('1 / 3')).toBeTruthy();
+    // The page under the eye is in the header, not over the page's foot.
+    expect(await screen.findByText(/Page 1 of 3/)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('preview-close'));
 
     await fireEvent.press(screen.getByTestId('crumb-top'));

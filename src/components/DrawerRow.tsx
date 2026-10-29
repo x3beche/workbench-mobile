@@ -146,6 +146,7 @@ const s = StyleSheet.create({
   },
   titleOn: { color: colors.inkBright, opacity: 1 },
   dim: { color: colors.inkDim },
-  when: { flexShrink: 0, fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
+  // One width, so the times of every row stand in one column ("Sun" and "14:05" alike).
+  when: { flexShrink: 0, minWidth: 44, textAlign: 'right', fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
   sub: { fontFamily: fonts.sans, fontSize: 11.5, lineHeight: 15, color: colors.inkDim },
 });

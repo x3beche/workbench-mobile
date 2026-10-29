@@ -859,7 +859,7 @@ export class WorkbenchClient {
   }
 
   /** Files from the phone into a folder of My files ("" the top). */
-  async upload(parts: UploadPart[], folder: string): Promise<StoredFile[]> {
+  async upload(parts: UploadPart[], folder: string, signal?: AbortSignal): Promise<StoredFile[]> {
     const form = new FormData();
     for (const p of parts) {
       if ('blob' in p) form.append('upload', p.blob, p.name);
@@ -873,6 +873,7 @@ export class WorkbenchClient {
       '/api/files',
       { method: 'POST', body: form, headers: { [CSRF_HEADER]: '1' } },
       UPLOAD_TIMEOUT_MS,
+      signal,
     );
     return this.read<StoredFile[]>(res, '/api/files');
   }
@@ -960,9 +961,15 @@ export class WorkbenchClient {
   }
 
   /** A raw request with the session, the timeout and the app's own errors - for answers that are not JSON. */
-  private async send(path: string, init: RequestInit, timeoutMs = TIMEOUT_MS): Promise<Response> {
+  private async send(path: string, init: RequestInit, timeoutMs = TIMEOUT_MS, signal?: AbortSignal): Promise<Response> {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), timeoutMs);
+    // The person's own Stop, beside the timeout: either one ends the request.
+    const stop = () => ctl.abort();
+    if (signal) {
+      if (signal.aborted) ctl.abort();
+      else signal.addEventListener('abort', stop);
+    }
     try {
       return await this.fetchImpl(this.url(path), {
         method: 'GET',
@@ -974,10 +981,15 @@ export class WorkbenchClient {
     } catch {
       throw new ApiError(
         0,
-        ctl.signal.aborted ? 'The server took too long to answer.' : 'The server could not be reached.',
+        signal?.aborted
+          ? 'Stopped.'
+          : ctl.signal.aborted
+            ? 'The server took too long to answer.'
+            : 'The server could not be reached.',
       );
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', stop);
     }
   }
 

@@ -32,7 +32,7 @@ import { Button, ErrorText, IconButton } from '../components/ui';
 import { previewWorth, size, viewerOf } from '../lib/files';
 import { canSave } from '../lib/share';
 import { shortTime } from '../lib/time';
-import { colors, fonts, gutter, motion, radius, space, type } from '../theme/tokens';
+import { colors, fonts, gutter, motion, paper, space, type } from '../theme/tokens';
 
 const TEXT_MAX = 256 * 1024;
 
@@ -56,6 +56,9 @@ export function FilePreview({
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState<'share' | 'save' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Which page of a PDF is under the eye: said beside the name, not over the page. */
+  const [page, setPage] = useState<string | null>(null);
+  const onPage = useCallback((n: number, all: number) => setPage(all > 1 ? `Page ${n} of ${all}` : null), []);
 
   const run = async (what: 'share' | 'save') => {
     setBusy(what);
@@ -69,7 +72,7 @@ export function FilePreview({
     }
   };
 
-  const meta = [size(file.bytes), shortTime(file.created_at), file.by?.name].filter(Boolean).join(' · ');
+  const meta = [size(file.bytes), shortTime(file.created_at), file.by?.name, page].filter(Boolean).join(' · ');
 
   return (
     <Modal visible animationType="none" onRequestClose={onClose} statusBarTranslucent>
@@ -105,7 +108,7 @@ export function FilePreview({
             {viewer === 'image' ? (
               <Picture client={client} file={file} onFail={() => setViewer('other')} />
             ) : viewer === 'pdf' ? (
-              <Pdf client={client} file={file} onFail={() => setViewer('other')} />
+              <Pdf client={client} file={file} onFail={() => setViewer('other')} onPage={onPage} />
             ) : viewer === 'markdown' || viewer === 'text' ? (
               <TextView client={client} file={file} markdown={viewer === 'markdown'} />
             ) : viewer === 'table' ? (
@@ -216,10 +219,20 @@ function Picture({ client, file, onFail }: { client: WorkbenchClient | null; fil
   );
 }
 
-function Pdf({ client, file, onFail }: { client: WorkbenchClient | null; file: StoredFile; onFail: () => void }) {
+function Pdf({
+  client,
+  file,
+  onFail,
+  onPage,
+}: {
+  client: WorkbenchClient | null;
+  file: StoredFile;
+  onFail: () => void;
+  /** The page under the eye, for the header to say (a tag over the page hid its foot). */
+  onPage: (n: number, all: number) => void;
+}) {
   const [pages, setPages] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [at, setAt] = useState(1);
   const { width } = useWindowDimensions();
 
   const load = useCallback(() => {
@@ -235,10 +248,18 @@ function Pdf({ client, file, onFail }: { client: WorkbenchClient | null; file: S
 
   useEffect(load, [load]);
 
-  const seen = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    const first = viewableItems[0]?.item;
-    if (typeof first === 'number') setAt(first);
-  }, []);
+  // The first page is what the eye starts on: said before anyone scrolls.
+  useEffect(() => {
+    if (pages) onPage(1, pages);
+  }, [pages, onPage]);
+
+  const seen = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const first = viewableItems[0]?.item;
+      if (typeof first === 'number' && pages) onPage(first, pages);
+    },
+    [onPage, pages],
+  );
 
   if (error)
     return (
@@ -253,29 +274,20 @@ function Pdf({ client, file, onFail }: { client: WorkbenchClient | null; file: S
   if (!pages || !client) return <Waiting label="Reading the PDF" />;
   const pageWidth = Math.min(width, 900) - 2 * space.sm;
   return (
-    <View style={s.flex}>
-      <FlatList
-        indicatorStyle="white"
-        testID="pdf-pages"
-        data={Array.from({ length: pages }, (_, i) => i + 1)}
-        keyExtractor={(n) => String(n)}
-        renderItem={({ item }) => (
-          <PdfPage source={client.imageSource(client.pdfPageUrl(file.id, item))} width={pageWidth} n={item} />
-        )}
-        contentContainerStyle={s.pages}
-        initialNumToRender={2}
-        windowSize={5}
-        onViewableItemsChanged={seen}
-        viewabilityConfig={{ itemVisiblePercentThreshold: 40 }}
-      />
-      {pages > 1 ? (
-        <View style={s.pageTag} pointerEvents="none">
-          <Text style={s.pageText}>
-            {at} / {pages}
-          </Text>
-        </View>
-      ) : null}
-    </View>
+    <FlatList
+      indicatorStyle="white"
+      testID="pdf-pages"
+      data={Array.from({ length: pages }, (_, i) => i + 1)}
+      keyExtractor={(n) => String(n)}
+      renderItem={({ item }) => (
+        <PdfPage source={client.imageSource(client.pdfPageUrl(file.id, item))} width={pageWidth} n={item} />
+      )}
+      contentContainerStyle={s.pages}
+      initialNumToRender={2}
+      windowSize={5}
+      onViewableItemsChanged={seen}
+      viewabilityConfig={{ itemVisiblePercentThreshold: 40 }}
+    />
   );
 }
 
@@ -424,17 +436,8 @@ const s = StyleSheet.create({
   body: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.md, padding: space.xl },
   pages: { paddingVertical: space.sm, gap: space.sm, alignItems: 'center' },
-  page: { backgroundColor: colors.inkBright, borderRadius: 2 },
-  pageTag: {
-    position: 'absolute',
-    bottom: space.md,
-    alignSelf: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radius.round,
-    backgroundColor: colors.surface2,
-  },
-  pageText: { fontFamily: fonts.sansMedium, fontSize: type.small, color: colors.ink },
+  // A page is paper in every theme - and its shadow is the theme's ground showing through.
+  page: { backgroundColor: paper, borderRadius: 2 },
   textPad: { padding: gutter, gap: space.md },
   code: { fontFamily: fonts.mono, fontSize: type.small, lineHeight: 20, color: colors.ink },
   note: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },

@@ -481,7 +481,9 @@ export function DrawerPanel({
           <>
             {/* The rooms lead the list, as they do on the web: the workspace's own
                 threads, above the conversations. */}
-            {!picking && !q.trim() && ((onRoom && rooms?.length) || (orchestrator && onOrchestrator)) ? (
+            {/* The rooms, the Claude sessions and the OpenCode sessions are what is
+                live: in Archived and Trash they are not this list's business. */}
+            {!picking && scope === 'live' && !q.trim() && ((onRoom && rooms?.length) || (orchestrator && onOrchestrator)) ? (
               <View testID="drawer-rooms">
                 <GroupHead
                   label="Rooms"
@@ -513,7 +515,7 @@ export function DrawerPanel({
                 ))}
               </View>
             ) : null}
-            {!picking && wbc && onWbc ? (
+            {!picking && scope === 'live' && wbc && onWbc ? (
               <SessionGroup
                 group="claude"
                 label={wbc.t.group}
@@ -529,7 +531,7 @@ export function DrawerPanel({
                 prefix="wbc"
               />
             ) : null}
-            {!picking && wbo && onWbo ? (
+            {!picking && scope === 'live' && wbo && onWbo ? (
               <SessionGroup
                 group="opencode"
                 label={wbo.t.group}
@@ -673,12 +675,15 @@ function RoomRow({ room, on, unread, onPress }: { room: Room; on: boolean; unrea
                 {ROOM_LABEL[room.room]}
               </Text>
               {unread ? (
-                <View style={s.badge}>
-                  <Text style={s.badgeText}>{unread > 99 ? '99+' : unread}</Text>
+                <View
+                  style={s.badge}
+                  testID={`room-${room.room}-unread`}
+                  accessibilityLabel={unread === 1 ? 'One line not read' : `${unread} lines not read`}
+                >
+                  <Text style={s.badgeText}>{unread > 99 ? '99+' : unread} new</Text>
                 </View>
-              ) : room.last ? (
-                <Text style={s.when}>{ago(room.last.at)}</Text>
               ) : null}
+              {room.last ? <Text style={s.when}>{ago(room.last.at)}</Text> : null}
             </View>
             <Text style={s.snip} numberOfLines={2}>
               {roomSnippet(room)}
@@ -888,7 +893,7 @@ const s = StyleSheet.create({
   },
   title: { flex: 1, minWidth: 0, fontFamily: fonts.sansMedium, fontSize: 13.5, color: colors.ink },
   titleOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
-  when: { flexShrink: 0, fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
+  when: { flexShrink: 0, minWidth: 44, textAlign: 'right', fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
   // A room is two lines: its name and when, then the last thing said in it.
   room: {
     backgroundColor: colors.surface,

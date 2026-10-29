@@ -127,7 +127,10 @@ export const FilesScreen = forwardRef<
   const [ask, setAsk] = useState<Ask | null>(null);
   const [picker, setPicker] = useState<{ mode: 'move' | 'copy'; target: Target } | null>(null);
   const [adding, setAdding] = useState(false);
-  const [uploading, setUploading] = useState<string | null>(null);
+  /** What is being uploaded now, and how many of them have gone (each file its own request). */
+  const [uploading, setUploading] = useState<{ name: string; done: number; all: number } | null>(null);
+  /** The upload's Stop: the one in hand ends, and none after it starts. */
+  const uploadStop = useRef<AbortController | null>(null);
   const [preview, setPreview] = useState<StoredFile | null>(null);
   const [toast, setToast] = useState<{ text: string; bad?: boolean } | null>(null);
   const mounted = useRef(true);
@@ -400,16 +403,47 @@ export const FilesScreen = forwardRef<
 
   // ---- uploading ----------------------------------------------------------
 
+  /**
+   * One file at a time, so the row can say which one and how far it is, and
+   * Stop ends it where it stands. One file failing does not take the others
+   * with it: what went through is kept and said.
+   */
   const upload = async (parts: UploadPart[]) => {
     if (!client || !parts.length) return;
-    setUploading(parts.length === 1 ? parts[0].name : plural(parts.length, 'file'));
+    const c = client;
+    const ctl = new AbortController();
+    uploadStop.current = ctl;
+    let done = 0;
+    let failed = 0;
     try {
-      await client.upload(parts, here.mine);
-      await load();
-      say(parts.length === 1 ? `Uploaded ${parts[0].name}` : `Uploaded ${plural(parts.length, 'file')}`);
-    } catch (e) {
-      say(errText(e, 'The upload did not go through.'), true);
+      for (const p of parts) {
+        if (ctl.signal.aborted) break;
+        if (mounted.current) setUploading({ name: p.name, done, all: parts.length });
+        try {
+          await c.upload([p], here.mine, ctl.signal);
+          done += 1;
+        } catch (e) {
+          if (ctl.signal.aborted) break;
+          failed += 1;
+          if (parts.length === 1) say(errText(e, 'The upload did not go through.'), true);
+        }
+      }
+      if (done) await load();
+      if (!failed && !ctl.signal.aborted) {
+        say(parts.length === 1 ? `Uploaded ${parts[0].name}` : `Uploaded ${plural(parts.length, 'file')}`);
+      } else if (ctl.signal.aborted) {
+        say(
+          done ? `Stopped: ${done} of ${plural(parts.length, 'file')} uploaded` : 'Stopped: nothing was uploaded',
+          true,
+        );
+      } else {
+        say(
+          `${done} of ${plural(parts.length, 'file')} uploaded; ${failed === 1 ? 'one did not go through' : `${failed} did not go through`}`,
+          true,
+        );
+      }
     } finally {
+      uploadStop.current = null;
       if (mounted.current) setUploading(null);
     }
   };
@@ -629,8 +663,15 @@ export const FilesScreen = forwardRef<
         <View style={s.uploading} testID="files-uploading">
           <ActivityIndicator size="small" color={colors.inkDim} />
           <Text style={s.meta} numberOfLines={1}>
-            Uploading {uploading}…
+            Uploading {uploading.name}
+            {uploading.all > 1 ? ` (${uploading.done + 1} of ${uploading.all})` : ''}…
           </Text>
+          <Button
+            label="Stop"
+            variant="quiet"
+            onPress={() => uploadStop.current?.abort()}
+            testID="files-upload-stop"
+          />
         </View>
       ) : null}
       <View style={s.flex}>

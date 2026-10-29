@@ -60,7 +60,15 @@ export function rowTime(c: Chat, group: GroupName, now: Date = new Date()): stri
 export function chatSnippet(c: Chat): string {
   const last = c.last;
   if (!last) return 'No messages yet';
-  const text = previewText(last.text ?? '');
+  const said = previewText(last.text ?? '');
+  // A line that opens with the conversation's own title - a heading the writer
+  // began the first message with - would say it twice in one row.
+  const title = c.title.trim();
+  const under =
+    title && said.toLowerCase().startsWith(title.toLowerCase())
+      ? said.slice(title.length).replace(/^[\s:.,;\u2013\u2014-]+/, '')
+      : '';
+  const text = under || said;
   return last.by ? `${last.by}: ${text}` : text;
 }
 

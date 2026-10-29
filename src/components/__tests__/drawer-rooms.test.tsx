@@ -93,14 +93,21 @@ async function panel(over: Partial<React.ComponentProps<typeof DrawerPanel>> = {
 
   it('counts what the agent wrote since the room was last read here', async () => {
     await panel({ roomsSeen: { cad: '2026-10-15T08:00:00Z', pcb: '2026-10-11T00:00:00Z' } });
-    expect(screen.getByText('1')).toBeTruthy();
-    expect(screen.queryByText('2')).toBeNull();
+    expect(screen.getByText('1 new')).toBeTruthy();
+    expect(screen.queryByText('2 new')).toBeNull();
   });
 
   it('counts everything for a room never opened on this phone', async () => {
     await panel();
     // 3D Drawing and PCB Design each have one line from the agent; Firmware none.
-    expect(screen.getAllByText('1')).toHaveLength(2);
+    expect(screen.getAllByText('1 new')).toHaveLength(2);
+  });
+
+  it('keeps the live groups out of Archived and Trash', async () => {
+    await panel({ scope: 'archived', onScope: jest.fn() });
+    expect(screen.queryByText('Rooms')).toBeNull();
+    expect(screen.queryByText('3D Drawing')).toBeNull();
+    expect(screen.getByText('Rail sag')).toBeTruthy();
   });
 
   it('opens a room when its row is pressed', async () => {
