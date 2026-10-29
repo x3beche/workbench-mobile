@@ -35,7 +35,7 @@ export function Choice<T extends string>({
 }
 
 const s = StyleSheet.create({
-  row: { flexDirection: 'row', borderWidth: 1, borderColor: colors.line, borderRadius: 6, overflow: 'hidden' },
+  row: { flexDirection: 'row', borderWidth: 1, borderColor: colors.lineStrong, borderRadius: 6, overflow: 'hidden' },
   opt: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: colors.hover },
   text: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },

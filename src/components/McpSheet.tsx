@@ -11,7 +11,7 @@ import { ApiError, type WorkbenchClient } from '../api/client';
 import type { McpCatalog, McpTool } from '../api/types';
 import { findTools } from '../lib/orchestrator';
 import type { OrchStrings } from '../lib/orchStrings';
-import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, radius, space, touch, type } from '../theme/tokens';
 import { Search } from './icons';
 import { TallSheet } from './TallSheet';
 import { ErrorText, Glyph, wrapAnywhere } from './ui';
@@ -76,7 +76,7 @@ export function McpSheet({
       {!cat && !error ? <ActivityIndicator style={s.wait} color={colors.inkDim} /> : null}
       {cat ? (
         <SectionList
-          indicatorStyle="white"
+          indicatorStyle={indicatorStyle}
           testID="mcp-list"
           sections={sections}
           keyExtractor={(tl) => tl.name}
@@ -153,7 +153,7 @@ const s = StyleSheet.create({
     paddingTop: space.md,
     paddingBottom: 4,
     fontFamily: fonts.sansSemi,
-    fontSize: 11,
+    fontSize: type.micro,
     letterSpacing: 0.3,
     color: colors.inkDim,
     textTransform: 'uppercase',
@@ -172,14 +172,14 @@ const s = StyleSheet.create({
     paddingHorizontal: 5,
     borderRadius: 4,
     fontFamily: fonts.sans,
-    fontSize: 11,
+    fontSize: type.micro,
     color: colors.inkDim,
     backgroundColor: colors.hover,
   },
-  desc: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 18, color: colors.inkDim },
+  desc: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.inkDim },
   params: { gap: 2, marginTop: 2 },
-  param: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.ink },
-  pName: { fontFamily: fonts.mono, fontSize: 11 },
+  param: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.ink },
+  pName: { fontFamily: fonts.mono, fontSize: type.micro },
   pType: { color: colors.inkDim },
   none: { paddingHorizontal: gutter, paddingTop: space.lg, fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
 });

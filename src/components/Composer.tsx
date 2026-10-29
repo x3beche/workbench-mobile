@@ -269,10 +269,11 @@ const s = StyleSheet.create({
     borderRadius: radius.field,
     backgroundColor: colors.surface2,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.lineStrong,
   },
-  // Focus is told by the hairline getting lighter (the browser's own ring is off on the web).
-  focused: { borderColor: colors.pressed },
+  // Focus is told by the border turning to the accent: the browser's own ring is
+  // off on the web, so this is the ring - and it is a colour you can see.
+  focused: { borderColor: colors.focus },
   recording: { paddingLeft: 10, paddingVertical: 2 },
   // Live words: the text above, the recording's row under it, in the one box.
   liveField: { flexDirection: 'column', alignItems: 'stretch', paddingLeft: 6 },
@@ -304,7 +305,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   usePressed: { backgroundColor: colors.hover },
-  useText: { fontFamily: fonts.sans, fontSize: 12, color: colors.inkDim },
+  useText: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   mic: { width: 40, height: 40 },
   round: {
     width: ROUND,

@@ -122,7 +122,7 @@ export function Legend({ items }: { items: { label: string; color: string }[] })
 }
 
 const s = StyleSheet.create({
-  max: { fontFamily: fonts.sans, fontSize: 11, color: colors.inkDim, marginBottom: 2 },
+  max: { fontFamily: fonts.sans, fontSize: type.micro, color: colors.inkDim, marginBottom: 2 },
   cols: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -134,16 +134,16 @@ const s = StyleSheet.create({
   col: { flex: 1, justifyContent: 'flex-end', minWidth: 2, overflow: 'hidden', borderTopLeftRadius: 2, borderTopRightRadius: 2 },
   zero: { height: 1, backgroundColor: colors.line },
   axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 },
-  tick: { fontFamily: fonts.sans, fontSize: 11, color: colors.inkDim },
+  tick: { fontFamily: fonts.sans, fontSize: type.micro, color: colors.inkDim },
   rows: { gap: 9 },
   row: { gap: 4 },
   rowTop: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
   rowLabel: { flex: 1, minWidth: 0, fontFamily: fonts.sans, fontSize: type.small, color: colors.ink },
-  rowText: { fontFamily: fonts.mono, fontSize: 11.5, color: colors.inkDim },
+  rowText: { fontFamily: fonts.mono, fontSize: type.micro, color: colors.inkDim },
   track: { height: 3, borderRadius: 2, backgroundColor: colors.hover, overflow: 'hidden' },
   bar: { height: 3, borderRadius: 2 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4 },
   key: { flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: '100%' },
   dot: { width: 7, height: 7, borderRadius: 4 },
-  keyText: { fontFamily: fonts.sans, fontSize: 11.5, color: colors.inkDim },
+  keyText: { fontFamily: fonts.sans, fontSize: type.micro, color: colors.inkDim },
 });

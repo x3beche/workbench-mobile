@@ -43,7 +43,7 @@ import { copy } from '../lib/feel';
 import { greeting } from '../lib/groups';
 import { useBus, useLive } from '../live/LiveContext';
 import { useSession } from '../state/session';
-import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, motion, radius, space, touch, type } from '../theme/tokens';
 import { uiLang } from '../update/strings';
 import type { VoiceMode } from '../voice/voice';
 
@@ -435,7 +435,7 @@ export function ChatScreen({
       />
       <View style={st.flex}>
         <FlatList
-          indicatorStyle="white"
+          indicatorStyle={indicatorStyle}
           ref={list}
           testID="chat-list"
           data={view.messages}
@@ -618,7 +618,7 @@ function SelectText({ text, onClose }: { text: string; onClose: () => void }) {
             <Text style={st.selTitle}>Select text</Text>
             <Button label="Done" variant="quiet" onPress={onClose} testID="select-done" />
           </View>
-          <ScrollView contentContainerStyle={st.selBody} indicatorStyle="white">
+          <ScrollView contentContainerStyle={st.selBody} indicatorStyle={indicatorStyle}>
             <Text style={st.selText} selectable>
               {text}
             </Text>
@@ -652,7 +652,7 @@ const st = StyleSheet.create({
   welcome: { flex: 1, justifyContent: 'space-between', paddingHorizontal: gutter, paddingBottom: space.sm },
   hello: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: space.xxl },
   greeting: { fontFamily: fonts.sansSemi, fontSize: type.display, color: colors.inkBright, textAlign: 'center' },
-  lead: { fontFamily: fonts.sans, fontSize: type.small + 1, lineHeight: 21, color: colors.inkDim, textAlign: 'center' },
+  lead: { fontFamily: fonts.sans, fontSize: type.small + 1, lineHeight: type.smallLine, color: colors.inkDim, textAlign: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   chip: {
     flexBasis: '48%',
@@ -667,9 +667,9 @@ const st = StyleSheet.create({
   },
   chipPressed: { backgroundColor: colors.surface2 },
   chipArea: { fontFamily: fonts.sansMedium, fontSize: type.tiny, color: colors.inkDim },
-  chipText: { fontFamily: fonts.sans, fontSize: type.small + 1, lineHeight: 19, color: colors.ink },
+  chipText: { fontFamily: fonts.sans, fontSize: type.small + 1, lineHeight: type.smallLine, color: colors.ink },
   msg: { paddingHorizontal: gutter, paddingVertical: space.xs },
-  notice: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.inkDim },
+  notice: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: type.smallLine, color: colors.inkDim },
   jump: {
     position: 'absolute',
     alignSelf: 'center',

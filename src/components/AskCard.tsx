@@ -266,7 +266,7 @@ const s = StyleSheet.create({
   state: { marginLeft: 'auto', fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   q: { gap: 6 },
   qHead: { fontFamily: fonts.sansMedium, fontSize: type.small, color: colors.ink },
-  qText: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 20, color: colors.ink },
+  qText: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: type.smallLine, color: colors.ink },
   opts: { gap: 2 },
   opt: {
     flexDirection: 'row',
@@ -292,7 +292,7 @@ const s = StyleSheet.create({
   optText: { flex: 1, minWidth: 0, gap: 2 },
   optLabel: { fontFamily: fonts.sans, fontSize: type.small, color: colors.ink },
   optOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
-  optDesc: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },
+  optDesc: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.inkDim },
   other: {
     minHeight: 40,
     paddingHorizontal: 12,
@@ -311,12 +311,12 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface2,
     fontFamily: fonts.mono,
     fontSize: type.tiny,
-    lineHeight: 18,
+    lineHeight: type.tinyLine,
     color: colors.ink,
   },
   chosen: { fontFamily: fonts.sansSemi, fontSize: type.small, color: colors.inkBright },
   save: { flexBasis: '100%', fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   err: { flexBasis: '100%', fontFamily: fonts.sans, fontSize: type.tiny, color: colors.danger },
-  note: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },
+  note: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.inkDim },
   warn: { color: colors.warn },
 });

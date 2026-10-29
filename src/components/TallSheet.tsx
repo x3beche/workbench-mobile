@@ -82,5 +82,5 @@ const s = StyleSheet.create({
     paddingBottom: space.xs,
   },
   title: { fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.ink },
-  sub: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim, marginTop: 2 },
+  sub: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.inkDim, marginTop: 2 },
 });

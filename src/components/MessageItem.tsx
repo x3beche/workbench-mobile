@@ -341,7 +341,7 @@ const s = StyleSheet.create({
   think: {
     fontFamily: fonts.sansItalic,
     fontSize: type.small,
-    lineHeight: 20,
+    lineHeight: type.smallLine,
     color: colors.inkDim,
     paddingLeft: 22,
   },
@@ -356,11 +356,11 @@ const s = StyleSheet.create({
     paddingBottom: 4,
     fontFamily: fonts.sans,
     fontSize: type.tiny,
-    lineHeight: 18,
+    lineHeight: type.tinyLine,
     color: colors.inkDim,
   },
   dots: { flexDirection: 'row', gap: 5, height: type.bodyLine, alignItems: 'center' },
   dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.ink },
-  error: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 20, color: colors.danger },
+  error: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: type.smallLine, color: colors.danger },
   note: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
 });

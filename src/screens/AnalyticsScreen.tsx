@@ -63,7 +63,6 @@ import {
   Cpu,
   Layers,
   ListOrdered,
-  Menu,
   Network,
   RotateCcw,
   SquareCode,
@@ -74,6 +73,7 @@ import {
 } from '../components/icons';
 import { modelName } from '../components/MessageItem';
 import { StateDot } from '../components/StateDot';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { Glyph, IconButton, LoadError } from '../components/ui';
 import { compact, dayLabel, money, seconds } from '../lib/numbers';
 import { failureWord, stateWord, statusDot, whenOf } from '../lib/orchestrator';
@@ -81,7 +81,7 @@ import type { OrchStrings } from '../lib/orchStrings';
 import type { SettingsStrings } from '../lib/settingsStrings';
 import { useBus, useLive } from '../live/LiveContext';
 import { useMaybeSession } from '../state/session';
-import { colors, fonts, gutter, space, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, space, type } from '../theme/tokens';
 
 interface Data {
   summary?: LlmSummary | null;
@@ -266,24 +266,21 @@ export function AnalyticsScreen({
   const admin_ = !!(d?.adminPool || d?.sandboxes);
   return (
     <SafeAreaView style={s.safe} edges={['top', 'left', 'right', 'bottom']} testID="analytics-screen">
-      <View style={s.head}>
-        {!wide && onMenu ? (
-          <IconButton icon={Menu} label="Open the conversations" onPress={onMenu} testID="analytics-open-drawer" />
-        ) : (
-          <View style={s.headPad} />
-        )}
-        <Text style={s.title} accessibilityRole="header">
-          {t.analytics}
-        </Text>
-        <IconButton icon={RotateCcw} label={t.refresh} onPress={load} color={colors.inkDim} testID="analytics-refresh" />
-      </View>
+      <ScreenHeader
+        title={t.analytics}
+        onMenu={wide ? undefined : onMenu}
+        menuTestID="analytics-open-drawer"
+        right={
+          <IconButton icon={RotateCcw} label={t.refresh} onPress={load} color={colors.inkDim} testID="analytics-refresh" />
+        }
+      />
       {!d ? (
         <View style={s.center}>
           <ActivityIndicator color={colors.inkDim} accessibilityLabel={t.refresh} />
         </View>
       ) : (
         <ScrollView
-          indicatorStyle="white"
+          indicatorStyle={indicatorStyle}
           onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
           contentContainerStyle={s.body}
           refreshControl={<RefreshControl refreshing={busy} onRefresh={load} tintColor={colors.inkDim} colors={[colors.ink]} />}
@@ -938,7 +935,7 @@ const s = StyleSheet.create({
   groupTitle: {
     paddingHorizontal: 2,
     fontFamily: fonts.sansSemi,
-    fontSize: 11,
+    fontSize: type.micro,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
     color: colors.inkDim,
@@ -959,18 +956,18 @@ const s = StyleSheet.create({
   },
   cardPressed: { backgroundColor: colors.hover },
   cHead: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
-  cTitle: { flexShrink: 1, fontFamily: fonts.sansSemi, fontSize: 12.5, color: colors.ink },
-  cPeriod: { flex: 1, textAlign: 'right', fontFamily: fonts.sans, fontSize: 11.5, color: colors.inkDim },
+  cTitle: { flexShrink: 1, fontFamily: fonts.sansSemi, fontSize: type.tiny, color: colors.ink },
+  cPeriod: { flex: 1, textAlign: 'right', fontFamily: fonts.sans, fontSize: type.micro, color: colors.inkDim },
   cFig: { flexDirection: 'row', alignItems: 'baseline', gap: 5, minWidth: 0 },
-  cBig: { fontFamily: fonts.monoSemi, fontSize: 20, color: colors.ink },
-  cUnit: { fontFamily: fonts.sans, fontSize: 11.5, color: colors.inkDim },
-  cRight: { flexShrink: 1, fontFamily: fonts.mono, fontSize: 11.5, color: colors.inkDim },
+  cBig: { fontFamily: fonts.monoSemi, fontSize: type.display, color: colors.ink },
+  cUnit: { fontFamily: fonts.sans, fontSize: type.micro, color: colors.inkDim },
+  cRight: { flexShrink: 1, fontFamily: fonts.mono, fontSize: type.micro, color: colors.inkDim },
   cState: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   cChart: { marginTop: 2 },
-  cSub: { fontFamily: fonts.sans, fontSize: 11.5, lineHeight: 16, color: colors.inkDim },
+  cSub: { fontFamily: fonts.sans, fontSize: type.micro, lineHeight: type.microLine, color: colors.inkDim },
   cMore: { gap: 8, paddingTop: 6, marginTop: 2, borderTopWidth: 1, borderTopColor: colors.line },
   lines: { gap: 4 },
-  line: { fontFamily: fonts.sans, fontSize: 12, color: colors.ink },
+  line: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.ink },
   dim: { color: colors.inkDim },
   splitRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   splitDot: { width: 8, height: 8, borderRadius: 2 },

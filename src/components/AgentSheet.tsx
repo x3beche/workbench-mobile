@@ -16,7 +16,7 @@ import type { OrchStatus } from '../api/types';
 import { failureWord, haltTitle, stateWord, statusDot, whenOf } from '../lib/orchestrator';
 import { useBus, useLive } from '../live/LiveContext';
 import type { OrchStrings } from '../lib/orchStrings';
-import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, radius, space, touch, type } from '../theme/tokens';
 import { Check, Search } from './icons';
 import { modelName } from './MessageItem';
 import { Dialog } from './Sheet';
@@ -260,7 +260,7 @@ export function AgentSheet({
   return (
     <TallSheet title={t.agentLlm} sub={t.agentLlmAbout} closeLabel={t.close} onClose={onClose} testID="agent-sheet">
       <FlatList
-        indicatorStyle="white"
+        indicatorStyle={indicatorStyle}
         data={st?.providers.length ? models : []}
         keyExtractor={(m) => m}
         keyboardShouldPersistTaps="handled"
@@ -308,8 +308,8 @@ const s = StyleSheet.create({
   state: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 },
   stateText: { flexShrink: 1, fontFamily: fonts.sans, fontSize: type.small, color: colors.ink },
   dim: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
-  dimLine: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },
-  warn: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.warn },
+  dimLine: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.inkDim },
+  warn: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.warn },
   bold: { fontFamily: fonts.sansSemi },
   acts: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm },
   modelHead: {

@@ -45,9 +45,16 @@ import { ApiError, type WorkbenchClient } from '../api/client';
 import type { AgentState, AgentTree, OrchEvent, OrchMessage, OrchPart, OrchStatus, OrchTranscript } from '../api/types';
 import { AgentSheet } from '../components/AgentSheet';
 import { Appear } from '../components/Appear';
-import { ChevronDown, ChevronLeft, ChevronRight, Menu, Network, Settings } from '../components/icons';
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Network,
+  Settings,
+} from '../components/icons';
 import { Markdown } from '../components/Markdown';
 import { McpSheet } from '../components/McpSheet';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { NewBelow } from '../components/NewBelow';
 import { modelName } from '../components/MessageItem';
 import { StateDot } from '../components/StateDot';
@@ -76,7 +83,7 @@ import type { OrchStrings } from '../lib/orchStrings';
 import { PAGE } from '../lib/paging';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { useBus, useLive } from '../live/LiveContext';
-import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, motion, radius, space, touch, type } from '../theme/tokens';
 
 /** How often the state is read again, and the tree when the stream says nothing of it. */
 const STATUS_EVERY = 5000;
@@ -507,17 +514,12 @@ export const OrchestratorScreen = forwardRef<
       testID="orchestrator-screen"
       onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
     >
-      <View style={s.head}>
-        {!wide && onMenu ? (
-          <IconButton icon={Menu} label="Open the conversations" onPress={onMenu} testID="orch-open-drawer" />
-        ) : (
-          <View style={s.headPad} />
-        )}
-        <View style={s.mid}>
-          <Text style={s.title} numberOfLines={1} accessibilityRole="header">
-            {t.orchestrator}
-          </Text>
-          {st ? (
+      <ScreenHeader
+        title={t.orchestrator}
+        onMenu={wide ? undefined : onMenu}
+        menuTestID="orch-open-drawer"
+        sub={
+          st ? (
             <View style={s.stateLine}>
               <StateDot s={statusDot(st)} />
               <Text style={s.stateText} numberOfLines={1} testID="orch-state">
@@ -525,24 +527,28 @@ export const OrchestratorScreen = forwardRef<
                 {st.model ? <Text style={s.mono}>{`  ${modelName(st.model)}`}</Text> : null}
               </Text>
             </View>
-          ) : null}
-        </View>
-        {st?.mcp_version ? (
-          <Pressable
-            onPress={() => setSheet('mcp')}
-            accessibilityRole="button"
-            accessibilityLabel={t.mcpAbout}
-            style={({ pressed }) => [s.ver, pressed && s.pressed]}
-            testID="orch-mcp"
-            hitSlop={6}
-          >
-            <Text style={s.verText} numberOfLines={1}>
-              MCP {st.mcp_version}
-            </Text>
-          </Pressable>
-        ) : null}
-        <IconButton icon={Settings} label={t.agentLlm} onPress={() => setSheet('agent')} testID="orch-settings" />
-      </View>
+          ) : undefined
+        }
+        right={
+          <>
+            {st?.mcp_version ? (
+              <Pressable
+                onPress={() => setSheet('mcp')}
+                accessibilityRole="button"
+                accessibilityLabel={t.mcpAbout}
+                style={({ pressed }) => [s.ver, pressed && s.pressed]}
+                testID="orch-mcp"
+                hitSlop={6}
+              >
+                <Text style={s.verText} numberOfLines={1}>
+                  MCP {st.mcp_version}
+                </Text>
+              </Pressable>
+            ) : null}
+            <IconButton icon={Settings} label={t.agentLlm} onPress={() => setSheet('agent')} testID="orch-settings" />
+          </>
+        }
+      />
       {banner}
       <View style={s.body}>
         <View style={s.flex}>
@@ -563,7 +569,7 @@ export const OrchestratorScreen = forwardRef<
                 <Glyph icon={treeOpen ? ChevronDown : ChevronRight} size={16} color={colors.inkDim} />
               </Pressable>
               {treeOpen ? (
-                <ScrollView style={s.foldBody} nestedScrollEnabled indicatorStyle="white">
+                <ScrollView style={s.foldBody} nestedScrollEnabled indicatorStyle={indicatorStyle}>
                   {treeList}
                 </ScrollView>
               ) : null}
@@ -592,7 +598,7 @@ export const OrchestratorScreen = forwardRef<
             <FlatList
               ref={list}
               inverted
-              indicatorStyle="white"
+              indicatorStyle={indicatorStyle}
               testID="orch-list"
               data={drawn}
               keyExtractor={(m, i) => m.id || String(i)}
@@ -642,7 +648,7 @@ export const OrchestratorScreen = forwardRef<
         </View>
         {side ? (
           <View style={s.side}>
-            <ScrollView style={s.flex} indicatorStyle="white">
+            <ScrollView style={s.flex} indicatorStyle={indicatorStyle}>
               <Text style={s.sideHead}>{t.agents}</Text>
               {treeList}
             </ScrollView>
@@ -853,7 +859,7 @@ function Pre({ label, text, danger }: { label: string; text: string; danger?: bo
   return (
     <View style={s.preWrap}>
       <Text style={s.preLabel}>{label}</Text>
-      <ScrollView style={s.preScroll} nestedScrollEnabled indicatorStyle="white">
+      <ScrollView style={s.preScroll} nestedScrollEnabled indicatorStyle={indicatorStyle}>
         <Text style={[s.pre, danger && s.preDanger, wrapAnywhere]} selectable>
           {text}
         </Text>
@@ -879,9 +885,9 @@ const s = StyleSheet.create({
   title: { fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.inkBright },
   stateLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 1 },
   stateText: { flexShrink: 1, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.ink },
-  mono: { fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim },
+  mono: { fontFamily: fonts.mono, fontSize: type.micro, color: colors.inkDim },
   ver: { minHeight: 32, justifyContent: 'center', paddingHorizontal: 8, borderRadius: radius.sm },
-  verText: { fontFamily: fonts.mono, fontSize: 11.5, color: colors.inkDim },
+  verText: { fontFamily: fonts.mono, fontSize: type.micro, color: colors.inkDim },
   pressed: { backgroundColor: colors.hover },
   body: { flex: 1, flexDirection: 'row', minHeight: 0 },
   banner: {
@@ -894,7 +900,8 @@ const s = StyleSheet.create({
     gap: 8,
   },
   bannerQuiet: { backgroundColor: colors.hover },
-  bannerText: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.warn },
+  // The ground carries the warning; the words are ink, because warn on warnSoft was 3:1 short.
+  bannerText: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: type.smallLine, color: colors.ink },
   bannerQuietText: { color: colors.inkDim },
   bold: { fontFamily: fonts.sansSemi },
   bannerBtn: {
@@ -917,7 +924,7 @@ const s = StyleSheet.create({
     paddingHorizontal: gutter,
     paddingBottom: 6,
     fontFamily: fonts.sansSemi,
-    fontSize: 11,
+    fontSize: type.micro,
     letterSpacing: 0.3,
     color: colors.inkDim,
     textTransform: 'uppercase',
@@ -933,7 +940,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 5,
     borderRadius: 4,
     fontFamily: fonts.sans,
-    fontSize: 11,
+    fontSize: type.micro,
     color: colors.inkDim,
     backgroundColor: colors.hover,
   },
@@ -955,7 +962,7 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   older: { paddingVertical: space.md },
   pad: { paddingHorizontal: gutter, paddingTop: space.sm, paddingBottom: space.lg, flexGrow: 1 },
-  none: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.inkDim, paddingVertical: space.sm },
+  none: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: type.smallLine, color: colors.inkDim, paddingVertical: space.sm },
   ro: {
     marginTop: space.lg,
     fontFamily: fonts.sans,
@@ -975,25 +982,25 @@ const s = StyleSheet.create({
     backgroundColor: colors.hover,
     fontFamily: fonts.sans,
     fontSize: type.small,
-    lineHeight: 19,
+    lineHeight: type.smallLine,
     color: colors.inkDim,
   },
-  synthetic: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 20, color: colors.inkDim },
+  synthetic: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: type.smallLine, color: colors.inkDim },
   think: { paddingVertical: 2 },
   rowLine: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 28 },
-  thinkText: { paddingLeft: 20, fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 18, color: colors.inkDim },
+  thinkText: { paddingLeft: 20, fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.inkDim },
   said: { gap: 2, paddingVertical: 4 },
   saidRoom: { fontFamily: fonts.sansSemi, fontSize: type.tiny, color: colors.inkDim },
-  saidText: { fontFamily: fonts.sans, fontSize: type.body - 1, lineHeight: 22, color: colors.ink },
+  saidText: { fontFamily: fonts.sans, fontSize: type.body - 1, lineHeight: type.bodyLine, color: colors.ink },
   tool: { marginVertical: 1 },
   toolHead: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: radius.sm },
   toolName: { flexShrink: 0, maxWidth: '45%', fontFamily: fonts.sansSemi, fontSize: type.tiny, color: colors.ink },
   toolArgs: { flex: 1, minWidth: 0, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   toolBody: { paddingLeft: 15, gap: 6, paddingBottom: 4 },
   preWrap: { gap: 2 },
-  preLabel: { fontFamily: fonts.sans, fontSize: 11, color: colors.inkDim },
+  preLabel: { fontFamily: fonts.sans, fontSize: type.micro, color: colors.inkDim },
   preScroll: { maxHeight: 240, borderRadius: radius.md, backgroundColor: colors.hover },
-  pre: { padding: 8, fontFamily: fonts.mono, fontSize: 11, lineHeight: 16, color: colors.inkDim },
+  pre: { padding: 8, fontFamily: fonts.mono, fontSize: type.micro, lineHeight: type.microLine, color: colors.inkDim },
   preDanger: { color: colors.danger },
   note: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   err: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.danger },

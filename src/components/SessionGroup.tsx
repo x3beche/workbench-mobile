@@ -18,7 +18,7 @@ import type { SideGroup, SidePrefs } from '../api/types';
 import type { Dot } from '../lib/orchestrator';
 import { isOpen, isPinned, visibleRows } from '../lib/side';
 import type { WbcStrings } from '../lib/wbcStrings';
-import { colors, fonts, gutter, space } from '../theme/tokens';
+import { colors, fonts, gutter, space, type } from '../theme/tokens';
 import { DrawerRow } from './DrawerRow';
 import { ChevronRight, ExternalLink, Pin, PinOff } from './icons';
 import { ActionList, Sheet } from './Sheet';
@@ -206,8 +206,8 @@ const s = StyleSheet.create({
   },
   caret: { width: 11, alignItems: 'center' },
   caretOpen: { transform: [{ rotate: '90deg' }] },
-  headText: { fontFamily: fonts.sansMedium, fontSize: 11.5, color: colors.inkDim },
+  headText: { fontFamily: fonts.sansMedium, fontSize: type.micro, color: colors.inkDim },
   headPressed: { color: colors.ink },
   more: { minHeight: 32, justifyContent: 'center', paddingHorizontal: gutter },
-  moreText: { fontFamily: fonts.sansMedium, fontSize: 11.5, color: colors.inkDim },
+  moreText: { fontFamily: fonts.sansMedium, fontSize: type.micro, color: colors.inkDim },
 });

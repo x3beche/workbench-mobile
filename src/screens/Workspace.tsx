@@ -14,7 +14,12 @@
  * back to the conversation open before, then leaves the app.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import {
+  BackHandler,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { ApiError, CHAT_TRASH_DAYS, isMissingRoute, type VoiceLang } from '../api/client';
 import type {
@@ -49,6 +54,7 @@ import {
 } from '../components/icons';
 import { ActionList, Dialog, Sheet, type Action } from '../components/Sheet';
 import type { SwipeAction } from '../components/SwipeRow';
+import { Toast, useToast } from '../components/Toast';
 import { chatToHtml, chatToMarkdown, exportName } from '../lib/exportChat';
 import { tick } from '../lib/feel';
 import { orchStrings } from '../lib/orchStrings';
@@ -194,7 +200,8 @@ export function Workspace({
   const [can, setCan] = useState<string[] | null>(null);
   /** The account's role: the owner and the admins see the server's pool and the sandboxes in Analytics. */
   const [role, setRole] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ text: string; bad?: boolean } | null>(null);
+  /** One line at the foot of the screen about what just happened, and its clock. */
+  const { toast, say } = useToast();
 
   const update = useUpdate(client, server);
   const ui = uiLang(lang);
@@ -205,12 +212,6 @@ export function Workspace({
   const updateNote =
     update.check.state === 'available' ? updateStrings(uiLang(lang)).drawer(update.check.release.version) : null;
 
-  const say = useCallback((text: string, bad = false) => setToast({ text, bad }), []);
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), toast.bad ? 5000 : 2200);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   // What this account may do, for Files (a viewer only looks).
   useEffect(() => {
@@ -1150,13 +1151,7 @@ export function Workspace({
           }}
         />
       ) : null}
-      {toast ? (
-        <Appear fill={false} from="below" duration={motion.fade} style={s.toastWrap}>
-          <Text style={[s.toast, toast.bad && s.toastBad]} accessibilityLiveRegion="polite" testID="workspace-toast">
-            {toast.text}
-          </Text>
-        </Appear>
-      ) : null}
+      <Toast toast={toast} bottom={96} testID="workspace-toast" />
     </View>
   );
 }

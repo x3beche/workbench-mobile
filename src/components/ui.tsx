@@ -18,12 +18,44 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, fonts, radius, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
+import { Appear } from './Appear';
 import type { LucideIcon } from './icons';
 import { Mark } from './Mark';
 
 /** IBM Plex Sans caps stand at 0.698 em; the web wordmark draws its mark at about 1.1 cap heights. */
 const MARK_SIZE = Math.round(type.brand * 0.698 * 1.1);
+
+/**
+ * A screen with nothing in it yet: the mark of the thing it will hold, what it
+ * is, and why it is empty. Never a blank page - and never a spinner left
+ * turning where nothing will come.
+ */
+export function EmptyState({
+  icon,
+  title,
+  text,
+  action,
+  testID,
+}: {
+  icon?: LucideIcon;
+  title: string;
+  text?: string;
+  /** What the person can do about it, if anything. */
+  action?: ReactNode;
+  testID?: string;
+}) {
+  return (
+    <Appear fill duration={motion.enter}>
+      <View style={s.empty} testID={testID}>
+        {icon ? <Glyph icon={icon} size={28} color={colors.inkDim} /> : null}
+        <Text style={s.emptyTitle}>{title}</Text>
+        {text ? <Text style={s.emptyLead}>{text}</Text> : null}
+        {action ?? null}
+      </View>
+    </Appear>
+  );
+}
 
 /** A long word or address breaks inside its column instead of running off the screen (native text does this already). */
 export const wrapAnywhere: TextStyle = Platform.OS === 'web' ? ({ wordBreak: 'break-word' } as TextStyle) : {};
@@ -221,7 +253,8 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth * 2,
-    borderColor: colors.line,
+    // A control's edge: 3:1 against its ground, so the button is a button.
+    borderColor: colors.lineStrong,
     backgroundColor: colors.surface,
   },
   primary: { backgroundColor: colors.accentDeep, borderColor: colors.accent },
@@ -232,7 +265,7 @@ const s = StyleSheet.create({
   disabled: { opacity: 0.45 },
   iconBtn: { width: touch, height: touch, borderRadius: touch / 2, alignItems: 'center', justifyContent: 'center' },
   iconPressed: { backgroundColor: colors.hover },
-  label: { fontFamily: fonts.sansMedium, fontSize: 15, color: colors.ink },
+  label: { fontFamily: fonts.sansMedium, fontSize: type.lead, color: colors.ink },
   quietLabel: { color: colors.inkDim },
   dangerLabel: { color: colors.danger },
   field: { gap: 6 },
@@ -246,16 +279,26 @@ const s = StyleSheet.create({
     color: colors.ink,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.lineStrong,
     borderRadius: radius.sm,
   },
   inputError: { borderColor: colors.danger },
   wordmark: { gap: 6, marginBottom: 8 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brand: { fontFamily: fonts.sansSemi, fontSize: type.brand, letterSpacing: -0.3, color: colors.inkBright },
-  lead: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 20, color: colors.inkDim },
-  error: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.danger },
-  hint: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },
+  lead: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: type.smallLine, color: colors.inkDim },
+  error: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: type.smallLine, color: colors.danger },
+  hint: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.inkDim },
+  empty: { paddingHorizontal: gutter, paddingVertical: space.xxl, gap: 8, alignItems: 'center' },
+  emptyTitle: { fontFamily: fonts.sansSemi, fontSize: type.title, color: colors.inkBright, textAlign: 'center' },
+  emptyLead: {
+    maxWidth: 420,
+    fontFamily: fonts.sans,
+    fontSize: type.small,
+    lineHeight: type.smallLine,
+    color: colors.inkDim,
+    textAlign: 'center',
+  },
   loadError: {
     flexDirection: 'row',
     flexWrap: 'wrap',

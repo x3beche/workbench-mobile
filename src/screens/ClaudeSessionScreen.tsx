@@ -49,7 +49,7 @@ import { Markdown } from '../components/Markdown';
 import { NewBelow } from '../components/NewBelow';
 import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
-import { ErrorText, Glyph, IconButton, LoadError, wrapAnywhere } from '../components/ui';
+import { EmptyState, ErrorText, Glyph, IconButton, LoadError, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import {
@@ -74,7 +74,7 @@ import {
 import type { WbcStrings } from '../lib/wbcStrings';
 import { inFront } from '../live/hub';
 import { useBus, useLive } from '../live/LiveContext';
-import { colors, fonts, gutter, motion, radius, space, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, motion, radius, space, type } from '../theme/tokens';
 import type { VoiceMode } from '../voice/voice';
 
 /** While a session is active (or wb-claude holds it), it is read this often: the gateway tells nobody of a new turn. */
@@ -445,19 +445,13 @@ export function ClaudeSessionScreen({
           error ? (
             <LoadError text={error} onRetry={() => refresh(true)} centered />
           ) : (
-            <Appear fill duration={motion.enter}>
-              <View style={st.empty} testID="wbc-empty">
-                <Glyph icon={SquareTerminal} size={28} color={colors.inkDim} />
-                <Text style={st.emptyTitle}>{s?.name || t.session}</Text>
-                <Text style={st.emptyLead}>{t.nothingYet}</Text>
-              </View>
-            </Appear>
+            <EmptyState icon={SquareTerminal} title={s?.name || t.session} text={t.nothingYet} testID="wbc-empty" />
           )
         ) : (
           <FlatList
             ref={list}
             inverted
-            indicatorStyle="white"
+            indicatorStyle={indicatorStyle}
             testID="wbc-list"
             data={items}
             keyExtractor={(it) => (it.kind === 'turn' ? `t:${turnKey(it.turn)}` : `m:${it.m.id}`)}
@@ -735,7 +729,7 @@ const st = StyleSheet.create({
   emptyLead: {
     fontFamily: fonts.sans,
     fontSize: type.small,
-    lineHeight: 21,
+    lineHeight: type.smallLine,
     color: colors.inkDim,
     textAlign: 'center',
   },
@@ -761,7 +755,7 @@ const st = StyleSheet.create({
   picsNote: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   right: { textAlign: 'right' },
   msg: { paddingHorizontal: gutter, paddingVertical: space.xs },
-  note: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.inkDim },
+  note: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: type.smallLine, color: colors.inkDim },
   why: {
     marginHorizontal: space.md,
     marginTop: space.xs,
@@ -772,7 +766,7 @@ const st = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
-  whyText: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.inkDim },
+  whyText: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: type.smallLine, color: colors.inkDim },
   picked: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingHorizontal: space.xs },
   chip: { width: 56, height: 56 },
   chipImg: { width: 56, height: 56, borderRadius: radius.lg, backgroundColor: colors.surface2 },
@@ -789,6 +783,6 @@ const st = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
-  picError: { flexBasis: '100%', fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.danger },
+  picError: { flexBasis: '100%', fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.danger },
   clip: { width: 40, height: 40 },
 });

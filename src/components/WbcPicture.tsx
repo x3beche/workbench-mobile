@@ -152,7 +152,7 @@ const s = StyleSheet.create({
     padding: space.sm,
     justifyContent: 'center',
   },
-  goneText: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 16, color: colors.inkDim },
+  goneText: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.inkDim },
   veil: { flex: 1, backgroundColor: colors.scrim },
   viewerSafe: { flex: 1, padding: space.md },
   whole: { flex: 1, width: '100%' },

@@ -169,7 +169,7 @@ const s = StyleSheet.create({
   copyPressed: { color: colors.ink },
   table: { borderRadius: radius.lg, backgroundColor: colors.surface2 },
   preIn: { paddingHorizontal: 12, paddingVertical: 10 },
-  preText: { fontFamily: fonts.mono, fontSize: type.small, lineHeight: 20, color: colors.ink },
+  preText: { fontFamily: fonts.mono, fontSize: type.small, lineHeight: type.smallLine, color: colors.ink },
   list: { gap: 4 },
   item: { flexDirection: 'row', gap: 8 },
   marker: { minWidth: 16, color: colors.inkDim },

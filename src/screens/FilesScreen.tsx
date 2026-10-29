@@ -27,8 +27,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type WorkbenchClient } from '../api/client';
 import type { FileFolder, StoredFile, TrashFile, UploadPart, User } from '../api/types';
-import { Appear } from '../components/Appear';
+
 import { FileThumb } from '../components/FileThumb';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { Toast, useToast } from '../components/Toast';
 import {
   Camera,
   ChevronRight,
@@ -39,7 +41,6 @@ import {
   FolderOpen,
   FolderPlus,
   Images,
-  Menu,
   Pencil,
   Plus,
   RotateCcw,
@@ -72,7 +73,16 @@ import {
 } from '../lib/files';
 import { canSave, saveFile, shareFile } from '../lib/share';
 import { shortTime } from '../lib/time';
-import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
+import {
+  colors,
+  fonts,
+  gutter,
+  indicatorStyle,
+  radius,
+  space,
+  touch,
+  type,
+} from '../theme/tokens';
 import { FilePreview } from './FilePreview';
 
 export interface FilesHandle {
@@ -132,7 +142,8 @@ export const FilesScreen = forwardRef<
   /** The upload's Stop: the one in hand ends, and none after it starts. */
   const uploadStop = useRef<AbortController | null>(null);
   const [preview, setPreview] = useState<StoredFile | null>(null);
-  const [toast, setToast] = useState<{ text: string; bad?: boolean } | null>(null);
+  /** One line at the foot of the screen about what just happened, and its clock. */
+  const { toast, say } = useToast();
   const mounted = useRef(true);
   useEffect(
     () => () => {
@@ -141,12 +152,6 @@ export const FilesScreen = forwardRef<
     [],
   );
 
-  const say = useCallback((text: string, bad = false) => mounted.current && setToast({ text, bad }), []);
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), toast.bad ? 5000 : 2200);
-    return () => clearTimeout(t);
-  }, [toast]);
 
   const hereRef = useRef(here);
   useEffect(() => {
@@ -571,61 +576,67 @@ export const FilesScreen = forwardRef<
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'left', 'right', 'bottom']} testID="files-screen">
-      <View style={s.head}>
-        {!wide && onMenu ? (
-          <IconButton icon={Menu} label="Open the conversations" onPress={onMenu} testID="files-open-drawer" />
-        ) : (
-          <View style={s.side} />
-        )}
-        {finding ? (
-          <View style={s.find}>
-            <Glyph icon={Search} size={18} color={colors.inkDim} />
-            <TextInput
-              testID="files-search"
-              style={s.findInput}
-              value={q}
-              onChangeText={setQ}
-              autoFocus
-              placeholder={
-                side === 'trash' ? 'Search deleted files' : side === 'app' ? 'Search In the app' : 'Search My files'
-              }
-              placeholderTextColor={colors.inkDim}
-              selectionColor={colors.inkDim}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-              accessibilityLabel="Search the files"
-            />
-          </View>
-        ) : (
-          <Text style={s.title} accessibilityRole="header">
-            Files
-          </Text>
-        )}
-        {finding ? (
-          <IconButton
-            icon={X}
-            label="Close the search"
-            onPress={() => {
-              setFinding(false);
-              setQ('');
-            }}
-            testID="files-search-close"
-          />
-        ) : (
-          <IconButton
-            icon={Search}
-            label="Search the files"
-            onPress={() => setFinding(true)}
-            testID="files-search-open"
-          />
-        )}
-        {canUpload ? (
-          <IconButton icon={Plus} label="Upload or make a folder" onPress={() => setAdding(true)} testID="files-add" />
-        ) : (
-          <View style={s.side} />
-        )}
-      </View>
+      <ScreenHeader
+        title="Files"
+        onMenu={wide ? undefined : onMenu}
+        menuTestID="files-open-drawer"
+        left={wide ? <View style={s.side} /> : undefined}
+        center={
+          finding ? (
+            <View style={s.find}>
+              <Glyph icon={Search} size={18} color={colors.inkDim} />
+              <TextInput
+                testID="files-search"
+                style={s.findInput}
+                value={q}
+                onChangeText={setQ}
+                autoFocus
+                placeholder={
+                  side === 'trash' ? 'Search deleted files' : side === 'app' ? 'Search In the app' : 'Search My files'
+                }
+                placeholderTextColor={colors.inkDim}
+                selectionColor={colors.inkDim}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+                accessibilityLabel="Search the files"
+              />
+            </View>
+          ) : undefined
+        }
+        right={
+          <>
+            {finding ? (
+              <IconButton
+                icon={X}
+                label="Close the search"
+                onPress={() => {
+                  setFinding(false);
+                  setQ('');
+                }}
+                testID="files-search-close"
+              />
+            ) : (
+              <IconButton
+                icon={Search}
+                label="Search the files"
+                onPress={() => setFinding(true)}
+                testID="files-search-open"
+              />
+            )}
+            {canUpload ? (
+              <IconButton
+                icon={Plus}
+                label="Upload or make a folder"
+                onPress={() => setAdding(true)}
+                testID="files-add"
+              />
+            ) : (
+              <View style={s.side} />
+            )}
+          </>
+        }
+      />
       <Tabs tabs={SIDES} value={side} onChange={setSide} testID="files-tabs" />
       {side !== 'trash' && !q.trim() && trail.length > 1 ? (
         <ScrollView
@@ -676,7 +687,7 @@ export const FilesScreen = forwardRef<
       ) : null}
       <View style={s.flex}>
         <FlatList
-          indicatorStyle="white"
+          indicatorStyle={indicatorStyle}
           testID="files-list"
           data={rows}
           keyExtractor={(r) => r.key}
@@ -717,13 +728,7 @@ export const FilesScreen = forwardRef<
           }
           contentContainerStyle={[s.listPad, wide && s.column]}
         />
-        {toast ? (
-          <Appear fill={false} from="below" duration={motion.fade} style={s.toastWrap}>
-            <Text style={[s.toast, toast.bad && s.toastBad]} accessibilityLiveRegion="polite" testID="files-toast">
-              {toast.text}
-            </Text>
-          </Appear>
-        ) : null}
+        <Toast toast={toast} testID="files-toast" />
       </View>
 
       {menu ? (
@@ -937,7 +942,7 @@ function FolderPicker({
           <ErrorText>{error}</ErrorText>
         </View>
       ) : null}
-      <ScrollView style={s.pickList} indicatorStyle="white">
+      <ScrollView style={s.pickList} indicatorStyle={indicatorStyle}>
         {choices.map((c) => {
           const here = c.id === current;
           return (
@@ -1022,7 +1027,7 @@ const s = StyleSheet.create({
     paddingRight: space.xs,
   },
   rowText: { flex: 1, minWidth: 0, gap: 2 },
-  name: { fontFamily: fonts.sans, fontSize: 15, color: colors.ink },
+  name: { fontFamily: fonts.sans, fontSize: type.lead, color: colors.ink },
   dim: { color: colors.inkDim },
   meta: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   note: { paddingHorizontal: gutter, paddingVertical: space.md, gap: space.sm, alignItems: 'flex-start' },

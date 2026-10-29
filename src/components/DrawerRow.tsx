@@ -10,7 +10,7 @@
  */
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, gutter } from '../theme/tokens';
+import { colors, fonts, gutter, type } from '../theme/tokens';
 import type { Dot } from '../lib/orchestrator';
 import { Check, Pin } from './icons';
 import { StateDot } from './StateDot';
@@ -140,13 +140,13 @@ const s = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     fontFamily: fonts.sansMedium,
-    fontSize: 13.5,
+    fontSize: type.row,
     color: colors.ink,
     opacity: TITLE_REST,
   },
   titleOn: { color: colors.inkBright, opacity: 1 },
   dim: { color: colors.inkDim },
   // One width, so the times of every row stand in one column ("Sun" and "14:05" alike).
-  when: { flexShrink: 0, minWidth: 44, textAlign: 'right', fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
-  sub: { fontFamily: fonts.sans, fontSize: 11.5, lineHeight: 15, color: colors.inkDim },
+  when: { flexShrink: 0, minWidth: 44, textAlign: 'right', fontFamily: fonts.mono, fontSize: type.micro, color: colors.inkDim },
+  sub: { fontFamily: fonts.sans, fontSize: type.micro, lineHeight: type.microLine, color: colors.inkDim },
 });

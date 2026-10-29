@@ -45,7 +45,7 @@ import { bridgeLine, isoOf, liveDot, shownSessions, stateWord } from '../lib/wbc
 import type { WbcStrings } from '../lib/wbcStrings';
 import { shownWbo, wboDot, wboLine, wboWord } from '../lib/wbo';
 import type { WboStrings } from '../lib/wboStrings';
-import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, radius, space, touch, type } from '../theme/tokens';
 import { Avatar } from './Avatar';
 import {
   Archive,
@@ -435,7 +435,7 @@ export function DrawerPanel({
         </View>
       ) : null}
       <SectionList
-        indicatorStyle="white"
+        indicatorStyle={indicatorStyle}
         testID="drawer-list"
         style={s.flex}
         sections={sections}
@@ -810,7 +810,7 @@ const s = StyleSheet.create({
     borderColor: colors.surface2,
   },
   // Focus is told by the hairline getting lighter, as in the composer.
-  searchFocused: { borderColor: colors.pressed },
+  searchFocused: { borderColor: colors.focus },
   searchInput: {
     flex: 1,
     minHeight: touch - 2,
@@ -841,7 +841,7 @@ const s = StyleSheet.create({
   // A narrow phone: the tabs give way (a label ends in an ellipsis), Select never does.
   tabs: { flex: 1, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   tab: { minWidth: 0, flexShrink: 1, paddingVertical: 8 },
-  tabText: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.inkDim },
+  tabText: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   tabOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
   tabPressed: { color: colors.ink },
   // .tcv-cc-selbtn: an outlined word at the row's end, bright and bold while selecting.
@@ -852,11 +852,11 @@ const s = StyleSheet.create({
     height: 28,
     paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.lineStrong,
     borderRadius: 5,
   },
-  selBtnOn: { borderColor: colors.pressed },
-  selText: { fontFamily: fonts.sans, fontSize: 12, color: colors.inkDim },
+  selBtnOn: { borderColor: colors.focus },
+  selText: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   selTextOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
   // .tcv-cc-selbar: where the search and New chat were, with the boxes and the buttons.
   pickBar: {
@@ -871,14 +871,14 @@ const s = StyleSheet.create({
   pickBox: {
     width: 16,
     height: 16,
-    borderRadius: 4,
+    borderRadius: radius.check,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.lineStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pickBoxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
-  pickCount: { fontFamily: fonts.sansMedium, fontSize: 12.5, color: colors.ink },
+  pickCount: { fontFamily: fonts.sansMedium, fontSize: type.tiny, color: colors.ink },
   pickActs: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   pickAct: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
   listPad: { paddingBottom: space.lg, flexGrow: 1 },
@@ -888,12 +888,12 @@ const s = StyleSheet.create({
     paddingTop: space.md,
     paddingBottom: 3,
     fontFamily: fonts.sansMedium,
-    fontSize: 11.5,
+    fontSize: type.micro,
     color: colors.inkDim,
   },
-  title: { flex: 1, minWidth: 0, fontFamily: fonts.sansMedium, fontSize: 13.5, color: colors.ink },
+  title: { flex: 1, minWidth: 0, fontFamily: fonts.sansMedium, fontSize: type.row, color: colors.ink },
   titleOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
-  when: { flexShrink: 0, minWidth: 44, textAlign: 'right', fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
+  when: { flexShrink: 0, minWidth: 44, textAlign: 'right', fontFamily: fonts.mono, fontSize: type.micro, color: colors.inkDim },
   // A room is two lines: its name and when, then the last thing said in it.
   room: {
     backgroundColor: colors.surface,
@@ -907,7 +907,7 @@ const s = StyleSheet.create({
   roomIco: { width: 16, paddingTop: 1, alignItems: 'center' },
   roomText: { flex: 1, minWidth: 0, gap: 1 },
   roomTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  snip: { fontFamily: fonts.sans, fontSize: 11.5, lineHeight: 15, color: colors.inkDim },
+  snip: { fontFamily: fonts.sans, fontSize: type.micro, lineHeight: type.microLine, color: colors.inkDim },
   badge: {
     minWidth: 20,
     height: 20,
@@ -926,7 +926,7 @@ const s = StyleSheet.create({
     paddingTop: space.xl,
     fontFamily: fonts.sans,
     fontSize: type.small,
-    lineHeight: 20,
+    lineHeight: type.smallLine,
     color: colors.inkDim,
   },
   trashHead: {
@@ -981,6 +981,6 @@ const s = StyleSheet.create({
     backgroundColor: colors.inkBright,
   },
   updateNote: { fontFamily: fonts.sansMedium, fontSize: type.tiny, color: colors.ink, marginTop: 1 },
-  name: { fontFamily: fonts.sansMedium, fontSize: 15, color: colors.ink },
+  name: { fontFamily: fonts.sansMedium, fontSize: type.lead, color: colors.ink },
   server: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim, marginTop: 1 },
 });

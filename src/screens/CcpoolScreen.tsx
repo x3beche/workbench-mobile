@@ -34,6 +34,7 @@ import type { PoolAccount, PoolOverview } from '../api/types';
 import { SERIES } from '../components/Charts';
 import { ArrowLeft, RotateCcw } from '../components/icons';
 import { StateDot } from '../components/StateDot';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { ErrorText, IconButton } from '../components/ui';
 import {
   ago,
@@ -50,7 +51,7 @@ import {
   type Slice,
 } from '../lib/ccpool';
 import type { CcpoolStrings } from '../lib/ccpoolStrings';
-import { colors, fonts, gutter, space, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, space, type } from '../theme/tokens';
 import type { UiLang } from '../update/strings';
 
 /** Read again this often while open: the overview has no event on the bus. */
@@ -107,24 +108,24 @@ export function CcpoolScreen({
   const wide = width >= 640;
   return (
     <SafeAreaView style={s.safe} edges={['top', 'left', 'right', 'bottom']} testID="ccpool-screen">
-      <View style={s.head}>
-        <IconButton icon={ArrowLeft} label={t.title} onPress={onClose} testID="ccpool-back" />
-        <Text style={s.title} accessibilityRole="header" numberOfLines={1}>
-          {t.title}
-        </Text>
-        <IconButton
-          icon={RotateCcw}
-          label={t.refresh}
-          onPress={() => read(true)}
-          color={colors.inkDim}
-          testID="ccpool-refresh"
-        />
-      </View>
+      <ScreenHeader
+        title={t.title}
+        left={<IconButton icon={ArrowLeft} label={t.title} onPress={onClose} testID="ccpool-back" />}
+        right={
+          <IconButton
+            icon={RotateCcw}
+            label={t.refresh}
+            onPress={() => read(true)}
+            color={colors.inkDim}
+            testID="ccpool-refresh"
+          />
+        }
+      />
       {!d ? (
         <View style={s.center}>{err ? <ErrorText>{err}</ErrorText> : <ActivityIndicator color={colors.inkDim} />}</View>
       ) : (
         <ScrollView
-          indicatorStyle="white"
+          indicatorStyle={indicatorStyle}
           onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
           contentContainerStyle={s.body}
           refreshControl={
@@ -429,7 +430,7 @@ function Table({
     </View>
   );
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={need > fit} indicatorStyle="white" testID={testID}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={need > fit} indicatorStyle={indicatorStyle} testID={testID}>
       <View>
         {line(
           cols.map((c) => (
@@ -463,7 +464,7 @@ const s = StyleSheet.create({
   section: { gap: 6, paddingTop: space.lg },
   headRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
   h: { fontFamily: fonts.sansSemi, fontSize: type.small, color: colors.inkBright },
-  dim: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim },
+  dim: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.inkDim },
   small: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   mono: { fontFamily: fonts.mono, fontSize: type.tiny, color: colors.ink },
   meters: { gap: space.md, paddingTop: space.xs },

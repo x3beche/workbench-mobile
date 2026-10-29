@@ -21,7 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type WorkbenchClient } from '../api/client';
 import type { Model, Provider } from '../api/types';
-import { colors, fonts, gutter, motion, radius, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, motion, radius, space, touch, type } from '../theme/tokens';
 import { Appear } from './Appear';
 import { Choice } from './Choice';
 import { Check, Search, X } from './icons';
@@ -134,7 +134,7 @@ export function ModelSheet({
           </View>
           {models === null && !error ? <ActivityIndicator style={s.wait} color={colors.inkDim} /> : null}
           <FlatList
-            indicatorStyle="white"
+            indicatorStyle={indicatorStyle}
             style={s.flex}
             data={shown}
             keyExtractor={(m) => m.id}

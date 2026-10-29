@@ -44,7 +44,7 @@ import { asChatMessage, ROOM_ICON, ROOM_LABEL } from '../lib/rooms';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { useBus, useLive } from '../live/LiveContext';
 import * as prefs from '../storage/prefs';
-import { colors, fonts, gutter, motion, space, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, motion, space, type } from '../theme/tokens';
 import { uiLang } from '../update/strings';
 import type { VoiceMode } from '../voice/voice';
 
@@ -264,7 +264,7 @@ export function RoomScreen({
           <FlatList
             ref={list}
             inverted
-            indicatorStyle="white"
+            indicatorStyle={indicatorStyle}
             testID="room-list"
             data={[...lines].reverse()}
             keyExtractor={(l, i) => l.id || String(i)}
@@ -348,10 +348,10 @@ const st = StyleSheet.create({
   emptyLead: {
     fontFamily: fonts.sans,
     fontSize: type.small,
-    lineHeight: 21,
+    lineHeight: type.smallLine,
     color: colors.inkDim,
     textAlign: 'center',
   },
   msg: { paddingHorizontal: gutter, paddingVertical: space.xs },
-  note: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: 19, color: colors.inkDim },
+  note: { fontFamily: fonts.sans, fontSize: type.small, lineHeight: type.smallLine, color: colors.inkDim },
 });

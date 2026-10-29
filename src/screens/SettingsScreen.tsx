@@ -28,9 +28,17 @@ import type { ChatDetail, OrchStatus, PoolOverview } from '../api/types';
 import { accountStrings, localized } from '../components/accountStrings';
 import { Avatar } from '../components/Avatar';
 import { Choice } from '../components/Choice';
-import { Check, ChevronRight, KeyRound, LogOut, Menu, Network, Plus } from '../components/icons';
+import {
+  Check,
+  ChevronRight,
+  KeyRound,
+  LogOut,
+  Network,
+  Plus,
+} from '../components/icons';
 import { Dialog } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { Glyph, IconButton } from '../components/ui';
 import { UpdateSection } from '../components/UpdateSection';
 import { modelName } from '../components/MessageItem';
@@ -44,7 +52,7 @@ import type { Account } from '../state/accounts';
 import { useSession } from '../state/session';
 import { writeThemePref } from '../storage/themePref';
 import { THEMES } from '../theme/themes';
-import { colors, fonts, gutter, space, SYSTEM_THEME, theme, themeChoice, type } from '../theme/tokens';
+import { SYSTEM_THEME, colors, fonts, gutter, indicatorStyle, space, theme, themeChoice, type } from '../theme/tokens';
 import { SETTINGS_RECHECK_MS } from '../update/release';
 import { updateStrings, type UiLang } from '../update/strings';
 import type { Update } from '../update/useUpdate';
@@ -137,17 +145,8 @@ export function SettingsScreen({
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'left', 'right', 'bottom']} testID="settings-screen">
-      <View style={s.head}>
-        {!wide && onMenu ? (
-          <IconButton icon={Menu} label="Open the conversations" onPress={onMenu} testID="settings-open-drawer" />
-        ) : (
-          <View style={s.headPad} />
-        )}
-        <Text style={s.title} accessibilityRole="header">
-          {t.settings}
-        </Text>
-      </View>
-      <ScrollView indicatorStyle="white" contentContainerStyle={[s.body, wide && s.bodyWide]}>
+      <ScreenHeader title={t.settings} onMenu={wide ? undefined : onMenu} menuTestID="settings-open-drawer" />
+      <ScrollView indicatorStyle={indicatorStyle} contentContainerStyle={[s.body, wide && s.bodyWide]}>
         {block(
           a.accounts,
           <View testID="accounts">
@@ -462,7 +461,7 @@ const s = StyleSheet.create({
   },
   sectionWide: { width: '50%', borderRightWidth: 1, borderRightColor: colors.line },
   h: { fontFamily: fonts.sansSemi, fontSize: type.body, color: colors.ink },
-  about: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: 17, color: colors.inkDim, marginTop: -4 },
+  about: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.inkDim, marginTop: -4 },
   gap: { gap: 8 },
   label: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim, marginTop: 4 },
   text: { fontFamily: fonts.sans, fontSize: type.small, color: colors.ink },

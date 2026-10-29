@@ -23,6 +23,14 @@ export interface Palette {
   hover: string;
   pressed: string;
   line: string;
+  /**
+   * A line you can see: the same hairline at 3:1 against the ground, for the
+   * edge of a control (a field, a button, a box to tick). Decorative
+   * dividers stay on `line`.
+   */
+  lineStrong: string;
+  /** Keyboard focus: the accent, made visible on this ground. */
+  focus: string;
   ink: string;
   inkDim: string;
   inkBright: string;
@@ -74,15 +82,96 @@ export function withAlpha(hex: string, alpha: number): string {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 }
 
+/** A colour's three channels: `#rrggbb`, `#rgb`, `rgb(...)`; null for anything else. */
+function channels(colour: string): [number, number, number] | null {
+  const c = colour.trim();
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c);
+  if (hex) {
+    const h = hex[1].length === 3 ? hex[1].replace(/./g, (x) => x + x) : hex[1];
+    const n = parseInt(h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(c);
+  if (rgb) return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+  return null;
+}
+
+const hex2 = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+
+/** WCAG relative luminance (0 is black, 1 is white); 0 for a colour that is not one. */
+export function luminance(colour: string): number {
+  const c = channels(colour);
+  if (!c) return 0;
+  const [r, g, b] = c.map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG contrast between two colours: 1 (the same) to 21 (black on white). */
+export function contrast(a: string, b: string): number {
+  const la = luminance(a);
+  const lb = luminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/** `fg` laid over `bg` at `alpha`, as a hex colour. */
+export function mixOn(fg: string, bg: string, alpha: number): string {
+  const f = channels(fg);
+  const b = channels(bg);
+  if (!f || !b) return fg;
+  const at = Math.max(0, Math.min(1, alpha));
+  return `#${f.map((v, i) => hex2(v * at + b[i] * (1 - at))).join('')}`;
+}
+
+/**
+ * The colour as it has to be to be seen on `bg`: itself once it reaches 3:1
+ * (WCAG's floor for a line or a control's edge), else the same hue moved
+ * toward white or black - the light one on a dark ground, the dark one on a
+ * light ground - until it does. Never a guess about which theme it is on.
+ */
+export function readableOn(colour: string, bg: string): string {
+  if (!channels(colour) || !channels(bg)) return colour;
+  if (contrast(colour, bg) >= 3) return colour;
+  const toward = luminance(bg) < 0.4 ? '#ffffff' : '#000000';
+  for (let a = 0.1; a <= 0.95; a += 0.05) {
+    const mixed = mixOn(toward, colour, a);
+    if (contrast(mixed, bg) >= 3) return mixed;
+  }
+  return toward;
+}
+
 /** The theme for a stored choice: the one named, the phone's for "system", the default for anything unknown. */
 export function themeFor(choice: string | null, scheme: string | null | undefined): ThemeDef {
   const id = choice === SYSTEM_THEME ? (scheme === 'light' ? SYSTEM_LIGHT : SYSTEM_DARK) : choice || DEFAULT_THEME;
   return THEMES.find((t) => t.id === id) ?? THEMES.find((t) => t.id === DEFAULT_THEME)!;
 }
 
+/** The charts' series, in order: a line under 3:1 on the card is not a line you can see. */
+const SERIES_KEYS = [
+  'series1',
+  'series2',
+  'series3',
+  'series4',
+  'series5',
+  'series6',
+  'series7',
+  'series8',
+] as const;
+
 export function paletteOf(t: ThemeDef): Palette {
   const c = t.colors;
-  return { ...(c as unknown as Omit<Palette, 'warnSoft'>), warnSoft: withAlpha(c.warn, 0.09) };
+  const p = {
+    ...(c as unknown as Omit<Palette, 'warnSoft' | 'lineStrong' | 'focus'>),
+    warnSoft: withAlpha(c.warn, 0.09),
+  } as Palette;
+  // Read against the ground they are drawn on, in whatever theme: the light
+  // ones' series were pale yellows and greens on white.
+  for (const key of SERIES_KEYS) p[key] = readableOn(String(c[key] ?? '#888888'), c.surface);
+  p.focus = readableOn(c.accent, c.surface);
+  p.lineStrong = readableOn(mixOn(c.ink, c.surface, 0.5), c.surface);
+  return p;
 }
 
 let scheme: string | null | undefined = null;
@@ -97,6 +186,12 @@ export const themeChoice: string = readThemePref() || DEFAULT_THEME;
 /** The theme worn now. */
 export const theme: ThemeDef = themeFor(themeChoice, scheme);
 export const colors: Palette = paletteOf(theme);
+
+/**
+ * A scroll view's bar: white on a dark ground, black on a light one. Every
+ * list said "white", so in the light themes the bar was invisible.
+ */
+export const indicatorStyle: 'white' | 'black' = theme.light ? 'black' : 'white';
 
 /**
  * Fonts. The web app sets body text in IBM Plex Sans and data in IBM Plex
@@ -124,14 +219,39 @@ export const type = {
   input: 16,
   inputLine: 22,
   small: 13,
+  smallLine: 19,
   tiny: 12,
+  tinyLine: 17,
+  /** The smallest words there are: group heads, a row's second line, a mono time. */
+  micro: 11,
+  microLine: 15,
+  /** A list row's title (the web's .tcv-cc-item). */
+  row: 13.5,
+  rowLine: 18,
+  /** A name or a quiet button: a step under the body, a step over a row. */
+  lead: 15,
+  leadLine: 21,
   title: 17,
   /** The greeting on a new conversation. */
   display: 20,
+  displayLine: 27,
   brand: 24,
 } as const;
 
-export const radius = { sm: 5, md: 6, lg: 8, bubble: 18, field: 22, round: 999 } as const;
+export const radius = {
+  sm: 5,
+  md: 6,
+  lg: 8,
+  bubble: 18,
+  field: 22,
+  round: 999,
+  /** A sheet rising from the bottom: its top corners only. */
+  sheet: 16,
+  /** A question in the middle of the screen. */
+  dialog: 12,
+  /** A box to tick, in a list or beside a selection bar. */
+  check: 4,
+} as const;
 
 /**
  * A page of paper: a PDF's page is white in every theme. The app's brightest

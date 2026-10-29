@@ -32,7 +32,7 @@ import { Button, ErrorText, IconButton } from '../components/ui';
 import { previewWorth, size, viewerOf } from '../lib/files';
 import { canSave } from '../lib/share';
 import { shortTime } from '../lib/time';
-import { colors, fonts, gutter, motion, paper, space, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, motion, paper, space, type } from '../theme/tokens';
 
 const TEXT_MAX = 256 * 1024;
 
@@ -275,7 +275,7 @@ function Pdf({
   const pageWidth = Math.min(width, 900) - 2 * space.sm;
   return (
     <FlatList
-      indicatorStyle="white"
+      indicatorStyle={indicatorStyle}
       testID="pdf-pages"
       data={Array.from({ length: pages }, (_, i) => i + 1)}
       keyExtractor={(n) => String(n)}
@@ -339,7 +339,7 @@ function TextView({ client, file, markdown }: { client: WorkbenchClient | null; 
     );
   if (!got) return <Waiting label="Reading the file" />;
   return (
-    <ScrollView contentContainerStyle={s.textPad} indicatorStyle="white" testID="preview-text">
+    <ScrollView contentContainerStyle={s.textPad} indicatorStyle={indicatorStyle} testID="preview-text">
       {markdown ? (
         <Markdown text={got.text} />
       ) : (
@@ -360,8 +360,8 @@ function TableView({ client, file, onFail }: { client: WorkbenchClient | null; f
   }, [client, file.id, onFail]);
   if (!got) return <Waiting label="Reading the table" />;
   return (
-    <ScrollView contentContainerStyle={s.textPad} indicatorStyle="white" testID="preview-table">
-      <ScrollView horizontal indicatorStyle="white">
+    <ScrollView contentContainerStyle={s.textPad} indicatorStyle={indicatorStyle} testID="preview-table">
+      <ScrollView horizontal indicatorStyle={indicatorStyle}>
         <View>
           {got.rows.map((row, i) => (
             <View key={i} style={[s.tr, i === 0 && s.th]}>
@@ -439,7 +439,7 @@ const s = StyleSheet.create({
   // A page is paper in every theme - and its shadow is the theme's ground showing through.
   page: { backgroundColor: paper, borderRadius: 2 },
   textPad: { padding: gutter, gap: space.md },
-  code: { fontFamily: fonts.mono, fontSize: type.small, lineHeight: 20, color: colors.ink },
+  code: { fontFamily: fonts.mono, fontSize: type.small, lineHeight: type.smallLine, color: colors.ink },
   note: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
   tr: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.line },
   th: { borderBottomColor: colors.pressed },
