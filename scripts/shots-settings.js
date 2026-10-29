@@ -55,7 +55,8 @@ async function scrollTo(page, testID) {
   await page.waitForSelector(tid('new-chat-screen'), { timeout: 20000 });
 
   // Analytics.
-  await page.click(tid('open-drawer'));
+  // The screen the app came back to opens the drawer with a button of its own.
+  await page.click('[data-testid="open-drawer"],[data-testid$="-open-drawer"]');
   await page.waitForSelector(tid('open-analytics'));
   await sleep(400);
   await shot(page, '70-drawer-analytics');
@@ -108,6 +109,21 @@ async function scrollTo(page, testID) {
   await page.waitForFunction(() => document.body.innerText.includes('Ayarlar'), { timeout: 5000 });
   await page.evaluate(() => document.querySelector('[data-testid="settings-screen"] [role="header"]')?.scrollIntoView());
   await shot(page, '77-settings-tr');
+
+  // Not only the settings around an English middle: the drawer and a conversation too.
+  await page.click(tid('settings-open-drawer'));
+  await sleep(500);
+  await shot(page, '77d-drawer-tr');
+  const turkish = await page.$(tid('chat-c1'));
+  if (turkish) {
+    await turkish.click();
+    await sleep(900);
+    await shot(page, '77e-chat-tr');
+    await page.click('[data-testid="open-drawer"],[data-testid$="-open-drawer"]');
+    await sleep(400);
+    await page.click(tid('open-account'));
+    await page.waitForSelector(tid('settings-screen'));
+  }
   await scrollTo(page, 'action-ccpool');
   await page.click(tid('action-ccpool'));
   await page.waitForSelector(tid('ccpool-ring'), { timeout: 10000 });
@@ -123,8 +139,13 @@ async function scrollTo(page, testID) {
   // A light theme: the choice is read when the app starts.
   await page.evaluate(() => localStorage.setItem('wb.theme', 'github-light'));
   await page.reload({ waitUntil: 'domcontentloaded' }); // live reads stay open: the network is never idle
-  await page.waitForSelector(tid('new-chat-screen'), { timeout: 20000 });
-  await page.click(tid('open-drawer'));
+  // The app comes back to the conversation that was open, or to a new one.
+  await page.waitForFunction(
+    () => !!document.querySelector('[data-testid="new-chat-screen"],[data-testid="chat-screen"]'),
+    { timeout: 20000 },
+  );
+  // The screen the app came back to opens the drawer with a button of its own.
+  await page.click('[data-testid="open-drawer"],[data-testid$="-open-drawer"]');
   await sleep(300);
   await page.click(tid('open-analytics'));
   await page.waitForSelector(tid('analytics-models'), { timeout: 15000 });

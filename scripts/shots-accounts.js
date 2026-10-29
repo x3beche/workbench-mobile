@@ -64,7 +64,8 @@ async function shot(page, name) {
   }
   await page.waitForFunction(() => document.body.innerText.includes('Ada'), { timeout: 10000 });
   await page.waitForSelector(tid('new-chat-screen'), { timeout: 20000 });
-  await page.click(tid('open-drawer'));
+  // Whatever screen the account came back to, its own button opens the drawer.
+  await page.click('[data-testid="open-drawer"],[data-testid$="-open-drawer"]');
   await sleep(500);
   await shot(page, '63-switched-back');
   await browser.close();

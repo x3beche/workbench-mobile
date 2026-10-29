@@ -22,6 +22,11 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/14-chat-actions.png" width="200" alt="Rename, archive or delete a conversation">
 </p>
 <p>
+  <img src="docs/screenshots/77d-drawer-tr.png" width="200" alt="The drawer in Turkish: Odalar, Sohbetler, Arşiv, Çöp, Dosyalar, Analiz">
+  <img src="docs/screenshots/77e-chat-tr.png" width="200" alt="A conversation in Turkish: the tools it ran, Copy, the message box">
+  <img src="docs/screenshots/77-settings-tr.png" width="200" alt="Settings in Turkish">
+</p>
+<p>
   <img src="docs/screenshots/12-chat-keyboard.png" width="200" alt="With the keyboard open: the composer and the newest lines stay above it">
   <img src="docs/screenshots/16-voice-review.png" width="200" alt="Reviewing a voice note before sending">
   <img src="docs/screenshots/10-login.png" width="200" alt="Signing in">
@@ -83,6 +88,23 @@ Then you sign in with the same e-mail address and password as on the web.
 
 ## What it does
 
+- **Said plainly, and reachable with a thumb** (1.8.0): a pass over every
+  screen with the app in front of it. A draft is the person's work - it
+  outlives leaving the screen, a restart and a send that fails, and comes
+  back into the box. What a swipe or a long press hid is on a "…" of its own
+  - on a conversation's row, on a file's - and every target is at least
+  44 px. A name sits over a line only when the thread has more than one
+  other voice in it, and only where the voice changes. A table or a code
+  block wider than the phone says so with a chevron at the edge it runs
+  off. The whole app speaks Turkish now, not just the settings around an
+  English middle: the drawer, Files, a conversation, the workspace's
+  dialogs, times ("5dk", "dün") and sizes ("2,0 kB"). Four things that read
+  oddly say what they mean: "1 agent", "tokens out/s", "v2.4.0 · 6 tools",
+  and a back arrow that says Back instead of repeating the title. Nothing is
+  read for a phone that is put away - every timer asks first - and a file of
+  four thousand rows draws the dozen near the eye. A shut drawer is out of a
+  keyboard's way as well as a finger's, which on a tablet it was not: all
+  forty of its Tab stops were in an invisible panel.
 - **Any server.** Type an address (`workbench.example.com`, `https://...`,
   or `http://192.168.1.20:8000` on a local network). The app checks that it
   answers as Workbench (`/api/health`, `/api/auth/state`) before going on.
@@ -126,7 +148,9 @@ Then you sign in with the same e-mail address and password as on the web.
   trash, kept 30 days. Select ticks several - a box on every row, a bar in
   the search row's place with the box for all of them, how many, and what
   to do with them at once (Archive or Unarchive, Delete; Restore and
-  Delete forever in the trash), as on the web. A long press, or
+  Delete forever in the trash), as on the web. A row's "…" does what the
+  swipe does (1.8.0; the swipe and the long press are still there, and the
+  screen reader reaches the same actions). A long press, or
   the "…" in a conversation's top bar, offers everything: Rename, Pin or
   Unpin, Archive, Export as Markdown or PDF, Delete. The server writes the
   export (in the document theme, kept in Files > In the app > Chat/Exports)
@@ -144,8 +168,8 @@ Then you sign in with the same e-mail address and password as on the web.
   size and date. A tap opens a file: pictures, PDFs (the server draws the
   pages), Markdown, text and code, and tables in the app; anything else
   goes to another app through the share sheet. A long press or the row's
-  "…": Share, Save to phone (Android), Rename, Move, Delete, or Save to My
-  files for what the app made. The "+" uploads from the phone's files,
+  "…" (a 44 px target of its own, 1.8.0): Share, Save to phone (Android),
+  Rename, Move, Delete, or Save to My files for what the app made. The "+" uploads from the phone's files,
   photos or camera into the open folder, or makes a folder. What a role
   may not do is not offered (a viewer only looks), and when the server
   refuses, its own words are shown. A newer server answers a phone with
@@ -156,7 +180,10 @@ Then you sign in with the same e-mail address and password as on the web.
 - **A conversation**: the model's name at the top, tapped to choose another;
   New chat at the right. Your lines are bubbles on the right; answers run the
   full width under the model's name, with Markdown (headings, lists, code
-  with a Copy button, links) and the tools the answer ran as compact rows
+  with a Copy button, links) - a code block or a table too wide for the
+  phone scrolls sideways under a chevron that goes when the reader reaches
+  the edge (1.8.0), and a name is printed over a line only where the voice
+  changes and there is more than one other voice in the thread and the tools the answer ran as compact rows
   where they ran, each opening to what it found. A long press on a line
   copies it or opens it to select a part. Your line shows the moment it is
   sent, three dots wait for the first words, and the answer is written in
@@ -328,7 +355,10 @@ Then you sign in with the same e-mail address and password as on the web.
 - **Settings** (from 1.5.7; the account at the foot of the drawer opens it):
   the accounts (switch, add, sign one out), Agent & LLM, how much of an
   answer the Chat shows (**Compact**, **Normal**, **Detailed**), the app's
-  **language** (Auto, English, Türkçe - apart from the voice language),
+  **language** (Auto, English, Türkçe - apart from the voice language; since
+  1.8.0 everything the app says follows it, the drawer and Files and a
+  conversation included, and the times and sizes are written Turkish writes
+  them),
   the **theme** - every theme of the web app colour for colour
   (`src/theme/themes.ts`, written from its styles.css by
   `scripts/make-themes.mjs`), or the phone's own light or dark; the app
@@ -628,7 +658,10 @@ src/
                         Files (what each side shows, rights), chat export, share (native / web),
                         the Claude sessions (wbc.ts: words, turns by the page, sent lines, pictures;
                         wbcStrings.ts: English and Turkish), the OpenCode sessions (wbo.ts: turns, live
-                        records, sends, asks; wboStrings.ts), the groups' folds and pins (side.ts)
+                        records, sends, asks; wboStrings.ts), the groups' folds and pins (side.ts),
+                        and a table of words per area for the screens that had none (drawerStrings,
+                        filesStrings, chatStrings, workspaceStrings; every table in English and
+                        Turkish, the helpers taking the language they are read in)
   update/               the in-app update: app.json read and compared (release.ts), the download,
                         its checksum and the installer (apk.ts; apk.web.ts shows versions only),
                         the hook Account and the drawer read (useUpdate.ts), English and Turkish
@@ -658,7 +691,8 @@ app, drawn as vectors. The wordmark is the web app's section mark (a vector,
 `components/Mark.tsx`) beside the name.
 
 Every screen keeps a 16 px side gutter and the safe-area insets (status bar,
-cutout, gesture bar); controls are at least 44 px tall. Motion is short and
+cutout, gesture bar); controls are at least 44 px tall, and one that would be
+smaller gets a `hitSlop` or a row to sit in (1.8.0 measured them all). Motion is short and
 moves only opacity and transform: the native splash (the mark on the theme's
 ground) fades into the first screen, the drawer follows the finger and
 settles in a spring without overshoot (240 ms when opened by its button), its
