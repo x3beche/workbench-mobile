@@ -402,22 +402,26 @@ describe('workspace', () => {
     }
   });
 
-  it('keeps how much of an answer the Chat shows in Settings > Chat, on the server', async () => {
+  it('keeps how much of an answer the Chat shows in Settings > Chat detail, on the server', async () => {
     await start();
     await fireEvent.press(screen.getByTestId('open-drawer'));
     await fireEvent.press(screen.getByTestId('open-account'));
+    // The row says what is set; the page behind it is where it is chosen.
+    expect(screen.getByTestId('settings-value-chat')).toHaveTextContent('Normal');
+    await fireEvent.press(screen.getByTestId('settings-row-chat'));
     const card = within(screen.getByTestId('settings-chat-detail'));
     expect(card.getByText('Chat detail')).toBeTruthy();
     for (const stop of ['Compact', 'Normal', 'Detailed']) expect(card.getByText(stop)).toBeTruthy();
-    // What the chosen stop means, and what it looks like.
-    expect(screen.getByTestId('settings-chat-detail-about')).toHaveTextContent(
-      'Each tool call a line of its own; thinking folded.',
-    );
+    // What each stop means, under its own name, and what the chosen one looks like.
+    expect(card.getByText('Each tool call a line of its own; thinking folded.')).toBeTruthy();
+    expect(card.getByText('Everything open: the thinking, and what every tool call read and returned.')).toBeTruthy();
+    expect(card.getByTestId('settings-chat-detail-normal').props.accessibilityState).toEqual({ checked: true });
     await fireEvent.press(card.getByText('Detailed'));
     expect(mockClient.sideChat).toHaveBeenCalledWith('detailed');
-    expect(screen.getByTestId('settings-chat-detail-about')).toHaveTextContent(
-      'Everything open: the thinking, and what every tool call read and returned.',
-    );
+    expect(card.getByTestId('settings-chat-detail-detailed').props.accessibilityState).toEqual({ checked: true });
+    // Back to the menu, whose row says the new choice.
+    await fireEvent.press(screen.getByTestId('settings-back'));
+    expect(screen.getByTestId('settings-value-chat')).toHaveTextContent('Detailed');
   });
 
   it('opens Settings from the account at the bottom of the drawer, and Back comes back', async () => {
@@ -426,11 +430,20 @@ describe('workspace', () => {
     expect(screen.getByText('wb.example.com')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('open-account'));
     expect(screen.getByTestId('settings-screen')).toBeTruthy();
+    // A menu of groups, each row carrying what it is set to.
+    expect(screen.getByText('Account')).toBeTruthy();
     expect(screen.getByText('Voice language')).toBeTruthy();
     expect(screen.getByText('Sign out')).toBeTruthy();
     expect(screen.getByText('Language')).toBeTruthy();
+    expect(screen.getByTestId('settings-value-theme')).toHaveTextContent('Spartan Dark');
+    // A page under it, and Back coming out of the page first.
+    await fireEvent.press(screen.getByTestId('settings-row-theme'));
     expect(screen.getByTestId('theme-spartan-dark').props.accessibilityState).toEqual({ checked: true });
     expect(screen.getByTestId('theme-dracula')).toBeTruthy();
+    await act(async () => {
+      back();
+    });
+    expect(screen.getByTestId('settings-screen')).toBeTruthy();
     await act(async () => {
       back();
     });
@@ -443,8 +456,8 @@ describe('workspace', () => {
     await act(async () => undefined);
     await fireEvent.press(screen.getByTestId('open-drawer'));
     await fireEvent.press(screen.getByTestId('open-account'));
-    // The first Türkçe is the app's language; the voice language has one too.
-    await fireEvent.press(screen.getAllByRole('radio', { name: 'Türkçe' })[0]);
+    await fireEvent.press(screen.getByTestId('settings-row-language'));
+    await fireEvent.press(screen.getByRole('radio', { name: 'Türkçe' }));
     expect(onAppLang).toHaveBeenCalledWith('tr');
   });
 
@@ -452,7 +465,9 @@ describe('workspace', () => {
     await start();
     await fireEvent.press(screen.getByTestId('open-drawer'));
     await fireEvent.press(screen.getByTestId('open-account'));
-    expect(screen.getByTestId('account-a1').props.accessibilityState).toEqual({ selected: true });
+    expect(screen.getByTestId('settings-value-accounts')).toHaveTextContent('Ada Demir');
+    await fireEvent.press(screen.getByTestId('settings-row-accounts'));
+    expect(screen.getByTestId('account-a1').props.accessibilityState).toEqual({ checked: true });
     expect(screen.getByText('bo@other.example · other.example')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('account-a2'));
     expect(mockSwitch).toHaveBeenCalledWith('a2');
@@ -471,6 +486,8 @@ describe('workspace', () => {
     await fireEvent.press(screen.getByTestId('open-drawer'));
     await fireEvent.press(screen.getByTestId('open-account'));
     expect(screen.getByText('Words appear')).toBeTruthy();
+    expect(screen.getByTestId('settings-value-voice-mode')).toHaveTextContent('Live');
+    await fireEvent.press(screen.getByTestId('settings-row-voice-mode'));
     expect(screen.getByRole('radio', { name: 'Live' }).props.accessibilityState).toEqual({ checked: true });
     await fireEvent.press(screen.getByText('After recording'));
     expect(onVoiceMode).toHaveBeenCalledWith('record');

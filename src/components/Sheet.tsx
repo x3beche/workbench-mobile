@@ -159,7 +159,7 @@ export function Dialog({
             ) : null}
             {error ? <ErrorText>{error}</ErrorText> : null}
             <View style={s.dialogRow}>
-              <Button label={cancel ?? c.cancel} variant="quiet" onPress={onCancel} />
+              <Button testID="dialog-cancel" label={cancel ?? c.cancel} variant="quiet" onPress={onCancel} />
               <Button
                 testID="dialog-confirm"
                 label={confirm}

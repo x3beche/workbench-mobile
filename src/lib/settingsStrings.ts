@@ -25,6 +25,34 @@ export interface SettingsStrings {
   aboutText: string;
   licence: string;
   source: string;
+  // Settings' menu (1.9.9)
+  /** The way back from a page under Settings. */
+  back: string;
+  menuGroups: { account: string; ai: string; appearance: string; voice: string; app: string };
+  accountsAbout: string;
+  /** Under Add account, and the line under the accounts of this phone. */
+  accountsAddAbout: string;
+  accountsNote: string;
+  voiceLangAbout: string;
+  voiceModeAbout: string;
+  /** The one line a menu row carries; the page under it says the rest. */
+  rowSub: { theme: string; language: string; chat: string; pool: string };
+  /** What each choice means, under its name on the page that offers it. */
+  languageChoice: { auto: string; en: string; tr: string };
+  voiceLangChoice: { auto: string; en: string; tr: string };
+  voiceModeChoice: { live: string; record: string };
+  version: string;
+  versionAbout: string;
+  widget: string;
+  widgetAbout: string;
+  widgetNone: string;
+  widgetAdded: string;
+  widgetAdd: string;
+  widgetWhat: string;
+  widgetHow: string;
+  widgetOnlyAndroid: string;
+  signOutAbout: string;
+  aboutSub: string;
   // Analytics
   models: string;
   modelsAbout: string;
@@ -112,6 +140,54 @@ const en: SettingsStrings = {
   aboutText: 'Workbench mobile, the chat of any Workbench server.',
   licence: 'MIT licence',
   source: 'Source',
+  back: 'Back',
+  menuGroups: {
+    account: 'Account',
+    ai: 'Artificial intelligence',
+    appearance: 'Appearance',
+    voice: 'Voice',
+    app: 'App',
+  },
+  accountsAbout: 'Who is signed in on this phone',
+  rowSub: {
+    theme: 'The web app’s, or the phone’s',
+    language: 'The app’s words',
+    chat: 'What an answer shows',
+    pool: 'Who may use this account',
+  },
+  accountsAddAbout: 'Another server, or another person',
+  accountsNote:
+    'Signing one out takes only that account off this phone. The conversation you have open stays, and so does the draft in the box.',
+  voiceLangAbout: 'What your voice is written in',
+  voiceModeAbout: 'Live, or once the take is done',
+  languageChoice: {
+    auto: 'The voice language, then the phone’s',
+    en: 'The app’s words in English',
+    tr: 'The app’s words in Turkish',
+  },
+  voiceLangChoice: {
+    auto: 'Whichever the phone speaks',
+    en: 'English speech is written out',
+    tr: 'Türkçe konuşma yazıya dökülür',
+  },
+  voiceModeChoice: {
+    live: 'While you speak, where the server offers it',
+    record: 'All at once, when the recording stops',
+  },
+  version: 'Version',
+  versionAbout: 'The build on this phone',
+  widget: 'Home screen widget',
+  widgetAbout: 'The Chat tab’s two cards',
+  widgetNone: 'Not added',
+  widgetAdded: 'Added',
+  widgetAdd: 'Add to the home screen',
+  widgetWhat:
+    'The Chat tab’s two cards on the home screen: this month’s models and this week’s tools, each with its last 14 days. It reads the figures the same way the app does, and redraws itself every thirty minutes.',
+  widgetHow:
+    'Touch and hold an empty place on the home screen, choose Widgets, then Workbench. The card takes five cells across and two down.',
+  widgetOnlyAndroid: 'The home screen widget is Android’s. On this platform Settings only describes it.',
+  signOutAbout: 'The conversations stay',
+  aboutSub: 'Version, licence and source',
   models: 'Models',
   modelsAbout: 'Tokens a day, last 14 days, by provider',
   thisMonth: 'This month',
@@ -189,6 +265,54 @@ const tr: SettingsStrings = {
   aboutText: 'Workbench mobil, her Workbench sunucusunun sohbeti.',
   licence: 'MIT lisansı',
   source: 'Kaynak',
+  back: 'Geri',
+  menuGroups: {
+    account: 'Hesap',
+    ai: 'Yapay zeka',
+    appearance: 'Görünüm',
+    voice: 'Ses',
+    app: 'Uygulama',
+  },
+  accountsAbout: 'Bu telefonda kim oturum açmış',
+  rowSub: {
+    theme: 'Web uygulamasının ya da telefonun',
+    language: 'Uygulamanın sözleri',
+    chat: 'Bir yanıtın gösterdikleri',
+    pool: 'Bu hesabı kim kullanabilir',
+  },
+  accountsAddAbout: 'Başka sunucu, ya da aynı sunucuda başka biri',
+  accountsNote:
+    'Çıkış yalnızca o hesabı bu telefondan kaldırır. Açık konuşma ve kutudaki taslak yerinde kalır.',
+  voiceLangAbout: 'Konuşmanız hangi dilde yazıya dökülür',
+  voiceModeAbout: 'Konuşurken, ya da kayıttan sonra',
+  languageChoice: {
+    auto: 'Önce konuşma dili, o da otomatikse telefonunki',
+    en: 'Uygulamanın sözleri İngilizce',
+    tr: 'Uygulamanın sözleri Türkçe',
+  },
+  voiceLangChoice: {
+    auto: 'Telefon hangi dili konuşuyorsa o',
+    en: 'İngilizce konuşma yazıya dökülür',
+    tr: 'Türkçe konuşma yazıya dökülür',
+  },
+  voiceModeChoice: {
+    live: 'Sunucu sunuyorsa konuşurken',
+    record: 'Kayıt bitince bir arada',
+  },
+  version: 'Sürüm',
+  versionAbout: 'Bu telefondaki sürüm',
+  widget: 'Ana ekran widget’ı',
+  widgetAbout: 'Sohbet sekmesinin iki kartı',
+  widgetNone: 'Eklenmedi',
+  widgetAdded: 'Eklendi',
+  widgetAdd: 'Ana ekrana ekle',
+  widgetWhat:
+    'Sohbet sekmesinin iki kartı ana ekranda: bu ayın modelleri ve bu haftanın araçları, her biri son 14 günüyle. Rakamları uygulamadaki gibi okur ve kendini otuz dakikada bir yeniden çizer.',
+  widgetHow:
+    'Ana ekranda boş bir yere basılı tutun, Widget’lar’ı seçin, sonra Workbench. Kart enine beş, boyuna iki hücre yer kaplar.',
+  widgetOnlyAndroid: 'Ana ekran widget’ı Android’in. Bu platformda Ayarlar onu yalnızca anlatır.',
+  signOutAbout: 'Konuşmalar telefonda kalır',
+  aboutSub: 'Sürüm, lisans ve kaynak',
   models: 'Modeller',
   modelsAbout: 'Günlük token, son 14 gün, sağlayıcıya göre',
   thisMonth: 'Bu ay',

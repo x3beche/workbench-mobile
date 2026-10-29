@@ -18,13 +18,20 @@ Then you sign in with the same e-mail address and password as on the web.
 <p>
   <img src="docs/screenshots/07-chat-waiting.png" width="200" alt="Waiting for the first words">
   <img src="docs/screenshots/08-model-picker.png" width="200" alt="Choosing the model">
-  <img src="docs/screenshots/09-account.png" width="200" alt="Settings, from the account at the drawer's foot">
+  <img src="docs/screenshots/75-settings.png" width="200" alt="Settings, from the account at the drawer's foot: small-capital groups, each row the setting and what it is set to now">
   <img src="docs/screenshots/14-chat-actions.png" width="200" alt="Rename, archive or delete a conversation">
+</p>
+<p>
+  <img src="docs/screenshots/76-settings-themes.png" width="200" alt="The theme page: every theme of the web app colour for colour, or the phone's own light or dark">
+  <img src="docs/screenshots/75e-settings-chat-detail.png" width="200" alt="Chat detail: what each stop shows of an answer's work, the chosen one ticked">
+  <img src="docs/screenshots/75d-settings-accounts.png" width="200" alt="The accounts on this phone: switch to one, add one, sign one out alone">
+  <img src="docs/screenshots/75c-settings-signout.png" width="200" alt="Sign out is the last row, red, and asks before it does it">
 </p>
 <p>
   <img src="docs/screenshots/77d-drawer-tr.png" width="200" alt="The drawer in Turkish: Odalar, Sohbetler, Arşiv, Çöp, Dosyalar, Analiz">
   <img src="docs/screenshots/77e-chat-tr.png" width="200" alt="A conversation in Turkish: the tools it ran, Copy, the message box">
   <img src="docs/screenshots/77-settings-tr.png" width="200" alt="Settings in Turkish">
+  <img src="docs/screenshots/76c-settings-language-tr.png" width="200" alt="The language page in Turkish: the choice is kept the moment it is touched">
 </p>
 <p>
   <img src="docs/screenshots/12-chat-keyboard.png" width="200" alt="With the keyboard open: the composer and the newest lines stay above it">
@@ -284,13 +291,14 @@ Then you sign in with the same e-mail address and password as on the web.
   what it does now - a section to fold open on a phone, a column beside it
   on a wide screen. The top bar has its state and model, "MCP 2.4.0", which
   lists every tool of the server's MCP server (searchable, with who may use
-  it and its parameters), and Settings: **Agent & LLM**, also in Account -
-  its state and since when, why it stopped, the provider and model it runs
-  on (a pick is saved at once), and Start, Restart and Stop. A banner says
-  when it is not running, its key was refused, its credits ran out or it
-  keeps crashing. Keys, agent tokens and sandboxes stay on the web (the
-  sandboxes and their setup are the owner's and the admins' there). English
-  and Turkish, as Account. A server without an Orchestrator has no row.
+  it and its parameters), and Settings > **Orchestrator** (the row
+  Agent & LLM is under now) - its state and since when, why it stopped, the
+  provider and model it runs on (a pick is saved at once), and Start,
+  Restart and Stop. A banner says when it is not running, its key was
+  refused, its credits ran out or it keeps crashing. Keys, agent tokens and
+  sandboxes stay on the web (the sandboxes and their setup are the owner's
+  and the admins' there). English and Turkish, as Account. A server without
+  an Orchestrator has no row.
 - **Claude sessions** (from 1.6.0): one's own Claude Code runs from the
   server's Claude pool, as the web app's Chat lists them (`wb-claude`,
   redline-studio's docs/WB-CLAUDE.md). In the drawer under the rooms, the
@@ -367,10 +375,10 @@ Then you sign in with the same e-mail address and password as on the web.
   opened by a tap. No model name over an answer, no figures under it, no
   bubble and no name over a person's own line: the person's words are their
   own, on the right. The same in the Chat, in a room's thread, in an OpenCode
-  session and in a Claude one, being written or finished. Settings > Chat's
-  three stops (`lib/chatDetail.ts`) still set what the web draws - there is
-  room for it there - and the phone, with less of it, draws the simple view at
-  every stop. The line's words are the app's own language.
+  session and in a Claude one, being written or finished. Settings > Chat
+  detail's three stops (`lib/chatDetail.ts`) still set what the web draws -
+  there is room for it there - and the phone, with less of it, draws the
+  simple view at every stop. The line's words are the app's own language.
 - **It opens where it was left** (1.6.9): the room, the OpenCode or Claude
   session, the conversation or the page (Files, Settings, Analytics) open on
   that account when the app was last left is what the app opens into, instead
@@ -420,19 +428,33 @@ Then you sign in with the same e-mail address and password as on the web.
   it - "just now", "34 min ago", "1 h ago", the clock of yesterday, the day
   or date before - and a conversation says what was last said under its
   title, in one line, without the Markdown it was written in (1.7.2).
-- **Settings** (from 1.5.7; the account at the foot of the drawer opens it):
-  the accounts (switch, add, sign one out), Agent & LLM, how much of an
-  answer the Chat shows (**Compact**, **Normal**, **Detailed**), the app's
-  **language** (Auto, English, Türkçe - apart from the voice language; since
-  1.8.0 everything the app says follows it, the drawer and Files and a
-  conversation included, and the times and sizes are written Turkish writes
-  them),
-  the **theme** - every theme of the web app colour for colour
-  (`src/theme/themes.ts`, written from its styles.css by
+- **Settings** (from 1.5.7; the account at the foot of the drawer opens it -
+  a menu since 1.9.9, as ChatGPT's and Claude's are): small-capital groups -
+  **Account**, **Artificial intelligence**, **Appearance**, **Voice**,
+  **App** - and one row per setting: an icon, its name, the one line it is
+  about, and at the right what it is set to now (a **>** after it where the
+  row leads somewhere). Every setting that is a choice of something has a
+  page of its own - a radio list with the explanation on it, the paragraph
+  the menu row has no room for - and the choice is kept the moment it is
+  touched, so the menu behind it says **Spartan Dark**, **Türkçe**,
+  **Normal** on the way back. The accounts (switch, add, sign one out
+  alone), the **Orchestrator** (its own sheet) and the **Claude pool**, how
+  much of an answer the Chat shows (**Compact**, **Normal**, **Detailed**),
+  the app's **language** (Auto, English, Türkçe - apart from the voice
+  language; since 1.8.0 everything the app says follows it, the drawer and
+  Files and a conversation included, and the times and sizes are written
+  Turkish writes them), the **theme** - every theme of the web app colour
+  for colour (`src/theme/themes.ts`, written from its styles.css by
   `scripts/make-themes.mjs`), or the phone's own light or dark; the app
   starts again to wear a new one - the voice language and when its words
-  appear, and the app's version, its update and About. Two sections side by
-  side on a wide screen.
+  appear, the **home screen widget** the figures are added from, and the
+  app's version, its update and About. **Sign out** is the last row of the
+  menu, red, and asks first. One measure on every page
+  (`src/components/SettingsList.tsx`): a row of at least 60 px with the
+  icon column 28 wide, the title at 15 and the second line at 12, the value
+  at 13 pushed right, hairlines inset past the icon - and one column 640 px
+  wide, centred, on a wide screen. Colour is theme tokens only, so light
+  and dark are the same screen in another palette.
 - **Claude pool** (from 1.6.2, in Settings where the server's pool is set up
   and the person may see it): the web's Settings > Claude pool, read-only
   (`GET /api/ccpool/overview`). The subscription's windows (5-hour, 7-day
@@ -667,14 +689,21 @@ npm run check      # all three
 ```
 
 Screenshots in `docs/screenshots` are made with `scripts/shots.sh` (headless
-Chrome in Docker at 390 x 844, and 900 px wide for the side column, against
-the made-up server, which also runs tools and writes an answer slowly; with
+Chrome in Docker at 390 x 844, and 1280 px for the wide ones, against the
+made-up server, which also runs tools and writes an answer slowly; with
 `TARGET=https://your.server` the server and sign-in screens are taken against
 that server, whose own wrong-password error is shown;
-`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48, `SHOTS=rooms` a room read a page at a time, 50-53, `SHOTS=accounts` 60-63, `SHOTS=settings` Settings, the Claude pool and Analytics, 70-80 and 74b-77b, `SHOTS=claude` the Claude sessions, 90-99, and `SHOTS=opencode` the OpenCode sessions and the groups' folds and pins, 80b-89b). The keyboard shot
-makes the window 336 px shorter, as a phone keyboard does, and checks the
-composer is still on screen. `SHOTS_DIR=/some/dir` writes them elsewhere. App icons are
-drawn by `scripts/make-icons.js` from the web app's section mark.
+`SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48;
+`SHOTS=rooms` a room read a page at a time, 50-54; `SHOTS=accounts` 60-63;
+`SHOTS=settings` Settings and the pages under it - the accounts, Chat
+detail, the themes, the languages, sign out - with the Claude pool and
+Analytics, 70-81 and 74b-77c, and the light theme and the wide screen,
+79b-79c, 80-analytics-wide, 80b-settings-wide; `SHOTS=claude` the Claude
+sessions, 90-99; and `SHOTS=opencode` the OpenCode sessions and the groups'
+folds and pins, 80b-89b). The keyboard shot makes the window 336 px shorter,
+as a phone keyboard does, and checks the composer is still on screen.
+`SHOTS_DIR=/some/dir` writes them elsewhere. App icons are drawn by
+`scripts/make-icons.js` from the web app's section mark.
 
 ### How it talks to the server
 
@@ -716,11 +745,14 @@ src/
   state/session.tsx     server -> sign-in -> app
   storage/prefs.ts      recent servers, last e-mail, voice language
   screens/              Server, Login, Workspace (drawer + conversation or Files), Chat,
-                        Files, FilePreview, Room, Orchestrator, ClaudeSession, OpencodeSession
+                        Files, FilePreview, Room, Orchestrator, ClaudeSession, OpencodeSession,
+                        Ccpool, Analytics, Settings - the menu - and screens/settings/,
+                        the page behind each row of it
   components/           Drawer, DrawerPanel, SwipeRow, Tabs, FileThumb, Markdown, MessageItem,
                         Composer, RecordingBar, sheets and dialogs, icons (Lucide), controls,
                         WbcPicture (a Claude session's pictures, read with the session, and the viewer),
-                        SessionGroup (a drawer group that folds and pins), AskCard (what OpenCode asks)
+                        SessionGroup (a drawer group that folds and pins), AskCard (what OpenCode asks),
+                        SettingsList (a settings row and its one measure, a choice, a note, a page)
   lib/                  the Orchestrator (orchestrator.ts: its tree, the live stream on a transcript,
                         its calls in words; orchStrings.ts: English and Turkish), Markdown parser, answer-stream reducer, day groups, tool steps, times,
                         Files (what each side shows, rights), chat export, share (native / web),

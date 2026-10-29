@@ -82,7 +82,7 @@ import { CcpoolScreen } from './CcpoolScreen';
 import { ClaudeSessionScreen } from './ClaudeSessionScreen';
 import { OpencodeSessionScreen } from './OpencodeSessionScreen';
 import { RoomScreen } from './RoomScreen';
-import { SettingsScreen } from './SettingsScreen';
+import { SettingsScreen, type SettingsHandle } from './SettingsScreen';
 
 /** Where to begin when the server has no example questions of its own (the web app's STARTERS). */
 export const STARTERS: Suggestion[] = [
@@ -189,6 +189,8 @@ export function Workspace({
   const [rooms, setRooms] = useState<Room[] | null>(null);
   const [roomsSeen, setRoomsSeen] = useState<Record<string, string>>({});
   const files = useRef<FilesHandle>(null);
+  /** Settings' own pages: Back leaves one for the menu before it leaves Settings. */
+  const settingsView = useRef<SettingsHandle>(null);
   const [scope, setScope] = useState<ChatScope>('live');
   const [scoped, setScoped] = useState<{ scope: ChatScope; chats: Chat[] } | null>(null);
   const [can, setCan] = useState<string[] | null>(null);
@@ -669,6 +671,7 @@ export function Workspace({
         if (!files.current?.back()) setPage('chat');
         return true;
       }
+      if (page === 'settings' && settingsView.current?.back()) return true;
       if (page !== 'chat') {
         setPage(page === 'ccpool' ? 'settings' : 'chat');
         return true;
@@ -957,6 +960,7 @@ export function Workspace({
         ) : page === 'settings' ? (
           <Appear key="settings" duration={motion.fade}>
             <SettingsScreen
+              ref={settingsView}
               t={stt}
               ot={ot}
               ui={ui}

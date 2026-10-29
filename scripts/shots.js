@@ -447,7 +447,7 @@ async function connect(page, base, address) {
   await page.click(tid('open-account'));
   await page.waitForSelector(tid('settings-screen'), { timeout: 5000 });
   await sleep(400);
-  await shot(page, '09-account');
+  await shot(page, '75-settings');
 
   await browser.close();
 })().catch(async (e) => {
