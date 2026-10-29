@@ -199,7 +199,11 @@ export function DrawerPanel({
       return next;
     });
   const allTicked = !!chats?.length && chats.every((c) => sel.has(c.id));
-  const t = useMemo(() => drawerStrings(uiLang(lang)), [lang]);
+  // The language the app speaks, not the prop it was handed: Settings > Language
+  // changes the first while the second stays as it was, and a table memoised on
+  // the prop kept the words of the language it started in.
+  const ui = uiLang(lang);
+  const t = useMemo(() => drawerStrings(ui), [ui]);
 
   const pickOff = () => {
     setPicking(false);
@@ -713,7 +717,7 @@ function RoomRow({
               {room.last ? <Text style={s.when}>{ago(room.last.at, new Date(), uiLang(lang))}</Text> : null}
             </View>
             <Text style={s.snip} numberOfLines={2}>
-              {roomSnippet(room)}
+              {roomSnippet(room, uiLang(lang))}
             </Text>
           </View>
         </>
@@ -816,7 +820,7 @@ function Row({
             : t.dLeft(chat.days_left)
           : rowTime(chat, groupOf(chat), new Date(), uiLang(lang))
       }
-      sub={trash ? undefined : chatSnippet(chat)}
+      sub={trash ? undefined : chatSnippet(chat, uiLang(lang))}
       check={check}
       on={on}
       onPress={onPress}

@@ -6,6 +6,7 @@
 import type { Room, RoomId } from '../api/types';
 import { Box, CircuitBoard, Cpu } from '../components/icons';
 import type { UiLang } from '../update/strings';
+import { rowWords } from './groups';
 
 /** What each room is about, in the words the web app uses. */
 export const ROOM_LABEL: Record<RoomId, string> = {
@@ -46,10 +47,11 @@ export function unread(room: Room, seen: string | undefined): number {
 }
 
 /** One line of a room, as the row under its name reads it. */
-export function roomSnippet(room: Room): string {
+export function roomSnippet(room: Room, lang: UiLang = 'en'): string {
   const last = room.last;
-  if (!last) return 'No messages yet';
-  const who = last.role === 'agent' ? 'agent' : last.by || 'you';
+  const w = rowWords(lang);
+  if (!last) return w.nothingYet;
+  const who = last.role === 'agent' ? w.agent : last.by || w.you;
   const text = last.text.replace(/\s+/g, ' ').trim();
   return `${who}: ${text}`;
 }

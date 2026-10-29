@@ -55,12 +55,20 @@ export function rowTime(c: Chat, group: GroupName, now: Date = new Date(), lang:
   return ago(t.toISOString(), now, lang);
 }
 
+/** The few words a row under a title has of its own: what an empty row says, and
+ *  who wrote the line. A room's row and a conversation's row read them alike. */
+export function rowWords(lang: UiLang = 'en'): { nothingYet: string; agent: string; you: string } {
+  return lang === 'tr'
+    ? { nothingYet: 'Henüz mesaj yok', agent: 'ajan', you: 'siz' }
+    : { nothingYet: 'No messages yet', agent: 'agent', you: 'you' };
+}
+
 /** The one line under a conversation's title: who wrote last and what, or that
  *  nothing was written yet (the web's row, rooms/commandcode.ts). The words are
  *  the line's own, without its Markdown, and the row cuts them to one line. */
-export function chatSnippet(c: Chat): string {
+export function chatSnippet(c: Chat, lang: UiLang = 'en'): string {
   const last = c.last;
-  if (!last) return 'No messages yet';
+  if (!last) return rowWords(lang).nothingYet;
   const said = previewText(last.text ?? '');
   // A line that opens with the conversation's own title - a heading the writer
   // began the first message with - would say it twice in one row.

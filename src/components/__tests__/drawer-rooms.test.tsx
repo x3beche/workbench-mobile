@@ -1,9 +1,10 @@
 /** The rooms lead the drawer: their name, their last line, and what is unread. */
 import * as React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { Chat, Room, User } from '../../api/types';
 import { SIDE_EMPTY } from '../../lib/side';
+import { setAppLanguage } from '../../update/strings';
 import { DrawerPanel } from '../DrawerPanel';
 
 jest.mock(
@@ -89,6 +90,26 @@ async function panel(over: Partial<React.ComponentProps<typeof DrawerPanel>> = {
     expect(screen.getByText('agent: The PCB task (00006b) was cancelled')).toBeTruthy();
     // A room with nothing written in it, and a conversation with no last line, say the same.
     expect(screen.getAllByText('No messages yet').length).toBeGreaterThan(0);
+  });
+
+  it('speaks the language Settings says, not the one its props were handed', async () => {
+    try {
+      const props = await panel({ lang: 'en' });
+      expect(screen.getByText('New chat')).toBeTruthy();
+      // Settings > Language, Türkçe: the app re-renders with the same props while the
+      // language it speaks has changed underneath them - and a table memoised on the
+      // prop kept the words of the language it was first drawn in.
+      await act(async () => {
+        setAppLanguage('tr');
+        screen.rerender(<DrawerPanel {...props} />);
+      });
+      expect(screen.getByText('Yeni sohbet')).toBeTruthy();
+      expect(screen.getByPlaceholderText('Ara')).toBeTruthy();
+      expect(screen.getByText('3B Çizim')).toBeTruthy();
+      expect(screen.queryByText('New chat')).toBeNull();
+    } finally {
+      setAppLanguage(null);
+    }
   });
 
   it('counts what the agent wrote since the room was last read here', async () => {

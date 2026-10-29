@@ -124,7 +124,8 @@ export const FilesScreen = forwardRef<
     lang?: VoiceLang;
   }
 >(function FilesScreen({ client, user, can, wide = false, onMenu, lang = 'auto' }, ref) {
-  const f = useMemo(() => filesStrings(uiLang(lang)), [lang]);
+  const ui = uiLang(lang);
+  const f = useMemo(() => filesStrings(ui), [ui]);
   const rights = useMemo(() => rightsOf(can ?? ['view', 'draw', 'delete']), [can]);
   const [side, setSide] = useState<Side>('mine');
   const [here, setHere] = useState<Record<'mine' | 'app', string>>({ mine: '', app: '' });

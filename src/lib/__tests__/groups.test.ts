@@ -83,6 +83,7 @@ describe('chatSnippet', () => {
       'Why R6 is enough',
     );
     expect(chatSnippet(chat('d', at(14)))).toBe('No messages yet');
+    expect(chatSnippet(chat('d', at(14)), 'tr')).toBe('Henüz mesaj yok');
   });
 });
 

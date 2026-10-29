@@ -68,6 +68,9 @@ describe('a room row', () => {
 
   it('says so when nothing was ever said in the room', () => {
     expect(roomSnippet(room())).toBe('No messages yet');
+    // The row under a room's name is the app's words too, not the server's.
+    expect(roomSnippet(room(), 'tr')).toBe('Henüz mesaj yok');
+    expect(roomSnippet({ ...room(), last: { role: 'agent', text: 'noted' } }, 'tr')).toBe('ajan: noted');
   });
 });
 
