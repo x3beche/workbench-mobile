@@ -573,6 +573,43 @@ export function handleWbo(req, res, p, url, body) {
     for (const s of SESSIONS) if (s.row.bridge?.connected) s.row.bridge.seen = secs();
     return (json(res, 200, { sessions: SESSIONS.map((s) => s.row), live_s: 45, images: RULES }), true);
   }
+  // Settings > OpenCode's column: one answer for the whole sheet (backend/wb_panel.py)
+  const mp = /^\/api\/wbo\/sessions\/([^/]+)\/panel$/.exec(p);
+  if (mp) {
+    const one = bySid(decodeURIComponent(mp[1]));
+    if (!one) return (json(res, 404, { detail: 'no such session' }), true);
+    const now = Date.now();
+    return (json(res, 200, {
+      session: { id: one.row.session_id, title: one.row.title, status: 'busy', asking: false, since: now - 14 * 60_000,
+                 model: { providerID: 'commandcode', providerName: 'Command Code', modelID: 'deepseek/deepseek-v4.1-flash',
+                          name: 'DeepSeek V4.1 Flash' },
+                 context: { used: 730000, limit: 1000000, model: 'deepseek/deepseek-v4.1-flash', pct: 73 },
+                 computer: { ...one.row.bridge, name: 'server' } },
+      todos: { items: [{ content: 'Read the panel’s file list', status: 'completed' },
+                       { content: 'Match a diff’s paths to a call’s', status: 'in_progress' },
+                       { content: 'Fold the scratch files away', status: 'pending' }], done: 1, total: 3, at: now },
+      files: { items: [
+        { path: 'styles.css', count: 1, at: now - 6000_00, status: 'completed', error: false, message: 'm1', additions: 2, deletions: 7 },
+        { path: 'docs/SERVER-HEALTH.md', count: 1, at: now - 9000_00, status: 'completed', error: false, message: 'm1', additions: 41, deletions: 0 },
+        { path: 'frontend/src/app/rooms/session-panel.ts', count: 2, at: now - 1200_000, status: 'completed', error: false, message: 'm1', additions: 12, deletions: 3 },
+      ], more: 0, temp: { items: [
+        { path: '.cache/build.json', count: 1, at: now - 1_000_000, status: 'completed', error: false, message: 'm1', temp: true },
+        { path: 'node_modules/.cache/x.js', count: 1, at: now - 1_100_000, status: 'completed', error: false, message: 'm1', temp: true },
+        { path: '/tmp/claude-oc/probe.ts', count: 1, at: now - 1_200_000, status: 'completed', error: false, message: 'm1', temp: true, outside: true },
+      ], more: 0 } },
+      tools: { items: [
+        { name: 'write', server: '', count: 4, errors: 0, message: 'm1', tool: 'write' },
+        { name: 'edit', server: '', count: 2, errors: 0, message: 'm1', tool: 'edit' },
+        { name: 'shell', server: '', count: 2, errors: 1, message: 'm1', tool: 'shell' },
+        { name: 'glob', server: '', count: 1, errors: 0, message: 'm1', tool: 'glob' },
+        { name: 'grep', server: '', count: 1, errors: 0, message: 'm1', tool: 'grep' },
+        { name: 'read', server: '', count: 1, errors: 0, message: 'm1', tool: 'read' },
+        { name: 'webfetch', server: '', count: 1, errors: 0, message: 'm1', tool: 'webfetch' },
+      ], more: 0 },
+      tokens: { input: 640000, output: 88000, cache_read: 910000, cache_write: 0, cost: 1.24, source: 'session' },
+      pending: [], may_answer: true, why: '', messages: 12, live_s: 45, at: Date.now() / 1000,
+    }), true);
+  }
   const m = /^\/api\/wbo\/sessions\/([^/]+)(\/.*)?$/.exec(p);
   const s = m && bySid(decodeURIComponent(m[1]));
   if (!s) return (json(res, 404, { detail: 'no such session' }), true);

@@ -23,8 +23,8 @@ export interface PanelSection {
   warn: boolean;
 }
 
-/** The files a column shows before "all of them". */
-export const FILES_SHOWN = 8;
+/** The tools a column shows before "N more": the five that did the most. */
+export const TOOLS_SHOWN = 5;
 /** The window is nearly full at this share of it - and all but full at the second. */
 export const CTX_WARN = 80;
 export const CTX_DANGER = 95;
@@ -41,6 +41,7 @@ export function panelSections(p: WboPanel | null, t: WboStrings, folds: Record<s
     out.push({ id: 'todos', label: t.todos, count: `${p.todos.done}/${p.todos.total}`, warn: false });
   }
   if (p.files?.items.length) {
+    // the work's own files; the scratch ones are folded at the foot, and the head counts only the work
     out.push({ id: 'files', label: t.changedFiles, count: String(p.files.items.length), warn: false });
   }
   out.push({ id: 'model', label: t.model, count: null, warn: p.session.status === 'error' });

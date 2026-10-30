@@ -95,6 +95,7 @@ export interface WboStrings extends WbcStrings {
   compactsItself: string;
   lastMessages: (n: number) => string;
   deviceKey: string;
+  tempFiles: string;
   connectedShort: string;
   allFiles: (n: number) => string;
   thinkingLevel: (v: string) => string;
@@ -200,6 +201,7 @@ const en: WboStrings = {
   compactsItself: 'OpenCode compacts a session by itself when the window is nearly full',
   lastMessages: (n) => `The last ${n} messages: the session's own total is not kept for this one.`,
   deviceKey: 'device key',
+  tempFiles: 'Temporary files',
   connectedShort: 'connected',
   allFiles: (n) => `All ${n} files`,
   thinkingLevel: (v) => `thinking: ${v}`,
@@ -328,6 +330,7 @@ const tr: WboStrings = {
   compactsItself: 'OpenCode pencere dolmak üzereyken oturumu kendi sıkıştırır (compaction)',
   lastMessages: (n) => `Son ${n} mesaj: bu oturumun kendi toplamı saklanmamış.`,
   deviceKey: 'cihaz anahtarı',
+  tempFiles: 'Geçici dosyalar',
   connectedShort: 'bağlı',
   allFiles: (n) => `${n} dosyanın tümü`,
   thinkingLevel: (v) => `düşünme: ${v}`,

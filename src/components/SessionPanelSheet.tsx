@@ -23,7 +23,7 @@ import {
   ctxTip,
   ctxTone,
   dirName,
-  FILES_SHOWN,
+  TOOLS_SHOWN,
   fileLine,
   kfmt,
   panelSections,
@@ -68,6 +68,7 @@ export function SessionPanelSheet({
   const [error, setError] = useState<string | null>(null);
   const [folds, setFolds] = useState<Record<string, boolean>>({});
   const [allFiles, setAllFiles] = useState(false);
+  const [allTools, setAllTools] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [copied, setCopied] = useState(false);
 
@@ -183,7 +184,8 @@ export function SessionPanelSheet({
                     <ModelBody panel={panel} t={t} now={now} onModel={onModel} copied={copied} />
                   ) : null}
                   {sec.id === 'computer' ? <ComputerBody panel={panel} t={t} onCopy={copy} copied={copied} /> : null}
-                  {sec.id === 'tools' ? <ToolsBody panel={panel} t={t} onJump={onJump} /> : null}
+                  {sec.id === 'tools' ? <ToolsBody panel={panel} t={t} onJump={onJump} all={allTools}
+                                                     onMore={() => setAllTools(true)} /> : null}
                 </View>
               ) : null}
             </View>
@@ -256,7 +258,7 @@ function ModelBody({
         <Row k={t.input} v={kfmt(panel.tokens.input)} />
         <Row k={t.output} v={kfmt(panel.tokens.output)} />
         {panel.tokens.cache_read != null ? <Row k={t.cacheRead} v={kfmt(panel.tokens.cache_read)} /> : null}
-        {panel.tokens.cache_write != null ? <Row k={t.cacheWrite} v={kfmt(panel.tokens.cache_write)} /> : null}
+        {panel.tokens.cache_write != null ? <Row k={t.cacheWrite} v={panel.tokens.cache_write ? kfmt(panel.tokens.cache_write) : '—'} /> : null}
       </View>
       <View style={s.cost}>
         <Text style={s.kvKey}>{t.run.cost}</Text>
@@ -286,11 +288,7 @@ function ComputerBody({
         {c.host || c.name || t.opencode}
         <Text style={s.dim}>{` · ${c.connected ? t.connectedShort : t.notConnectedShort}`}</Text>
       </Text>
-      {c.name && c.name !== c.host ? (
-        <Text style={s.dim} numberOfLines={1}>
-          {`${t.deviceKey}: ${c.name}`}
-        </Text>
-      ) : null}
+      {/* the device key's name is not a line of its own any more: it is in Settings > OpenCode */}
       <Text style={s.dim} numberOfLines={1}>
         {`wb-opencode ${c.version || '?'}`}
       </Text>
@@ -350,7 +348,8 @@ function FilesBody({
   onJump: (message: string) => void;
 }) {
   const everything: PanelFile[] = panel.files?.items ?? [];
-  const rows = all ? everything : everything.slice(0, FILES_SHOWN);
+  const temp = panel.files?.temp?.items ?? [];
+  const rows = everything;
   let lastWhen = '';
   return (
     <View>
@@ -370,6 +369,10 @@ function FilesBody({
             <View style={s.filecol}>
               <Text style={s.rowText} numberOfLines={1}>
                 {baseName(f.path)}
+                {f.additions != null ? (
+                  <Text style={s.diff}>{`  +${f.additions} −${f.deletions}`}</Text>
+                ) : null}
+                {f.outside ? <Text style={s.out}>{'  ↗'}</Text> : null}
               </Text>
               {dirName(f.path) ? (
                 <Text style={s.dir} numberOfLines={1} ellipsizeMode="head">
@@ -384,10 +387,24 @@ function FilesBody({
           </Pressable>
         );
       })}
-      {everything.length > FILES_SHOWN && !all ? (
-        <Pressable onPress={onAll} accessibilityRole="button" testID="wbo-panel-allfiles">
-          <Text style={s.link}>{t.allFiles(everything.length)}</Text>
-        </Pressable>
+      {temp.length ? (
+        <>
+          <Pressable onPress={onAll} accessibilityRole="button" testID="wbo-panel-tempfiles"
+                     accessibilityState={{ expanded: all }}>
+            <Text style={s.link}>{`${all ? '▾' : '▸'} ${t.tempFiles} · ${temp.length}`}</Text>
+          </Pressable>
+          {all
+            ? temp.map((f) => (
+                <Pressable key={f.path} onPress={() => onJump(f.message)} accessibilityRole="button"
+                           style={[s.row, s.tempRow]} testID="wbo-panel-tempfile">
+                  <Text style={s.rowText} numberOfLines={1}>
+                    {baseName(f.path)}
+                    {f.additions != null ? <Text style={s.diff}>{`  +${f.additions} −${f.deletions}`}</Text> : null}
+                  </Text>
+                </Pressable>
+              ))
+            : null}
+        </>
       ) : null}
     </View>
   );
@@ -446,12 +463,18 @@ function ToolsBody({
   panel,
   t,
   onJump,
+  all,
+  onMore,
 }: {
   panel: WboPanel;
   t: WboStrings;
   onJump: (message: string) => void;
+  all: boolean;
+  onMore: () => void;
 }) {
-  const rows: PanelTool[] = panel.tools?.items ?? [];
+  const everything: PanelTool[] = panel.tools?.items ?? [];
+  const rows = all ? everything : everything.slice(0, TOOLS_SHOWN);
+  const total = everything.reduce((n, r) => n + r.count, 0);
   return (
     <View>
       {rows.map((r) => (
@@ -464,14 +487,21 @@ function ToolsBody({
           accessibilityLabel={toolLine(r, t)}
           testID="wbo-panel-tool"
         >
-          <Text style={s.rowText} numberOfLines={1}>
+          {/* how much of the session's calls this tool was: a thin bar behind the row, not a box beside it */}
+          <View style={[s.ratio, { width: `${total ? Math.max(2, Math.round((r.count / total) * 100)) : 0}%` }]} />
+          <Text style={[s.rowText, s.toolName]} numberOfLines={1}>
             {r.name}
           </Text>
           <Text style={[s.rowMeta, r.errors ? s.warn : null]} numberOfLines={1}>
-            {r.errors ? `${r.count} · ⚠${r.errors}` : String(r.count)}
+            {r.errors ? `⚠${r.errors} · ${r.count}` : String(r.count)}
           </Text>
         </Pressable>
       ))}
+      {everything.length > TOOLS_SHOWN && !all ? (
+        <Pressable onPress={onMore} accessibilityRole="button" testID="wbo-panel-moretools">
+          <Text style={s.link}>{t.moreTools(everything.length - TOOLS_SHOWN)}</Text>
+        </Pressable>
+      ) : null}
       {panel.tools?.more ? <Text style={s.dim}>{t.moreTools(panel.tools.more)}</Text> : null}
     </View>
   );
@@ -532,4 +562,10 @@ const s = StyleSheet.create({
   acts: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.xs },
   jump: { paddingTop: space.xs },
   link: { fontFamily: fonts.sans, fontSize: type.small, color: colors.accent, paddingVertical: space.xs },
+  diff: { fontFamily: fonts.mono, fontSize: type.tiny, color: colors.inkDim },
+  out: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  tempRow: { opacity: 0.8 },
+  ratio: { position: 'absolute', left: 0, top: 3, bottom: 3, borderRadius: 4, backgroundColor: colors.surface },
+  toolName: { flex: 1 },
+
 });

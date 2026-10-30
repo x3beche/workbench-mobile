@@ -902,6 +902,10 @@ export interface PanelTodo {
 
 export interface PanelFile {
   path: string;
+  /** A scratch file, a cache or a build's own output: folded at the foot of the list, not in front of the work. */
+  temp?: boolean;
+  /** Outside the session's own directory (shown from `~`, and marked in the row). */
+  outside?: boolean;
   /** How many calls touched it. */
   count: number;
   /** When it was last touched (ms), or null. */
@@ -941,7 +945,7 @@ export interface WboPanel {
     computer: (WboBridge & { name?: string }) | null;
   };
   todos: { items: PanelTodo[]; done: number; total: number; at: number | null } | null;
-  files: { items: PanelFile[]; more: number } | null;
+  files: { items: PanelFile[]; more: number; temp?: { items: PanelFile[]; more: number } } | null;
   tools: { items: PanelTool[]; more: number } | null;
   /** What it spent: the session's own total over its whole life (`source: 'session'`), or - for a session
    *  stored before that was kept - the messages that are here, which `messages` counts. The caches are only
