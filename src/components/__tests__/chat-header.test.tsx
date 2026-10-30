@@ -77,7 +77,7 @@ const bar = (extra: Record<string, unknown> = {}) => (
     // the activity page is the bar's width, not the middle's, so what the sheet was ticked for fits.
     expect(screen.getByTestId('activity-strip')).toBeTruthy();
     expect(screen.getByText('42.4')).toBeTruthy();
-    for (const label of ['tok · 24h', 'prompts', 'Jobs', 'CPU', 'RAM']) {
+    for (const label of ['tok · 24h', 'Jobs', 'CPU', 'RAM']) {
       expect(screen.getByText(label)).toBeTruthy();
     }
 

@@ -19,12 +19,11 @@ export const SOURCES: { id: ActSource; label: string }[] = [
   { id: 'opencode', label: 'OpenCode' },
 ];
 
-export type ActMetric = 'tps' | 'spark' | 'tokens' | 'claude' | 'jobs' | 'cpu' | 'ram';
+export type ActMetric = 'tps' | 'spark' | 'tokens' | 'jobs' | 'cpu' | 'ram';
 export const METRICS: { id: ActMetric; label: string }[] = [
   { id: 'tps', label: 'Tokens a second' },
   { id: 'spark', label: 'Chart' },
   { id: 'tokens', label: 'Tokens in the range' },
-  { id: 'claude', label: 'Claude prompts' },
   { id: 'jobs', label: 'Jobs' },
   { id: 'cpu', label: 'CPU' },
   { id: 'ram', label: 'Memory' },
@@ -113,8 +112,6 @@ const TR: Record<string, string> = {
   'Tokens a second': 'Saniyedeki token',
   Chart: 'Grafik',
   'Tokens in the range': 'Aralıktaki token',
-  'Claude prompts': 'Claude promptları',
-  '{n} calls': '{n} çağrı',
   in: 'giriş',
   out: 'çıkış',
   cache: 'cache',

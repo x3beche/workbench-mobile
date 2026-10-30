@@ -7,12 +7,13 @@
  * The strip, a slim line under the conversation's top bar: the tokens a
  * second being written now (its dot green while they flow), a small
  * gradient chart of the tokens over the range chosen and their total, and
- * whichever of Claude prompts, jobs, CPU and memory are switched on - what
+ * whichever of jobs, CPU and memory are switched on - what
  * does not fit is left out from the end. A tap opens the sheet: the range
  * (the web's nine, or one's own: 1m to 30d), the figures, the tokens over
  * the range by source (a tap on the legend hides one), and what the strip
  * shows. The range and the strip's figures are kept per account on the
- * phone (lib/activity.ts).
+ * phone (lib/activity.ts). The person's Claude pool is a source of the
+ * chart and of the tokens, never a figure of its own.
  *
  * What goes on now comes through the account's S2 stream `activity`
  * (live/hub.ts) while it is up, else GET /api/me/activity/now every 5 s; the
@@ -243,12 +244,6 @@ export function ActivityStrip({
               <Text style={s.small}>{prefs.range === 'today' ? t('tok · since 00:00') : `tok · ${t(prefs.range)}`}</Text>
             </View>
           ) : null}
-          {show('claude') && data?.claude ? (
-            <View style={s.cell}>
-              <Text style={s.b}>{data.claude.prompts.toLocaleString('en-US')}</Text>
-              <Text style={s.small}>{t('prompts')}</Text>
-            </View>
-          ) : null}
           {show('jobs') && now ? (
             <View style={s.cell}>
               <Text style={s.small}>{t('Jobs')}</Text>
@@ -341,16 +336,11 @@ export function ActivitySheet({ feed, lang, onClose }: { feed: ActivityFeed; lan
   const machineLine = (m?.parts ?? [])
     .map((p) => `${partName(p.kind)} ${p.cpu_pct != null ? `${cpu(p.cpu_pct)} · ` : ''}${mem(p.mem_mb)}`)
     .join('   ');
-  const claude = d?.claude ?? null;
 
   const figs: { k: string; label: string; value: string; unit?: string; sub: string }[] = [
     { k: 'tokens', label: `${t('Tokens')} · ${prefs.range === 'today' ? t('Today') : t(prefs.range)}`, value: x ? tok(x.tokens) : '–', sub: split },
     { k: 'now', label: t('Now'), value: tps(now?.live?.tps ?? 0), unit: t('tokens out/s'), sub: liveLine },
     { k: 'calls', label: t('Calls'), value: (x?.calls ?? 0).toLocaleString('en-US'), sub: t('in-app models') },
-    ...(claude
-      ? [{ k: 'claude', label: 'Claude', value: claude.prompts.toLocaleString('en-US'), unit: t('prompts'),
-           sub: `${t('{n} calls', claude.calls)} · ${tok(claude.tokens)} tok` }]
-      : []),
     { k: 'jobs', label: t('Jobs'), value: String(j?.total ?? 0), sub: jobsLine },
     { k: 'cpu', label: 'CPU', value: m?.sampled ? cpu(m.cpu_pct) : '–', sub: t('100% = one core') },
     { k: 'ram', label: t('Memory'), value: m && (m.sampled || m.mem_mb) ? mem(m.mem_mb) : '–', sub: boxes },
@@ -456,7 +446,7 @@ export function ActivitySheet({ feed, lang, onClose }: { feed: ActivityFeed; lan
         <View style={s.foot}>
           <Text style={s.footHead}>{t('Shown in the strip')}</Text>
           <View style={s.checks}>
-            {METRICS.filter((mm) => mm.id !== 'claude' || claude).map((mm) => {
+            {METRICS.map((mm) => {
               const sel = prefs.show.includes(mm.id);
               return (
                 <Pressable

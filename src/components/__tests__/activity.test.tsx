@@ -140,6 +140,22 @@ describe('actSpan', () => {
     expect(screen.getByText('Token · Bugün')).toBeTruthy();
   });
 
+  it('drops a saved "claude prompts" figure: the pool is a source, not a figure', async () => {
+    // Kept by a build before the Claude prompt cell was taken out.
+    await AsyncStorage.setItem(
+      'workbench.activity',
+      JSON.stringify({ 'acct-4': { range: '24h', show: ['tps', 'claude', 'jobs'] } }),
+    );
+    await render(<ActivityStrip client={client()} scope="acct-4" lang="en" />);
+    await settle();
+    expect((await readActPrefs('acct-4')).show).toEqual(['tps', 'jobs']);
+    expect(screen.queryByText('prompts')).toBeNull();
+    await fireEvent.press(screen.getByTestId('activity-strip'));
+    // No tick box for it in the sheet either, and the Claude legend stays.
+    expect(screen.queryByTestId('activity-show-claude')).toBeNull();
+    expect(screen.getByTestId('activity-legend-claude')).toBeTruthy();
+  });
+
   it('is not there when the server has no Activity', async () => {
     const c = {
       activity: jest.fn(async () => {
