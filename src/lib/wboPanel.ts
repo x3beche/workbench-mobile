@@ -1,54 +1,75 @@
 /**
  * A session's column on the phone: the same answer the web's right-hand column draws
- * (backend/wb_panel.py, GET /api/wbo/sessions/{sid}/panel) - the model and its window, what it spent, the
- * computer, the todo list, the files it changed, what it is waiting for, the tools it used.
+ * (backend/wb_panel.py, GET /api/wbo/sessions/{sid}/panel) - what it waits for, its todo list, the files it
+ * changed, the model and its window, the computer it runs on, the tools it used - in that order, the things
+ * that need a person first.
  *
  * The sections are the web's (frontend/src/app/rooms/session-panel.ts) and so are the rules: a section with
- * nothing in it is not drawn at all, the person's fold of it is kept on the server (/api/me/side `panel`), and
- * the words are the web's Turkish wherever it has the same line (lib/wboStrings.ts).
+ * nothing in it is not drawn at all, the person's fold of it is kept on the server (/api/me/side `panel`),
+ * the head's number sits at the same place on every row, and the words are the web's Turkish wherever it has
+ * the same line (lib/wboStrings.ts).
  */
-import type { PanelFile, PanelTodo, PanelTool, WboPanel } from '../api/types';
+import type { PanelFile, PanelTool, WboPanel } from '../api/types';
 import type { WboStrings } from './wboStrings';
 
-export type PanelSectionId = 'model' | 'computer' | 'todos' | 'files' | 'pending' | 'tools';
+export type PanelSectionId = 'pending' | 'todos' | 'files' | 'model' | 'computer' | 'tools';
 
 export interface PanelSection {
   id: PanelSectionId;
   label: string;
-  /** What the head says after the label ("3/7", "12"), or null. */
+  /** What the head says after the label: "1", "3/7", "shell 120 · read 88 · edit 41 · +6". */
   count: string | null;
-  /** The head is drawn in the warning tone (a question waiting, a full window). */
+  /** The head is drawn in the warning tone (a question waiting). */
   warn: boolean;
 }
 
-/** The sections that have something to say, in the order the column shows them. */
-export function panelSections(p: WboPanel | null, t: WboStrings): PanelSection[] {
+/** The files a column shows before "all of them". */
+export const FILES_SHOWN = 8;
+/** The window is nearly full at this share of it - and all but full at the second. */
+export const CTX_WARN = 80;
+export const CTX_DANGER = 95;
+
+/** The sections that have something to say, in the order the column shows them. `folds` is the person's, so a
+ *  folded section's head can say what the open one's body would (the tools' own top three). */
+export function panelSections(p: WboPanel | null, t: WboStrings, folds: Record<string, boolean> = {}): PanelSection[] {
   if (!p) return [];
-  const out: PanelSection[] = [
-    { id: 'model', label: t.model, count: stateWord(p, t), warn: p.session.status === 'error' },
-  ];
-  if (p.session.computer) out.push({ id: 'computer', label: t.computer, count: null, warn: false });
+  const out: PanelSection[] = [];
+  if (p.pending?.length) {
+    out.push({ id: 'pending', label: t.waiting, count: String(p.pending.length), warn: true });
+  }
   if (p.todos?.items.length) {
     out.push({ id: 'todos', label: t.todos, count: `${p.todos.done}/${p.todos.total}`, warn: false });
   }
   if (p.files?.items.length) {
     out.push({ id: 'files', label: t.changedFiles, count: String(p.files.items.length), warn: false });
   }
-  if (p.pending?.length) {
-    out.push({ id: 'pending', label: t.waiting, count: String(p.pending.length), warn: true });
-  }
+  out.push({ id: 'model', label: t.model, count: null, warn: p.session.status === 'error' });
+  if (p.session.computer) out.push({ id: 'computer', label: t.computer, count: null, warn: false });
   if (p.tools?.items.length) {
+    const folded = folds.tools === false;
+    const errors = p.tools.items.reduce((n, r) => n + r.errors, 0);
+    const total = p.tools.items.reduce((n, r) => n + r.count, 0);
     out.push({
       id: 'tools',
       label: t.tools,
-      count: String(p.tools.items.reduce((n, r) => n + r.count, 0)),
+      count: folded ? toolSummary(p.tools.items, errors) : String(total),
       warn: false,
     });
   }
   return out;
 }
 
-/** What the session is doing, in the words the header uses. */
+/** "shell 120 · read 88 · edit 41 · +6" - what a folded tools head says instead of a bare number. */
+export function toolSummary(rows: PanelTool[], errors: number): string {
+  const top = rows
+    .slice(0, 3)
+    .map((r) => `${r.name} ${r.count}`)
+    .join(' · ');
+  const rest = rows.length - 3;
+  return `${errors ? `⚠${errors} ` : ''}${top}${rest > 0 ? ` · +${rest}` : ''}`;
+}
+
+/** What the session is doing, for a reader - the column's own head says it on the web. */
 export function stateWord(p: WboPanel, t: WboStrings): string {
   const s = p.session;
   if (s.status === 'waiting') return t.waitingAnAnswer;
@@ -57,16 +78,32 @@ export function stateWord(p: WboPanel, t: WboStrings): string {
   return t.idle;
 }
 
+/** "2:41" while it works: minutes and seconds, unbounded minutes. */
+export function workedFor(since: number | null, now: number): string {
+  if (!since) return '';
+  const s = Math.max(0, Math.round((now - since) / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 /** How many things wait for the person: the badge the sheet's button carries. */
 export function panelWaiting(p: WboPanel | null): number {
   return p?.pending?.length ?? 0;
 }
 
-/** A path as the column shows it: the last two parts, the whole one for the long press. */
-export function shortPath(path: string): string {
+/** A path's last part (the file) and the folder it is in, shown under it. */
+export function baseName(path: string): string {
   const parts = path.replace(/\\/g, '/').split('/').filter(Boolean);
-  if (parts.length <= 2) return path;
-  return `…/${parts.slice(-2).join('/')}`;
+  return parts[parts.length - 1] ?? path;
+}
+
+export function dirName(path: string): string {
+  const parts = path.replace(/\\/g, '/').split('/').filter(Boolean);
+  return parts.length > 1 ? parts.slice(0, -1).join('/') : '';
+}
+
+/** "7 edits" - how often the session touched it (and nothing when it touched it once). */
+export function editsLabel(f: PanelFile, t: WboStrings): string {
+  return f.count > 1 ? t.editsTimes(f.count) : '';
 }
 
 /** A file's line counts, when the run reported them ("+12 −3"), else ''. */
@@ -75,21 +112,60 @@ export function diffText(f: PanelFile): string {
   return `+${f.additions} −${f.deletions}`;
 }
 
-/** A row's own line: "3× · +12 −3 · 2 min ago", what of it is known. */
-export function fileLine(f: PanelFile, when: string): string {
-  return [f.count > 1 ? `${f.count}×` : '', diffText(f), when].filter(Boolean).join(' · ');
+/** A row's own line: "+12 −3 · 7 edits · 21 min ago", what of it is known. */
+export function fileLine(f: PanelFile, when: string, t: WboStrings): string {
+  return [diffText(f), editsLabel(f, t), when].filter(Boolean).join(' · ');
 }
 
-/** A tool's row: its name, its server, how often, its failures. */
-export function toolLine(r: PanelTool): string {
-  const bits = [r.server ? `${r.server} · ${r.name}` : r.name];
-  if (r.errors) bits.push(`${r.errors} failed`);
+/** A tool's row: its server, how often, its failures. */
+export function toolLine(r: PanelTool, t: WboStrings): string {
+  const bits = [r.server ? `${r.server} · ${r.name}` : r.name, t.callsTimes(r.count)];
+  if (r.errors) bits.push(t.failedTimes(r.errors));
   return bits.join(' · ');
 }
 
-export const TODO_NEXT: Record<PanelTodo['status'], PanelTodo['status']> = {
-  pending: 'in_progress',
-  in_progress: 'completed',
-  completed: 'pending',
-  cancelled: 'pending',
-};
+/** The window, one line: "453k / 1M · 45%" - short, as the web's head line is. */
+export function ctxLine(p: WboPanel): string {
+  const c = p.session.context;
+  if (!c) return '';
+  return `${shortK(c.used)} / ${c.limit ? shortK(c.limit) : '?'} · ${c.pct != null ? `${c.pct}%` : '–'}`;
+}
+
+/** 54_802 as "54.8k", 1_000_000 as "1M": the window's own line, read at a glance rather than to the token
+ *  (the web's shortNum, rooms/claude-sessions.ts). The counts under it keep `kfmt`'s two decimals. */
+export function shortK(n: number): string {
+  if (!(n > 0)) return '0';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1).replace(/\.0$/, '')}M`;
+  if (n >= 100_000) return `${Math.round(n / 1000)}k`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  return String(n);
+}
+
+/** The tone of the window's share: '', 'warn' over 80%, 'bad' over 95%. */
+export function ctxTone(p: WboPanel): '' | 'warn' | 'bad' {
+  const pct = p.session.context?.pct;
+  if (pct == null) return '';
+  return pct >= CTX_DANGER ? 'bad' : pct >= CTX_WARN ? 'warn' : '';
+}
+
+/** What the tooltip carries on the web: the exact numbers, what is left, and that OpenCode compacts a session
+ *  by itself when the window is nearly full (its own threshold is not published, so none is named). */
+export function ctxTip(p: WboPanel, t: WboStrings): string {
+  const c = p.session.context;
+  if (!c) return '';
+  const rows = [`${c.used.toLocaleString('en-US')} / ${c.limit ? c.limit.toLocaleString('en-US') : '?'} ${t.ofItsWindow}`];
+  if (c.pct != null) rows.push(`${c.pct}%`);
+  if (c.limit) rows.push(`${(c.limit - c.used > 0 ? c.limit - c.used : 0).toLocaleString('en-US')} ${t.leftOfWindow}`);
+  if (c.pct != null && c.pct >= CTX_WARN) rows.push(t.compactsItself);
+  if (c.model) rows.push(c.model);
+  return rows.join('\n');
+}
+
+/** 10.05k / 3.4M / 1.05B - the app's own number words. */
+export function kfmt(n: number): string {
+  if (n >= 999.95e6) return `${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e4) return `${(n / 1e3).toFixed(2)}k`;
+  if (n >= 1000) return n.toLocaleString('en-US');
+  return String(Math.round(n));
+}

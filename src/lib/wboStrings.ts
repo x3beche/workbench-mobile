@@ -87,6 +87,24 @@ export interface WboStrings extends WbcStrings {
   updateWbo: string;
   notConnectedShort: string;
   sessions: string;
+  /** What it spent, where the numbers came from, and the window's own line. */
+  editsTimes: (n: number) => string;
+  callsTimes: (n: number) => string;
+  ofItsWindow: string;
+  leftOfWindow: string;
+  compactsItself: string;
+  lastMessages: (n: number) => string;
+  deviceKey: string;
+  connectedShort: string;
+  allFiles: (n: number) => string;
+  thinkingLevel: (v: string) => string;
+  copy: string;
+  copied: string;
+  /** The four numbers of what it spent, worded as the web's column words them. */
+  input: string;
+  output: string;
+  cacheRead: string;
+  cacheWrite: string;
 }
 
 const wen = wbcStrings('en');
@@ -175,6 +193,22 @@ const en: WboStrings = {
   updateWbo: 'Update wb-opencode',
   notConnectedShort: 'not connected',
   sessions: 'Sessions',
+  editsTimes: (n) => `${n} edits`,
+  callsTimes: (n) => `${n} calls`,
+  ofItsWindow: 'of its window',
+  leftOfWindow: 'left',
+  compactsItself: 'OpenCode compacts a session by itself when the window is nearly full',
+  lastMessages: (n) => `The last ${n} messages: the session's own total is not kept for this one.`,
+  deviceKey: 'device key',
+  connectedShort: 'connected',
+  allFiles: (n) => `All ${n} files`,
+  thinkingLevel: (v) => `thinking: ${v}`,
+  copy: 'Copy',
+  copied: 'Copied',
+  input: 'Input',
+  output: 'Output',
+  cacheRead: 'Cache read',
+  cacheWrite: 'Cache write',
   run: {
     details: 'Details',
     sent: 'Sent',
@@ -287,6 +321,22 @@ const tr: WboStrings = {
   updateWbo: "wb-opencode'u güncelleyin",
   notConnectedShort: 'bağlı değil',
   sessions: 'Oturumlar',
+  editsTimes: (n) => `${n} düzenleme`,
+  callsTimes: (n) => `${n} çağrı`,
+  ofItsWindow: 'penceresinin',
+  leftOfWindow: 'kaldı',
+  compactsItself: 'OpenCode pencere dolmak üzereyken oturumu kendi sıkıştırır (compaction)',
+  lastMessages: (n) => `Son ${n} mesaj: bu oturumun kendi toplamı saklanmamış.`,
+  deviceKey: 'cihaz anahtarı',
+  connectedShort: 'bağlı',
+  allFiles: (n) => `${n} dosyanın tümü`,
+  thinkingLevel: (v) => `düşünme: ${v}`,
+  copy: 'Kopyala',
+  copied: 'Kopyalandı',
+  input: 'Girdi',
+  output: 'Çıkış',
+  cacheRead: 'Cache okuma',
+  cacheWrite: 'Cache yazma',
   // The web app's i18n.ts, in Turkish, for the stats under an answer.
   run: {
     details: 'Ayrıntılar',

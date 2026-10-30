@@ -940,7 +940,21 @@ export interface WboPanel {
   todos: { items: PanelTodo[]; done: number; total: number; at: number | null } | null;
   files: { items: PanelFile[]; more: number } | null;
   tools: { items: PanelTool[]; more: number } | null;
-  tokens: { input: number; output: number; cache_read: number; cache_write: number; cost: number | null };
+  /** What it spent: the session's own total over its whole life (`source: 'session'`), or - for a session
+   *  stored before that was kept - the messages that are here, which `messages` counts. The caches are only
+   *  there when they are known. */
+  tokens: {
+    input: number;
+    output: number;
+    cost: number | null;
+    cache_read?: number;
+    cache_write?: number;
+    source: 'session' | 'messages';
+    messages: number;
+  };
+  /** How many messages the column was worked out from, and whether that is all of them. */
+  messages: number;
+  complete: boolean;
   pending: WboAsk[];
   may_answer: boolean;
   why: string;

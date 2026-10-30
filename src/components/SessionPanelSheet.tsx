@@ -1,28 +1,39 @@
 /**
  * Mount it to open it. One OpenCode session's column, as the web app's right-hand column draws it
- * (rooms/session-panel.ts; backend/wb_panel.py): the model and its window, what it spent, the computer it runs
- * on, its todo list, the files it changed, what it is waiting for and the tools it used.
+ * (rooms/session-panel.ts; backend/wb_panel.py): what it is waiting for, its todo list, the files it changed,
+ * the model and its window, the computer it runs on and the tools it used - in that order, the things that
+ * need a person first.
  *
  * The same rules as the web: a section with nothing in it is not drawn, a section's fold is the person's (kept
  * on the server, /api/me/side `panel`, so it is the same on the phone and in the browser), a file or a tool row
  * scrolls the conversation to the call it happened in, and a permission is answered from here (once / always /
- * reject) - a question's own form is answered in the conversation, where the fields are.
+ * reject) - a question's own form is answered in the conversation, where the fields are. The head's number sits
+ * at the same place on every row, and a folded tools head says which tools did the work rather than how many
+ * calls there were.
  */
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type WorkbenchClient } from '../api/client';
 import type { PanelFile, PanelTool, WboAsk, WboPanel } from '../api/types';
 import {
+  baseName,
+  ctxLine,
+  ctxTip,
+  ctxTone,
+  dirName,
+  FILES_SHOWN,
   fileLine,
+  kfmt,
   panelSections,
-  shortPath,
   stateWord,
   toolLine,
+  workedFor,
   type PanelSectionId,
 } from '../lib/wboPanel';
 import type { WboStrings } from '../lib/wboStrings';
+import { copy as copyToClipboard } from '../lib/feel';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
 import { TallSheet } from './TallSheet';
 import { Activity, Check, ChevronDown, ChevronRight, Square, X } from './icons';
@@ -37,6 +48,7 @@ export function SessionPanelSheet({
   onClose,
   onJump,
   onAnswer,
+  onModel,
   when,
 }: {
   client: WorkbenchClient | null;
@@ -47,16 +59,22 @@ export function SessionPanelSheet({
   onJump: (message: string) => void;
   /** A permission answered here; the caller sends it and refreshes. */
   onAnswer: (a: WboAsk, decision: 'once' | 'always' | 'reject') => void;
+  /** The model's row was tapped: the composer's own picker, the one the app already has. */
+  onModel: () => void;
   /** "12 min ago" for a row's own time, in the page's language. */
   when: (at: number | null) => string;
 }) {
   const [panel, setPanel] = useState<WboPanel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [folds, setFolds] = useState<Record<string, boolean>>({});
+  const [allFiles, setAllFiles] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setPanel(null);
     setError(null);
+    setAllFiles(false);
     if (client) {
       client
         .side()
@@ -75,6 +93,7 @@ export function SessionPanelSheet({
           if (!live) return;
           setPanel(got);
           setError(null);
+          setNow(Date.now());
         },
         (e) => live && setError(e instanceof ApiError ? e.message : t.columnFailed),
       );
@@ -93,59 +112,91 @@ export function SessionPanelSheet({
   };
   const isOpen = (id: PanelSectionId) => folds[id] !== false;
 
-  const sections = panelSections(panel, t);
+  // the state, once: under the sheet's own title, where the web's column head keeps it
+  const state = panel
+    ? panel.session.status === 'busy'
+      ? `${t.working} ${workedFor(panel.session.since, now)}`
+      : stateWord(panel, t)
+    : '';
+  const sub = [panel?.session.title || t.session, state].filter(Boolean).join(' · ');
+  const sections = panelSections(panel, t, folds);
   const mayAnswer = panel?.may_answer === true;
+  const copy = (v: string) => {
+    void copyToClipboard(v);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+    return v;
+  };
 
   return (
-    <TallSheet title={t.columnTitle} sub={panel?.session.title || t.session} closeLabel={t.close} onClose={onClose} testID="wbo-panel">
+    <TallSheet
+      title={t.columnTitle}
+      sub={sub}
+      closeLabel={t.close}
+      onClose={onClose}
+      testID="wbo-panel"
+    >
       {error ? <ErrorText>{error}</ErrorText> : null}
       {!panel && !error ? (
         <View style={s.center}>
           <ActivityIndicator color={colors.inkDim} accessibilityLabel={t.readingColumn} />
         </View>
       ) : null}
-      <SafeAreaView edges={['bottom', 'left', 'right']} style={s.wrap}>
-        {sections.map((sec) => (
-          <View key={sec.id} style={s.sec}>
-            <Pressable
-              onPress={() => flip(sec.id)}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isOpen(sec.id) }}
-              style={s.head}
-              testID={`wbo-sec-${sec.id}`}
-            >
-              <Glyph icon={isOpen(sec.id) ? ChevronDown : ChevronRight} size={13} color={colors.inkDim} />
-              <Text style={[s.headText, sec.warn ? s.warn : null]} numberOfLines={1}>
-                {sec.label}
-              </Text>
-              {sec.count ? (
-                <Text style={[s.count, sec.warn ? s.warn : null]} numberOfLines={1} testID={`wbo-count-${sec.id}`}>
-                  {sec.count}
+      <ScrollView contentContainerStyle={s.scroll} testID="wbo-panel-scroll">
+        <SafeAreaView edges={['left', 'right']} style={s.wrap}>
+          {sections.map((sec) => (
+            <View key={sec.id} style={s.sec}>
+              <Pressable
+                onPress={() => flip(sec.id)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: isOpen(sec.id) }}
+                style={s.head}
+                testID={`wbo-sec-${sec.id}`}
+              >
+                <Glyph icon={isOpen(sec.id) ? ChevronDown : ChevronRight} size={13} color={colors.inkDim} />
+                <Text style={[s.headText, sec.warn ? s.warn : null]} numberOfLines={1}>
+                  {sec.label}
                 </Text>
-              ) : null}
-            </Pressable>
-            {isOpen(sec.id) && panel ? (
-              <View style={s.body}>
-                {sec.id === 'model' ? <ModelBody panel={panel} t={t} /> : null}
-                {sec.id === 'computer' ? <ComputerBody panel={panel} t={t} /> : null}
-                {sec.id === 'todos' ? <TodosBody panel={panel} t={t} /> : null}
-                {sec.id === 'files' ? <FilesBody panel={panel} t={t} when={when} onJump={onJump} /> : null}
-                {sec.id === 'pending' ? (
-                  <PendingBody panel={panel} t={t} mayAnswer={mayAnswer} onAnswer={onAnswer} onJump={onJump} />
+                {sec.count ? (
+                  <Text style={[s.count, sec.warn ? s.warn : null]} numberOfLines={1} testID={`wbo-count-${sec.id}`}>
+                    {sec.count}
+                  </Text>
                 ) : null}
-                {sec.id === 'tools' ? <ToolsBody panel={panel} t={t} onJump={onJump} /> : null}
-              </View>
-            ) : null}
-          </View>
-        ))}
-      </SafeAreaView>
+              </Pressable>
+              {isOpen(sec.id) && panel ? (
+                <View style={s.body}>
+                  {sec.id === 'pending' ? (
+                    <PendingBody panel={panel} t={t} mayAnswer={mayAnswer} onAnswer={onAnswer} onJump={onJump} />
+                  ) : null}
+                  {sec.id === 'todos' ? <TodosBody panel={panel} /> : null}
+                  {sec.id === 'files' ? (
+                    <FilesBody
+                      panel={panel}
+                      t={t}
+                      when={when}
+                      all={allFiles}
+                      onAll={() => setAllFiles(true)}
+                      onJump={onJump}
+                    />
+                  ) : null}
+                  {sec.id === 'model' ? (
+                    <ModelBody panel={panel} t={t} now={now} onModel={onModel} copied={copied} />
+                  ) : null}
+                  {sec.id === 'computer' ? <ComputerBody panel={panel} t={t} onCopy={copy} copied={copied} /> : null}
+                  {sec.id === 'tools' ? <ToolsBody panel={panel} t={t} onJump={onJump} /> : null}
+                </View>
+              ) : null}
+            </View>
+          ))}
+        </SafeAreaView>
+      </ScrollView>
     </TallSheet>
   );
 }
 
-function kv(k: string, v: string) {
+function Row({ k, v }: { k: string; v: string }) {
   return (
-    <View key={k} style={s.kv}>
+    <View style={s.kv}>
       <Text style={s.kvKey} numberOfLines={1}>
         {k}
       </Text>
@@ -156,74 +207,111 @@ function kv(k: string, v: string) {
   );
 }
 
-function ModelBody({ panel, t }: { panel: WboPanel; t: WboStrings }) {
+function ModelBody({
+  panel,
+  t,
+  now,
+  onModel,
+  copied,
+}: {
+  panel: WboPanel;
+  t: WboStrings;
+  now: number;
+  onModel: () => void;
+  copied: boolean;
+}) {
+  void copied;
   const m = panel.session.model;
   const c = panel.session.context;
   const pct = c?.pct ?? null;
+  const sub = [m?.providerName || m?.providerID || '', m?.variant ? t.thinkingLevel(m.variant) : '']
+    .filter(Boolean)
+    .join(' · ');
+  const tone = ctxTone(panel);
   return (
     <View>
-      <Text style={s.model} numberOfLines={1} testID="wbo-panel-model">
-        {m?.name || m?.modelID || t.model}
-        {m?.providerName ? <Text style={s.dim}>{` · ${m.providerName}`}</Text> : null}
-        {m?.variant ? <Text style={s.dim}>{` · ${m.variant}`}</Text> : null}
-      </Text>
+      <Pressable onPress={onModel} accessibilityRole="button" accessibilityHint={t.pickModel} testID="wbo-panel-modelrow">
+        <Text style={s.model} numberOfLines={2} testID="wbo-panel-model">
+          {m?.name || m?.modelID || t.model}
+        </Text>
+        {sub ? (
+          <Text style={s.sub} numberOfLines={1}>
+            {sub}
+          </Text>
+        ) : null}
+      </Pressable>
       {c ? (
-        <View style={s.ctxWrap}>
-          <View style={s.ctxRow}>
-            <Text style={[s.ctx, pct != null && pct >= 80 ? s.warn : null]} testID="wbo-panel-context">
-              {`${kfmt(c.used)} / ${c.limit ? kfmt(c.limit) : '?'}`}
-            </Text>
-            {pct != null ? <Text style={[s.ctxPct, pct >= 80 ? s.warn : null]}>{`${pct}%`}</Text> : null}
-          </View>
+        <View style={s.ctxWrap} accessible accessibilityLabel={ctxTip(panel, t)} testID="wbo-panel-context">
+          <Text style={[s.ctx, tone === 'warn' ? s.warn : tone === 'bad' ? s.bad : null]} numberOfLines={1}>
+            {ctxLine(panel)}
+          </Text>
           <View style={s.bar}>
-            <View style={[s.barFill, pct != null && pct >= 80 ? s.barWarn : null, { width: `${pct ?? 0}%` }]} />
+            <View
+              style={[s.barFill, tone === 'warn' ? s.barWarn : tone === 'bad' ? s.barBad : null, { width: `${pct ?? 0}%` }]}
+            />
           </View>
         </View>
       ) : null}
-      {kv(t.run.tokensIn, kfmt(panel.tokens.input))}
-      {kv(t.run.tokensOut, kfmt(panel.tokens.output))}
-      {panel.tokens.cache_read ? kv(t.run.fromCache, kfmt(panel.tokens.cache_read)) : null}
-      {panel.tokens.cache_write ? kv(t.run.writtenToCache, kfmt(panel.tokens.cache_write)) : null}
-      {panel.tokens.cost != null ? kv(t.run.cost, `$${panel.tokens.cost.toFixed(2)}`) : null}
-      <Text style={s.state} testID="wbo-panel-state">
-        {stateWord(panel, t)}
-      </Text>
+      <View style={s.grid}>
+        <Row k={t.input} v={kfmt(panel.tokens.input)} />
+        <Row k={t.output} v={kfmt(panel.tokens.output)} />
+        {panel.tokens.cache_read != null ? <Row k={t.cacheRead} v={kfmt(panel.tokens.cache_read)} /> : null}
+        {panel.tokens.cache_write != null ? <Row k={t.cacheWrite} v={kfmt(panel.tokens.cache_write)} /> : null}
+      </View>
+      <View style={s.cost}>
+        <Text style={s.kvKey}>{t.run.cost}</Text>
+        <Text style={s.kvVal}>{panel.tokens.cost != null ? `$${panel.tokens.cost.toFixed(2)}` : '–'}</Text>
+      </View>
+      {panel.tokens.source === 'messages' ? <Text style={s.dim}>{t.lastMessages(panel.tokens.messages)}</Text> : null}
     </View>
   );
 }
 
-function ComputerBody({ panel, t }: { panel: WboPanel; t: WboStrings }) {
+function ComputerBody({
+  panel,
+  t,
+  onCopy,
+  copied,
+}: {
+  panel: WboPanel;
+  t: WboStrings;
+  onCopy: (v: string) => string;
+  copied: boolean;
+}) {
   const c = panel.session.computer;
   if (!c) return null;
   return (
     <View>
       <Text style={s.model} numberOfLines={1}>
-        {c.name || c.host || t.opencode}
+        {c.host || c.name || t.opencode}
+        <Text style={s.dim}>{` · ${c.connected ? t.connectedShort : t.notConnectedShort}`}</Text>
       </Text>
-      <Text style={s.dim} numberOfLines={1}>
-        {c.connected ? c.host : t.notConnectedShort}
-      </Text>
+      {c.name && c.name !== c.host ? (
+        <Text style={s.dim} numberOfLines={1}>
+          {`${t.deviceKey}: ${c.name}`}
+        </Text>
+      ) : null}
       <Text style={s.dim} numberOfLines={1}>
         {`wb-opencode ${c.version || '?'}`}
       </Text>
       {c.outdated && !c.self_updates ? <Text style={s.warn}>{t.updateWboLong}</Text> : null}
       {c.cwd ? (
-        <Text style={s.cwd} numberOfLines={1}>
-          {c.cwd}
-        </Text>
+        <Pressable onPress={() => onCopy(c.cwd)} accessibilityRole="button" accessibilityHint={t.copy} testID="wbo-panel-cwd">
+          <Text style={s.cwd} numberOfLines={2}>
+            {c.cwd}
+          </Text>
+          <Text style={s.dim} numberOfLines={1}>
+            {copied ? t.copied : t.copy}
+          </Text>
+        </Pressable>
       ) : null}
     </View>
   );
 }
 
-const TODO_ICON = {
-  pending: Square,
-  in_progress: Activity,
-  completed: Check,
-  cancelled: X,
-} as const;
+const TODO_ICON = { pending: Square, in_progress: Activity, completed: Check, cancelled: X } as const;
 
-function TodosBody({ panel, t }: { panel: WboPanel; t: WboStrings }) {
+function TodosBody({ panel }: { panel: WboPanel }) {
   const rows = panel.todos?.items ?? [];
   return (
     <View>
@@ -242,7 +330,6 @@ function TodosBody({ panel, t }: { panel: WboPanel; t: WboStrings }) {
           </View>
         );
       })}
-      {panel.todos ? <Text style={s.dim}>{t.doneOf(panel.todos.done, panel.todos.total)}</Text> : null}
     </View>
   );
 }
@@ -251,34 +338,57 @@ function FilesBody({
   panel,
   t,
   when,
+  all,
+  onAll,
   onJump,
 }: {
   panel: WboPanel;
   t: WboStrings;
   when: (at: number | null) => string;
+  all: boolean;
+  onAll: () => void;
   onJump: (message: string) => void;
 }) {
-  const rows: PanelFile[] = panel.files?.items ?? [];
+  const everything: PanelFile[] = panel.files?.items ?? [];
+  const rows = all ? everything : everything.slice(0, FILES_SHOWN);
+  let lastWhen = '';
   return (
     <View>
-      {rows.map((f) => (
-        <Pressable
-          key={f.path}
-          onPress={() => onJump(f.message)}
-          accessibilityRole="button"
-          accessibilityHint={t.showInConversation}
-          style={s.row}
-          testID="wbo-panel-file"
-        >
-          <Text style={[s.rowText, f.error ? s.warn : null]} numberOfLines={1}>
-            {shortPath(f.path)}
-          </Text>
-          <Text style={s.rowMeta} numberOfLines={1}>
-            {fileLine(f, when(f.at))}
-          </Text>
+      {rows.map((f) => {
+        const at = when(f.at);
+        const showAt = at && at !== lastWhen ? at : '';
+        lastWhen = at || lastWhen;
+        return (
+          <Pressable
+            key={f.path}
+            onPress={() => onJump(f.message)}
+            accessibilityRole="button"
+            accessibilityHint={t.showInConversation}
+            style={s.row}
+            testID="wbo-panel-file"
+          >
+            <View style={s.filecol}>
+              <Text style={s.rowText} numberOfLines={1}>
+                {baseName(f.path)}
+              </Text>
+              {dirName(f.path) ? (
+                <Text style={s.dir} numberOfLines={1} ellipsizeMode="head">
+                  {dirName(f.path)}
+                </Text>
+              ) : null}
+            </View>
+            <Text style={s.rowMeta} numberOfLines={1}>
+              {fileLine(f, showAt, t)}
+            </Text>
+            {f.error ? <Text style={s.warn}>⚠</Text> : null}
+          </Pressable>
+        );
+      })}
+      {everything.length > FILES_SHOWN && !all ? (
+        <Pressable onPress={onAll} accessibilityRole="button" testID="wbo-panel-allfiles">
+          <Text style={s.link}>{t.allFiles(everything.length)}</Text>
         </Pressable>
-      ))}
-      {panel.files?.more ? <Text style={s.dim}>{t.moreFiles(panel.files.more)}</Text> : null}
+      ) : null}
     </View>
   );
 }
@@ -351,13 +461,14 @@ function ToolsBody({
           accessibilityRole="button"
           accessibilityHint={t.showInConversation}
           style={s.row}
+          accessibilityLabel={toolLine(r, t)}
           testID="wbo-panel-tool"
         >
           <Text style={s.rowText} numberOfLines={1}>
             {r.name}
           </Text>
           <Text style={[s.rowMeta, r.errors ? s.warn : null]} numberOfLines={1}>
-            {r.errors ? toolLine(r) + ' · ' + t.failedTimes(r.errors) : String(r.count)}
+            {r.errors ? `${r.count} · ⚠${r.errors}` : String(r.count)}
           </Text>
         </Pressable>
       ))}
@@ -366,54 +477,52 @@ function ToolsBody({
   );
 }
 
-function kfmt(n: number): string {
-  if (n >= 999.95e6) return `${(n / 1e9).toFixed(2)}B`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e4) return `${(n / 1e3).toFixed(2)}k`;
-  if (n >= 1000) return n.toLocaleString('en-US');
-  return String(Math.round(n));
-}
-
 const s = StyleSheet.create({
-  wrap: { paddingHorizontal: gutter, paddingBottom: space.xl },
+  scroll: { paddingBottom: space.xl },
+  wrap: { paddingHorizontal: gutter },
   center: { paddingVertical: space.xl, alignItems: 'center' },
   sec: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
-  head: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    minHeight: touch,
-    paddingVertical: space.sm,
-  },
+  head: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: touch, paddingVertical: space.xs },
   headText: { flex: 1, fontFamily: fonts.sansSemi, fontSize: type.small, color: colors.ink, letterSpacing: 0.3 },
-  count: { fontFamily: fonts.mono, fontSize: type.small, color: colors.inkDim },
+  count: { maxWidth: '64%', fontFamily: fonts.mono, fontSize: type.small, color: colors.inkDim, textAlign: 'right' },
   body: { paddingBottom: space.md, gap: space.xs },
-  model: { fontFamily: fonts.sansSemi, fontSize: type.body, color: colors.inkBright, marginBottom: space.xs },
+  model: { fontFamily: fonts.sansSemi, fontSize: type.body, color: colors.inkBright, lineHeight: 21 },
+  sub: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim, marginBottom: space.xs },
   dim: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
   warn: { color: colors.warn },
-  state: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim, marginTop: space.sm },
+  bad: { color: colors.danger },
   ctxWrap: { marginVertical: space.sm },
-  ctxRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.xs },
   ctx: { fontFamily: fonts.mono, fontSize: type.small, color: colors.ink },
-  ctxPct: { marginLeft: 'auto', fontFamily: fonts.mono, fontSize: type.small, color: colors.inkDim },
-  bar: { height: 3, borderRadius: radius.round, backgroundColor: colors.line, marginTop: 4, overflow: 'hidden' },
+  bar: { height: 3, borderRadius: 2, backgroundColor: colors.line, marginTop: 4, overflow: 'hidden' },
   barFill: { height: 3, backgroundColor: colors.inkDim },
   barWarn: { backgroundColor: colors.warn },
-  kv: { flexDirection: 'row', alignItems: 'baseline', paddingVertical: 1 },
-  kvKey: { flex: 1, fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
-  kvVal: { fontFamily: fonts.mono, fontSize: type.small, color: colors.ink },
-  cwd: { fontFamily: fonts.mono, fontSize: type.tiny ?? type.small, color: colors.inkDim, marginTop: 2 },
+  barBad: { backgroundColor: colors.danger },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  kv: { flexDirection: 'row', alignItems: 'baseline', width: '48%', paddingVertical: 1 },
+  kvKey: { flex: 1, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  kvVal: { fontFamily: fonts.mono, fontSize: type.tiny, color: colors.ink },
+  cost: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    marginTop: space.xs,
+    paddingTop: space.xs,
+  },
+  cwd: { fontFamily: fonts.mono, fontSize: type.tiny, color: colors.inkDim, marginTop: 2 },
   todo: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm, paddingVertical: 3 },
   todoText: { flex: 1, fontFamily: fonts.sans, fontSize: type.small, color: colors.ink },
   todoDone: { color: colors.inkDim, textDecorationLine: 'line-through' },
-  row: { paddingVertical: space.sm, flexDirection: 'row', alignItems: 'baseline', gap: space.sm },
-  rowText: { flex: 1, fontFamily: fonts.mono, fontSize: type.small, color: colors.ink },
-  rowMeta: { fontFamily: fonts.mono, fontSize: type.small, color: colors.inkDim },
+  row: { paddingVertical: space.xs, flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  filecol: { flex: 1, minWidth: 0 },
+  rowText: { flex: 1, fontFamily: fonts.sans, fontSize: type.small, color: colors.ink },
+  dir: { fontFamily: fonts.sans, fontSize: type.micro, color: colors.inkDim, marginTop: 1 },
+  rowMeta: { maxWidth: '52%', fontFamily: fonts.mono, fontSize: type.micro, color: colors.inkDim, textAlign: 'right' },
   ask: { paddingVertical: space.sm, gap: space.xs },
   askHead: { fontFamily: fonts.sansSemi, fontSize: type.small, color: colors.ink },
   res: {
     fontFamily: fonts.mono,
-    fontSize: type.small,
+    fontSize: type.micro,
     color: colors.ink,
     backgroundColor: colors.surface,
     borderRadius: radius.sm,
@@ -422,5 +531,5 @@ const s = StyleSheet.create({
   },
   acts: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.xs },
   jump: { paddingTop: space.xs },
-  link: { fontFamily: fonts.sans, fontSize: type.small, color: colors.accent },
+  link: { fontFamily: fonts.sans, fontSize: type.small, color: colors.accent, paddingVertical: space.xs },
 });

@@ -852,6 +852,10 @@ export function OpencodeSessionScreen({
           onClose={() => setColumn(false)}
           onJump={jumpTo}
           onAnswer={(a, decision) => void answer(a, { decision })}
+          onModel={() => {
+            setColumn(false);
+            setModelSheet(true);
+          }}
           when={(at) => (at ? ago(new Date(at).toISOString(), new Date(), uiLang(lang)) : '')}
         />
       ) : null}

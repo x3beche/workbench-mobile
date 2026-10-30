@@ -165,16 +165,25 @@ async function open(p: WboPanel) {
   it('opens from the "i" beside the title, with every section it has something to say in', async () => {
     const client = await open(panel());
     expect(client.wboPanel).toHaveBeenCalledWith(SID);
-    for (const id of ['model', 'computer', 'todos', 'files', 'pending', 'tools']) {
-      expect(screen.getByTestId(`wbo-sec-${id}`)).toBeTruthy();
-    }
+    // the order the column draws them in: what needs a person first
+    const order = [...['pending', 'todos', 'files', 'model', 'computer', 'tools']];
+    const seen = screen.getAllByTestId(/^wbo-sec-/).map((n) => String(n.props.testID).replace('wbo-sec-', ''));
+    expect(seen).toEqual(order);
     // the head's own numbers: what waits, how many files, how many tool calls
     expect(screen.getByTestId('wbo-count-todos')).toHaveTextContent('1/2');
     expect(screen.getByTestId('wbo-count-files')).toHaveTextContent('1');
     expect(screen.getByTestId('wbo-count-pending')).toHaveTextContent('1');
     expect(screen.getByTestId('wbo-count-tools')).toHaveTextContent('23');
-    expect(screen.getByTestId('wbo-panel-model')).toHaveTextContent('Qwen3.8 Flash · Command Code · low');
-    expect(screen.getByTestId('wbo-panel-context')).toHaveTextContent('500.00k / 1.0M');
+    expect(screen.getByTestId('wbo-panel-model')).toHaveTextContent('Qwen3.8 Flash');
+    expect(screen.getByText('Command Code · thinking: low')).toBeTruthy();
+    expect(screen.getByTestId('wbo-panel-context')).toHaveTextContent('500k / 1M · 50%');
+    // what it spent: the two tight columns the web has, caches included, the cost under them
+    expect(screen.getByText('3.1M')).toBeTruthy();
+    expect(screen.getByText('180.1M')).toBeTruthy();
+    expect(screen.getByText('$0.30')).toBeTruthy();
+    // the state is under the sheet's title, once - never a line under the cost
+    expect(screen.getByText('Rail sag · idle')).toBeTruthy();
+    expect(screen.queryByText(/^idle$/i)).toBeNull();
   });
 
   it('draws no section that has nothing in it', async () => {
@@ -198,6 +207,17 @@ async function open(p: WboPanel) {
     await act(async () => undefined);
     expect(client.sidePanel).toHaveBeenLastCalledWith('files', true);
     expect(screen.getByTestId('wbo-panel-file')).toBeTruthy();
+  });
+
+  it('says the tools by name in a folded head, and how many calls when it is open', async () => {
+    const client = await open(panel());
+    await fireEvent.press(screen.getByTestId('wbo-sec-tools'));
+    await act(async () => undefined);
+    expect(screen.getByTestId('wbo-count-tools')).toHaveTextContent('⚠1 shell 23');
+    await fireEvent.press(screen.getByTestId('wbo-sec-tools'));
+    await act(async () => undefined);
+    expect(screen.getByTestId('wbo-count-tools')).toHaveTextContent('23');
+    expect(client.sidePanel).toHaveBeenCalled();
   });
 
   it('answers a permission from the sheet', async () => {
