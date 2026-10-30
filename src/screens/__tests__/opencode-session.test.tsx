@@ -215,11 +215,47 @@ async function show(d: WboDetail, t = en) {
     // What the answer did is behind one line, not a row per tool call.
     expect(screen.getByText('1 tool call · thinking 22 chars')).toBeTruthy();
     expect(screen.queryByText('read · power.kicad_sch')).toBeNull();
-    // No model over the answer, no name over the person's line, no figures under it.
-    expect(screen.queryByText('deepseek-v4')).toBeNull();
+    // The answer displays which model gave it.
+    expect(screen.getByText('deepseek-v4')).toBeTruthy();
     expect(screen.queryByText('On the computer')).toBeNull();
     expect(screen.queryByText(/tok\/s/)).toBeNull();
     expect(screen.getByTestId('wbo-composer')).toBeTruthy();
+  });
+
+  it('opens model picker sheet and picks a model', async () => {
+    const s = detail({
+      models: [
+        { providerID: 'workbench', providerName: 'Workbench', modelID: 'm-1', name: 'Model 1', context: 1000000, output: 384000, vision: true, variants: [] },
+      ],
+    });
+    const { client } = await show(s);
+    client.wboSelectModel = jest.fn(async () => ({ ok: true, selected_model: { providerID: 'workbench', modelID: 'm-1', name: 'Model 1' } }));
+    expect(screen.getByTestId('wbo-model-picker')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('wbo-model-picker'));
+    expect(screen.getByText('Model 1')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Model 1'));
+    expect(client.wboSelectModel).toHaveBeenCalledWith(SID, { providerID: 'workbench', modelID: 'm-1', variant: undefined });
+  });
+
+  it('shows model picker disabled with notice when bridge is not connected', async () => {
+    const s = detail({
+      bridge: { ...row().bridge!, connected: false },
+    });
+    await show(s);
+    expect(screen.getByTestId('wbo-model-picker')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('wbo-model-picker'));
+    expect(screen.getByText('The computer is not connected')).toBeTruthy();
+  });
+
+  it('draws a system line when model is switched', async () => {
+    const s = detail({
+      messages: [
+        { id: 'msg_1', role: 'user', time: 1000, parts: [{ id: 't0', type: 'text', text: 'hi' }] },
+        { id: 'msg_sw', role: 'system', type: 'model-switched', time: 1500, model: { modelID: 'm-new', name: 'Model New', providerID: 'p' }, previous: { modelID: 'm-old', name: 'Model Old', providerID: 'p' }, by: 'chat', parts: [] },
+      ],
+    });
+    await show(s);
+    expect(screen.getByTestId('wbo-system-row')).toHaveTextContent('Model changed: Model Old → Model New (from Chat)');
   });
 
   it('sends a picture from the phone as the bytes on disk say it is, and says when the picker fails', async () => {

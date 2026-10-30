@@ -50,6 +50,18 @@ export interface WboStrings extends WbcStrings {
   /** The button under a read that failed. */
   retry: string;
   earlier: string;
+  model: string;
+  pickModel: string;
+  noModels: string;
+  modelSwitched: (from: string, to: string, who: string) => string;
+  fromChat: string;
+  onComp: string;
+  initial: string;
+  notConnectedComp: string;
+  remoteOffComp: string;
+  updateWboModels: string;
+  onlyOwnerCanChoose: string;
+  appliesNextMessage: string;
   /** The stats under an answer: its line and the card it opens (lib/runStats.ts). */
   run: RunWords;
 }
@@ -106,6 +118,18 @@ const en: WboStrings = {
   readingOlderMsgs: 'Reading earlier messages',
   retry: 'Try again',
   earlier: 'Show earlier',
+  model: 'Model',
+  pickModel: 'Pick a model',
+  noModels: 'No model matches.',
+  modelSwitched: (from, to, who) => `Model changed: ${from} → ${to} (${who})`,
+  fromChat: 'from Chat',
+  onComp: 'on the computer',
+  initial: 'initial',
+  notConnectedComp: 'The computer is not connected',
+  remoteOffComp: 'Remote messages are off on that computer (--no-remote)',
+  updateWboModels: 'Update wb-opencode on that computer (at least 0.2.8)',
+  onlyOwnerCanChoose: 'Only the owner of this session can choose its model',
+  appliesNextMessage: 'applies from the next message',
   run: {
     details: 'Details',
     sent: 'Sent',
@@ -184,6 +208,18 @@ const tr: WboStrings = {
   readingOlderMsgs: 'Önceki mesajlar okunuyor',
   retry: 'Yeniden dene',
   earlier: 'Öncekileri göster',
+  model: 'Model',
+  pickModel: 'Model seçin',
+  noModels: 'Eşleşen model yok.',
+  modelSwitched: (from, to, who) => `Model değişti: ${from} → ${to} (${who})`,
+  fromChat: "Chat'ten",
+  onComp: 'Bilgisayardan',
+  initial: 'başlangıç',
+  notConnectedComp: 'Bilgisayar bağlı değil',
+  remoteOffComp: 'Uzaktan mesaj kapalı (--no-remote)',
+  updateWboModels: "wb-opencode'u güncelleyin (en az 0.2.8)",
+  onlyOwnerCanChoose: 'Sadece oturumun sahibi model seçebilir',
+  appliesNextMessage: 'sıradaki mesajdan itibaren geçerli',
   // The web app's i18n.ts, in Turkish, for the stats under an answer.
   run: {
     details: 'Ayrıntılar',

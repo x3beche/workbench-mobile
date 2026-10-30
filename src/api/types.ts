@@ -435,7 +435,7 @@ export interface LlmUsage {
 
 /** GET /api/cc/tools-usage?span=month: the Chat's tools, by day. */
 export interface ToolsUsage {
-  tools: Record<string, { uses: number; done: number; week: number; week_done?: number }>;
+  tools: Record<string, { uses: number; done: number; week: number; week_done?: number; month?: number; month_done?: number }>;
   mine: number;
   days: { day: string; by: Record<string, number> }[];
   span?: string;
@@ -458,7 +458,7 @@ export interface CcToolInfo {
 
 /** One outside source's tool calls: each tool's total and week, and each bucket by tool. */
 export interface ExtToolUses {
-  tools: Record<string, { uses: number; week: number }>;
+  tools: Record<string, { uses: number; week: number; month?: number }>;
   days: Record<string, Record<string, number>>;
 }
 
@@ -688,6 +688,25 @@ export interface WbcTurnsPage {
 // ---- OpenCode sessions (backend/wbopencode.py: /api/wbo/*) ---------------------
 
 /** The wb-opencode run on the person's computer that holds a session. Times in seconds. */
+export interface WboModel {
+  providerID: string;
+  providerName: string;
+  modelID: string;
+  name: string;
+  context: number | null;
+  output: number | null;
+  vision: boolean;
+  variants: string[];
+}
+
+export interface WboSelectedModel {
+  providerID: string;
+  providerName?: string;
+  modelID: string;
+  name?: string;
+  variant?: string | null;
+}
+
 export interface WboBridge {
   id: string;
   connected: boolean;
@@ -707,6 +726,10 @@ export interface WboBridge {
   latest?: string;
   /** It hands answers to OpenCode (0.2.0 and newer): what OpenCode asks can be answered from here. */
   answers?: boolean;
+  /** Whether the bridge supports choosing models from Chat (0.2.8 and newer). */
+  models_supported?: boolean;
+  /** The models available to OpenCode on that computer. */
+  models?: WboModel[] | null;
 }
 
 /** One of one's own OpenCode sessions (GET /api/wbo/sessions). `updated` in milliseconds. */
@@ -727,6 +750,9 @@ export interface WboSession {
   mine: boolean;
   owner: { id: string | null; name: string };
   bridge: WboBridge | null;
+  selected_model?: WboSelectedModel | null;
+  model?: WboSelectedModel | string | null;
+  models?: WboModel[];
   may_send: boolean;
   why: string;
 }
@@ -749,11 +775,14 @@ export interface WboPart {
 /** One OpenCode message (a person's line, or one step of its answer). Times in milliseconds. */
 export interface WboMsg {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   agent?: string | null;
   model?: string | null;
   /** The model's provider as OpenCode names it ("workbench", "opencode"...). */
   provider?: string | null;
+  type?: string;
+  previous?: WboSelectedModel | null;
+  by?: string;
   time: number | null;
   /** When its first token (thinking or text) came. */
   first?: number | null;

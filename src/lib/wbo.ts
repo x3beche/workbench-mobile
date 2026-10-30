@@ -79,6 +79,7 @@ export type TurnItem =
 
 export type Turn =
   | { kind: 'user'; id: string; msg: WboMsg }
+  | { kind: 'system'; id: string; msg: WboMsg }
   | {
       kind: 'assistant';
       id: string;
@@ -124,6 +125,10 @@ export function buildTurns(msgs: WboMsg[], asks: WboAsk[] = []): Turn[] {
     const last = out[out.length - 1];
     if (m.role === 'user') {
       out.push({ kind: 'user', id: m.id, msg: m });
+      continue;
+    }
+    if (m.role === 'system' || m.type === 'model-switched') {
+      out.push({ kind: 'system', id: m.id, msg: m });
       continue;
     }
     let tn = last?.kind === 'assistant' ? last : null;
@@ -287,7 +292,7 @@ export function pendingSends(sends: WboSend[], msgs: WboMsg[], now = Date.now() 
  *  record and the card goes. (A timed span was wrong the other way: an hour of "answered" sitting under a
  *  conversation that had long moved on.) */
 export function looseAsks(asks: WboAsk[], msgs: WboMsg[]): WboAsk[] {
-  const parts = new Set(msgs.flatMap((m) => m.parts.map((p) => p.id)));
+  const parts = new Set(msgs.flatMap((m) => (m.parts ?? []).map((p) => p.id)));
   // a message's own time is milliseconds; an ask's are seconds
   const newest = msgs.reduce((t, m) => Math.max(t, (m.time ?? 0) / 1000, (m.done ?? 0) / 1000), 0);
   return asks.filter(
@@ -471,6 +476,9 @@ export function applyWbo(
     m.agent = e.agent ?? m.agent;
     m.model = e.model ?? m.model;
     m.provider = e.provider ?? m.provider;
+    if (e.type) m.type = e.type;
+    if (e.previous) m.previous = e.previous as any;
+    if (e.by) m.by = e.by;
     m.time = e.time ?? m.time;
     m.first = e.first ?? m.first;
     m.done = e.done ?? null;

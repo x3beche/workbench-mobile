@@ -38,7 +38,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type VoiceLang, type WorkbenchClient } from '../api/client';
-import type { WboAnswer, WboAsk, WboDetail, WboMsg, WboSend, WboSession } from '../api/types';
+import type { WboAnswer, WboAsk, WboDetail, WboModel, WboMsg, WboSelectedModel, WboSend, WboSession } from '../api/types';
 import { Appear } from '../components/Appear';
 import { ChatHeader } from '../components/ChatHeader';
 import { AskCard } from '../components/AskCard';
@@ -52,6 +52,8 @@ import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
 import { EmptyState, ErrorText, Glyph, IconButton, LoadError, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
+import { WboModelSheet } from '../components/WboModelSheet';
+import { modelName } from '../components/MessageItem';
 import { chatDetailStrings } from '../lib/chatDetail';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { admit, IMAGE_RULES, pickedOf, serverWords, type Picked } from '../lib/wbc';
@@ -69,6 +71,7 @@ import {
   sendWord,
   TURNS_PAGE,
   updateWord,
+  provName,
   wboDot,
   wboWhy,
   wboWord,
@@ -416,6 +419,74 @@ export function OpencodeSessionScreen({
   const sub = [t.opencode, s?.computer, s?.directory].filter(Boolean).join(' · ');
   const canAnswer = (a: WboAsk) => a.status === 'pending' && !a.local && !!s?.may_send;
   const why = s && !s.may_send ? wboWhy(s, t) : null;
+
+  const [modelSheet, setModelSheet] = useState(false);
+  const allModels = useMemo<WboModel[]>(() => s?.bridge?.models || s?.models || [], [s]);
+  const selectedModel = useMemo<WboSelectedModel | null>(() => {
+    if (!s) return null;
+    if (s.selected_model && typeof s.selected_model === 'object') return s.selected_model;
+    if (s.model && typeof s.model === 'object') return s.model as WboSelectedModel;
+    if (typeof s.model === 'string' && s.model) return { providerID: '', modelID: s.model };
+    return null;
+  }, [s]);
+
+  const modelDisabled = useMemo(() => {
+    if (!s) return true;
+    if (!s.bridge?.connected) return true;
+    if (!s.bridge.remote) return true;
+    if (s.bridge.models_supported === false) return true;
+    if (!s.mine) return true;
+    return false;
+  }, [s]);
+
+  const modelDisabledReason = useMemo(() => {
+    if (!s) return '';
+    if (!s.bridge?.connected) return t.notConnectedComp;
+    if (!s.bridge.remote) return t.remoteOffComp;
+    if (s.bridge.models_supported === false) return t.updateWboModels;
+    if (!s.mine) return t.onlyOwnerCanChoose;
+    return '';
+  }, [s, t]);
+
+  const modelLabel = useMemo(() => {
+    if (selectedModel?.name) {
+      return selectedModel.providerName ? `${selectedModel.name} · ${selectedModel.providerName}` : selectedModel.name;
+    }
+    if (selectedModel?.modelID) {
+      const mName = modelName(selectedModel.modelID);
+      return selectedModel.providerName ? `${mName} · ${selectedModel.providerName}` : mName;
+    }
+    return t.model;
+  }, [selectedModel, t.model]);
+
+  const pickModel = async (providerID: string, modelID: string, variant?: string) => {
+    if (!client) return;
+    const match = allModels.find((m) => m.providerID === providerID && m.modelID === modelID);
+    const newModel: WboSelectedModel = {
+      providerID,
+      providerName: match?.providerName || providerID,
+      modelID,
+      name: match?.name || modelID,
+      variant,
+    };
+    const was = s?.selected_model;
+    setS((now) => (now ? { ...now, selected_model: newModel } : now));
+    try {
+      await client.wboSelectModel(sid, { providerID, modelID, variant });
+      if (s?.status === 'busy') {
+        setNotice(t.appliesNextMessage);
+      }
+    } catch (e) {
+      setS((now) => (now ? { ...now, selected_model: was } : now));
+      setSendError(e instanceof Error ? e.message : 'The model could not be changed.');
+    }
+  };
+
+  const asstModelText = (tn: AnswerTurn) => {
+    const m = tn.model ? modelName(tn.model) : 'OpenCode';
+    const prov = provName(tn.provider);
+    return prov && prov !== 'Workbench' ? `${m} · ${prov}` : m;
+  };
   // A question drawn from the tool's own call says why it is not answered here; any other, why one cannot write.
   const noteOf = (a: WboAsk) => (a.local ? localWhy(s, t) : why);
   const update = updateWord(s, t);
@@ -495,6 +566,19 @@ export function OpencodeSessionScreen({
         </View>
       );
     const tn = item.turn;
+    if (tn.kind === 'system') {
+      const m = tn.msg;
+      const modObj = m.model && typeof m.model === 'object' ? (m.model as any) : null;
+      const prevObj = m.previous && typeof m.previous === 'object' ? (m.previous as any) : null;
+      const toModel = modObj ? (modObj.name || modObj.modelID || modObj.id || '') : (m.model ? modelName(String(m.model)) : '…');
+      const fromModel = prevObj ? (prevObj.name || prevObj.modelID || prevObj.id || '') : (m.previous ? modelName(String(m.previous)) : t.initial);
+      const who = m.by === 'chat' ? t.fromChat : t.onComp;
+      return (
+        <View style={st.sysRow} key={tn.id} testID="wbo-system-row">
+          <Text style={st.sysText}>{t.modelSwitched(String(fromModel || t.initial), String(toModel || '…'), who)}</Text>
+        </View>
+      );
+    }
     if (tn.kind === 'user') {
       const sent = sendOf(sends, tn.msg.id);
       return (
@@ -513,6 +597,9 @@ export function OpencodeSessionScreen({
     const { work, rest, tools, thought, ms } = split(tn);
     return (
       <View style={st.msgRow} testID="wbo-answer">
+        <Text style={st.asstModel} numberOfLines={1}>
+          {asstModelText(tn)}
+        </Text>
         {tn.live && !tn.items.length ? <TypingDots /> : null}
         {/* What it did to get there - its thinking and its tool rows - on one
             line, opened by a tap; then the answer and what it asks. */}
@@ -674,15 +761,34 @@ export function OpencodeSessionScreen({
                 ) : null
               }
               tool={
-                <IconButton
-                  icon={Paperclip}
-                  label={t.attach}
-                  onPress={attach}
-                  testID="wbo-attach"
-                  size={20}
-                  color={colors.inkDim}
-                  style={st.clip}
-                />
+                <View style={st.toolWrap}>
+                  <IconButton
+                    icon={Paperclip}
+                    label={t.attach}
+                    onPress={attach}
+                    testID="wbo-attach"
+                    size={20}
+                    color={colors.inkDim}
+                    style={st.clip}
+                  />
+                  <Pressable
+                    style={[st.modelChip, modelDisabled && st.modelDisabled]}
+                    onPress={() => {
+                      if (modelDisabled) {
+                        if (modelDisabledReason) setNotice(modelDisabledReason);
+                        return;
+                      }
+                      setModelSheet(true);
+                    }}
+                    testID="wbo-model-picker"
+                    accessibilityRole="button"
+                    accessibilityLabel={modelLabel}
+                  >
+                    <Text style={[st.modelChipText, modelDisabled && st.modelChipDisabled]} numberOfLines={1}>
+                      {modelLabel}
+                    </Text>
+                  </Pressable>
+                </View>
               }
             />
           </View>
@@ -693,6 +799,15 @@ export function OpencodeSessionScreen({
         )
       ) : null}
       <KeyboardSpacer />
+      {modelSheet ? (
+        <WboModelSheet
+          models={allModels}
+          selected={selectedModel}
+          lang={lang}
+          onClose={() => setModelSheet(false)}
+          onPick={pickModel}
+        />
+      ) : null}
       {picking ? (
         <Sheet onClose={() => setPicking(false)} title={t.attach} testID="wbo-pick">
           <ActionList
@@ -914,4 +1029,46 @@ const st = StyleSheet.create({
   },
   picError: { flexBasis: '100%', fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.danger },
   clip: { width: 40, height: 40 },
+  toolWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  modelChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceHover,
+    maxWidth: 180,
+  },
+  modelDisabled: { opacity: 0.6 },
+  modelChipText: {
+    fontFamily: fonts.sans,
+    fontSize: type.tiny,
+    color: colors.ink,
+  },
+  modelChipDisabled: { color: colors.inkDim },
+  sysRow: {
+    paddingVertical: 6,
+    paddingHorizontal: gutter,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sysText: {
+    fontFamily: fonts.sans,
+    fontSize: type.tiny,
+    color: colors.inkDim,
+    backgroundColor: colors.surface2,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
+  asstHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  asstModel: {
+    fontFamily: fonts.sansSemi,
+    fontSize: type.tiny,
+    color: colors.inkDim,
+  },
 });
