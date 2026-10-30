@@ -1,9 +1,10 @@
 /**
  * A session's column on the phone (components/SessionPanelSheet.tsx, lib/wboPanel.ts): the "i" beside the
- * session's title opens what the web's right-hand column shows - the model and its window, the files it
- * changed, what it waits for, the tools it used - and the rules of that column: a section with nothing in it is
- * not drawn, a section folds as the person folded it (kept on the server), and a permission is answered from
- * here.
+ * session's title opens what the web's right-hand column shows - the model and its window, what the run is
+ * doing now, the files it changed, and the computer in one dim line at the foot - and the rules of that column:
+ * a section with nothing in it is not drawn, a section folds as the person folded it (kept on the server), a
+ * question is one line at the top that goes to its card in the conversation (where it is answered), and nothing
+ * the sheet says is said again in the screen's header.
  */
 import * as React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
@@ -111,6 +112,20 @@ const panel = (over: Partial<WboPanel> = {}): WboPanel => ({
       started: null,
     },
   },
+  series: {
+    context: [
+      { turn: 1, at: NOW - 180_000, used: 200_000, limit: 1_000_000 },
+      { turn: 2, at: NOW - 120_000, used: 380_000, limit: 1_000_000 },
+      { turn: 3, at: NOW - 60_000, used: 500_000, limit: 1_000_000 },
+    ],
+    spans: [
+      { start: NOW - 180_000, end: NOW - 170_000, cat: 'read', tool: 'read', title: 'src/a.ts', status: 'completed', part: 'msg_a' },
+      { start: NOW - 170_000, end: NOW - 100_000, cat: 'shell', tool: 'shell', title: 'npm test', status: 'error', part: 'msg_b' },
+      { start: NOW - 100_000, end: NOW - 90_000, cat: 'edit', tool: 'edit', title: 'src/a.ts', status: 'completed', part: 'msg_a' },
+    ],
+    rate: { step: 60_000, items: [{ at: NOW - 120_000, n: 120 }, { at: NOW - 60_000, n: 300 }] },
+    diff_series: [{ at: NOW - 120_000, add: 5, del: 1 }, { at: NOW - 60_000, add: 12, del: 3 }],
+  },
   todos: { items: [{ content: 'read the reducer', status: 'completed' }, { content: 'rewrite the footer', status: 'pending' }], done: 1, total: 2, at: NOW },
   files: {
     items: [{ path: '/w/src/a.ts', count: 2, at: NOW - 60_000, status: 'completed', error: false, message: 'msg_a', additions: 12, deletions: 3 }],
@@ -165,35 +180,46 @@ async function open(p: WboPanel) {
   it('opens from the "i" beside the title, with every section it has something to say in', async () => {
     const client = await open(panel());
     expect(client.wboPanel).toHaveBeenCalledWith(SID);
-    // the order the column draws them in: what needs a person first
-    const order = [...['pending', 'todos', 'files', 'model', 'computer', 'tools']];
+    // the order the column draws them in: what a session is, what it is doing, what it changed
     const seen = screen.getAllByTestId(/^wbo-sec-/).map((n) => String(n.props.testID).replace('wbo-sec-', ''));
-    expect(seen).toEqual(order);
-    // the head's own numbers: what waits, how many files, how many tool calls
-    expect(screen.getByTestId('wbo-count-todos')).toHaveTextContent('1/2');
-    expect(screen.getByTestId('wbo-count-files')).toHaveTextContent('1');
-    expect(screen.getByTestId('wbo-count-pending')).toHaveTextContent('1');
-    expect(screen.getByTestId('wbo-count-tools')).toHaveTextContent('23');
+    expect(seen).toEqual(['model', 'flow', 'files']);
+    // the waiting question is a line above them, not a section: its card is the conversation's
+    expect(screen.getByTestId('wbo-panel-waiting')).toHaveTextContent(/Waiting: 1 permission/);
+    // the head's own numbers: the changed lines, and nothing of the tools (they are in the flow)
+    expect(screen.getByTestId('wbo-count-files')).toHaveTextContent('+12 −3');
+    // the graphs: the window over the turns, the run as a strip, the changed lines' shape
+    expect(screen.getByTestId('wbo-panel-ctxchart')).toBeTruthy();
+    expect(screen.getByTestId('wbo-panel-strip')).toBeTruthy();
+    expect(screen.getByTestId('wbo-diff-spark')).toBeTruthy();
+    // the computer is one line at the foot, and its details are under it
+    expect(screen.getByTestId('wbo-panel-foot')).toHaveTextContent(/ada-laptop · wb-opencode 0\.3\.0/);
     expect(screen.getByTestId('wbo-panel-model')).toHaveTextContent('Qwen3.8 Flash');
     expect(screen.getByText('Command Code · thinking: low')).toBeTruthy();
     expect(screen.getByTestId('wbo-panel-context')).toHaveTextContent('500k / 1M · 50%');
-    // what it spent: the two tight columns the web has, caches included, the cost under them
-    expect(screen.getByText('3.1M')).toBeTruthy();
+    // what it spent, in one line (the numbers whole in the grid under it, caches included)
+    expect(screen.getByText(/\$0\.30 · 3\.1M in · 133\.00k out/)).toBeTruthy();
     expect(screen.getByText('180.1M')).toBeTruthy();
-    expect(screen.getByText('$0.30')).toBeTruthy();
     // the state is under the sheet's title, once - never a line under the cost
     expect(screen.getByText('Rail sag · idle')).toBeTruthy();
     expect(screen.queryByText(/^idle$/i)).toBeNull();
   });
 
   it('draws no section that has nothing in it', async () => {
-    await open(panel({ todos: null, files: null, tools: null, pending: [] }));
+    await open(
+      panel({
+        todos: null,
+        files: null,
+        tools: null,
+        pending: [],
+        series: { context: [], spans: [], rate: null, diff_series: null },
+      }),
+    );
     expect(screen.getByTestId('wbo-sec-model')).toBeTruthy();
-    expect(screen.getByTestId('wbo-sec-computer')).toBeTruthy();
-    expect(screen.queryByTestId('wbo-sec-todos')).toBeNull();
+    expect(screen.queryByTestId('wbo-sec-flow')).toBeNull();
     expect(screen.queryByTestId('wbo-sec-files')).toBeNull();
-    expect(screen.queryByTestId('wbo-sec-tools')).toBeNull();
-    expect(screen.queryByTestId('wbo-sec-pending')).toBeNull();
+    expect(screen.queryByTestId('wbo-panel-waiting')).toBeNull();
+    // a session with no turns has no line to draw: the numbers are said in words instead
+    expect(screen.queryByTestId('wbo-panel-ctxchart')).toBeNull();
   });
 
   it('folds a section as the person folds it, and keeps it on the server', async () => {
@@ -209,22 +235,25 @@ async function open(p: WboPanel) {
     expect(screen.getByTestId('wbo-panel-file')).toBeTruthy();
   });
 
-  it('says the tools by name in a folded head, and how many calls when it is open', async () => {
+  it('keeps the tools in the flow, behind one link, and jumps to the call', async () => {
     const client = await open(panel());
-    await fireEvent.press(screen.getByTestId('wbo-sec-tools'));
+    // no section of their own: the strip is the distribution, this is the list behind it
+    expect(screen.queryByTestId('wbo-sec-tools')).toBeNull();
+    expect(screen.getByText(t.whichTools)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('wbo-panel-tools'));
     await act(async () => undefined);
-    expect(screen.getByTestId('wbo-count-tools')).toHaveTextContent('⚠1 shell 23');
-    await fireEvent.press(screen.getByTestId('wbo-sec-tools'));
+    const row = await screen.findByTestId('wbo-panel-tool');
+    await fireEvent.press(row);
     await act(async () => undefined);
-    expect(screen.getByTestId('wbo-count-tools')).toHaveTextContent('23');
-    expect(client.sidePanel).toHaveBeenCalled();
+    expect(client.wboSession).toHaveBeenCalled();
   });
 
-  it('answers a permission from the sheet', async () => {
+  it('goes to the question\'s own card instead of answering a second time here', async () => {
     const client = await open(panel());
-    await fireEvent.press(screen.getByText(t.allowOnce));
+    expect(screen.queryByText(t.allowOnce)).toBeNull();
+    await fireEvent.press(screen.getByTestId('wbo-panel-waiting'));
     await act(async () => undefined);
-    expect(client.wboAnswer).toHaveBeenCalledWith(SID, 'per_1', { decision: 'once' });
+    expect(client.wboAnswer).not.toHaveBeenCalled();
   });
 
   it('says why a question is answered in the conversation, and where it is', async () => {
@@ -243,15 +272,15 @@ async function open(p: WboPanel) {
         ],
       }),
     );
-    expect(screen.getByText(t.answerOnComputer)).toBeTruthy();
-    expect(screen.getByText(t.showInConversation)).toBeTruthy();
+    expect(screen.getByTestId('wbo-panel-waiting')).toHaveTextContent(/Waiting: 1 question/);
+    expect(screen.getByText(t.answerInConversation)).toBeTruthy();
+    expect(screen.queryByText(t.allowOnce)).toBeNull();
   });
 
-  it('does not answer for someone who may not', async () => {
+  it('says what waits for someone who may not answer it, and offers no buttons', async () => {
     const client = await open(panel({ may_answer: false }));
-    await fireEvent.press(screen.getByText(t.allowOnce));
-    await act(async () => undefined);
+    expect(screen.getByTestId('wbo-panel-waiting')).toHaveTextContent(/Waiting: 1 permission/);
+    expect(screen.queryByText(t.allowOnce)).toBeNull();
     expect(client.wboAnswer).not.toHaveBeenCalled();
-    expect(screen.getByText(t.onlyOwnerAnswers)).toBeTruthy();
   });
 });

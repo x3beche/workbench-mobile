@@ -659,13 +659,17 @@ export function OpencodeSessionScreen({
           </>
         }
         sub={
-          <>
-            {dot ? <StateDot s={dot} /> : null}
-            <Text style={st.sub} numberOfLines={1} testID="wbo-state">
-              {s && head ? <Text style={st.state}>{head}</Text> : null}
-              {s && head ? ` · ${sub}` : sub}
-            </Text>
-          </>
+          /* The column (the sheet) says the state, the model, the window and the computer; while it is open
+             the header says the session's name and nothing that is written there - one thing, one place. */
+          column ? null : (
+            <>
+              {dot ? <StateDot s={dot} /> : null}
+              <Text style={st.sub} numberOfLines={1} testID="wbo-state">
+                {s && head ? <Text style={st.state}>{head}</Text> : null}
+                {s && head ? ` · ${sub}` : sub}
+              </Text>
+            </>
+          )
         }
         below={
           (s?.bridge?.connected && !s.bridge.remote) || update ? (

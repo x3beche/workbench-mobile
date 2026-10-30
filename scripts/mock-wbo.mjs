@@ -584,7 +584,7 @@ export function handleWbo(req, res, p, url, body) {
                  model: { providerID: 'commandcode', providerName: 'Command Code', modelID: 'deepseek/deepseek-v4.1-flash',
                           name: 'DeepSeek V4.1 Flash' },
                  context: { used: 730000, limit: 1000000, model: 'deepseek/deepseek-v4.1-flash', pct: 73 },
-                 computer: { ...one.row.bridge, name: 'server' } },
+                 computer: { ...one.row.bridge, name: 'server' }, directory: '~/projects/workbench-mobile' },
       todos: { items: [{ content: 'Read the panel’s file list', status: 'completed' },
                        { content: 'Match a diff’s paths to a call’s', status: 'in_progress' },
                        { content: 'Fold the scratch files away', status: 'pending' }], done: 1, total: 3, at: now },
@@ -606,6 +606,31 @@ export function handleWbo(req, res, p, url, body) {
         { name: 'read', server: '', count: 1, errors: 0, message: 'm1', tool: 'read' },
         { name: 'webfetch', server: '', count: 1, errors: 0, message: 'm1', tool: 'webfetch' },
       ], more: 0 },
+      series: (() => {
+        const t0 = now - 900_000;
+        const ctx = [120, 180, 240, 300, 380, 460, 560, 640, 700, 760, 820, 860];
+        const spans = [];
+        const cats = ['read', 'shell', 'edit', 'read', 'mcp', 'subagent', 'write', 'web', 'edit', 'shell', 'read', 'edit'];
+        for (let i = 0; i < 12; i++) {
+          spans.push({ start: t0 + i * 60_000 + 2_000, end: t0 + i * 60_000 + 12_000 + i * 900,
+                       cat: cats[i] === 'write' ? 'edit' : cats[i], tool: cats[i] === 'mcp' ? 'search' : cats[i],
+                       title: cats[i] === 'shell' ? 'npm test' : cats[i] === 'edit' ? 'src/a.ts' : '',
+                       status: i === 9 ? 'error' : 'completed', part: 'msg_1',
+                       ...(cats[i] === 'mcp' ? { server: 'codebase' } : {}) });
+          spans.push({ start: t0 + i * 60_000 + 13_000, end: t0 + i * 60_000 + 58_000, cat: 'text', tool: '',
+                       title: '', status: 'completed', part: 'msg_1' });
+        }
+        return {
+          context: ctx.map((used, i) => ({ turn: i + 1, at: t0 + i * 60_000, used: used * 1000,
+                                           limit: 1_000_000, ...(i === 7 ? { drop: true } : {}) })),
+          spans,
+          rate: { step: 60_000, items: ctx.map((v, i) => ({ at: t0 + i * 60_000, n: 400 + ((i * 137) % 900) })) },
+          diff_series: [
+            { at: t0, add: 2, del: 7 }, { at: t0 + 180_000, add: 43, del: 7 }, { at: t0 + 360_000, add: 55, del: 10 },
+            { at: t0 + 540_000, add: 151, del: 31 },
+          ],
+        };
+      })(),
       tokens: { input: 640000, output: 88000, cache_read: 910000, cache_write: 0, cost: 1.24, source: 'session' },
       pending: [], may_answer: true, why: '', messages: 12, live_s: 45, at: Date.now() / 1000,
     }), true);

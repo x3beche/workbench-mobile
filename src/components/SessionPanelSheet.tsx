@@ -29,9 +29,11 @@ import {
   panelSections,
   stateWord,
   toolLine,
+  waitingLine,
   workedFor,
   type PanelSectionId,
 } from '../lib/wboPanel';
+import { ContextChart, DiffSpark, FlowStrip } from './PanelCharts';
 import type { WboStrings } from '../lib/wboStrings';
 import { copy as copyToClipboard } from '../lib/feel';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
@@ -69,6 +71,8 @@ export function SessionPanelSheet({
   const [folds, setFolds] = useState<Record<string, boolean>>({});
   const [allFiles, setAllFiles] = useState(false);
   const [allTools, setAllTools] = useState(false);
+  /** The strip's range: the last quarter of an hour, unless the person asked for more. */
+  const [range, setRange] = useState<'15m' | '1h' | 'all'>('15m');
   const [now, setNow] = useState(Date.now());
   const [copied, setCopied] = useState(false);
 
@@ -120,7 +124,7 @@ export function SessionPanelSheet({
       : stateWord(panel, t)
     : '';
   const sub = [panel?.session.title || t.session, state].filter(Boolean).join(' · ');
-  const sections = panelSections(panel, t, folds);
+  const sections = panelSections(panel, t);
   const mayAnswer = panel?.may_answer === true;
   const copy = (v: string) => {
     void copyToClipboard(v);
@@ -145,6 +149,23 @@ export function SessionPanelSheet({
       ) : null}
       <ScrollView contentContainerStyle={s.scroll} testID="wbo-panel-scroll">
         <SafeAreaView edges={['left', 'right']} style={s.wrap}>
+          {panel?.pending?.length ? (
+            <Pressable
+              onPress={() => onJump(panel.pending[0].message ?? '')}
+              accessibilityRole="button"
+              accessibilityHint={t.stoppedUntilAnswered}
+              style={s.wait}
+              testID="wbo-panel-waiting"
+            >
+              <View style={[s.waitDot, { backgroundColor: colors.warn }]} />
+              <Text style={s.waitText} numberOfLines={1}>
+                {waitingLine(panel, t)}
+              </Text>
+              <Text style={s.dim} numberOfLines={1}>
+                {t.answerInConversation}
+              </Text>
+            </Pressable>
+          ) : null}
           {sections.map((sec) => (
             <View key={sec.id} style={s.sec}>
               <Pressable
@@ -158,6 +179,7 @@ export function SessionPanelSheet({
                 <Text style={[s.headText, sec.warn ? s.warn : null]} numberOfLines={1}>
                   {sec.label}
                 </Text>
+                {sec.id === 'files' ? <DiffSpark points={panel?.series?.diff_series ?? []} /> : null}
                 {sec.count ? (
                   <Text style={[s.count, sec.warn ? s.warn : null]} numberOfLines={1} testID={`wbo-count-${sec.id}`}>
                     {sec.count}
@@ -166,10 +188,21 @@ export function SessionPanelSheet({
               </Pressable>
               {isOpen(sec.id) && panel ? (
                 <View style={s.body}>
-                  {sec.id === 'pending' ? (
-                    <PendingBody panel={panel} t={t} mayAnswer={mayAnswer} onAnswer={onAnswer} onJump={onJump} />
+                  {sec.id === 'model' ? (
+                    <ModelBody panel={panel} t={t} now={now} onModel={onModel} copied={copied} />
                   ) : null}
-                  {sec.id === 'todos' ? <TodosBody panel={panel} /> : null}
+                  {sec.id === 'flow' ? (
+                    <FlowBody
+                      panel={panel}
+                      t={t}
+                      now={now}
+                      range={range}
+                      onRange={setRange}
+                      onJump={onJump}
+                      all={allTools}
+                      onMore={() => setAllTools(true)}
+                    />
+                  ) : null}
                   {sec.id === 'files' ? (
                     <FilesBody
                       panel={panel}
@@ -180,16 +213,11 @@ export function SessionPanelSheet({
                       onJump={onJump}
                     />
                   ) : null}
-                  {sec.id === 'model' ? (
-                    <ModelBody panel={panel} t={t} now={now} onModel={onModel} copied={copied} />
-                  ) : null}
-                  {sec.id === 'computer' ? <ComputerBody panel={panel} t={t} onCopy={copy} copied={copied} /> : null}
-                  {sec.id === 'tools' ? <ToolsBody panel={panel} t={t} onJump={onJump} all={allTools}
-                                                     onMore={() => setAllTools(true)} /> : null}
                 </View>
               ) : null}
             </View>
           ))}
+          {panel?.session ? <FootLine panel={panel} t={t} onCopy={copy} copied={copied} /> : null}
         </SafeAreaView>
       </ScrollView>
     </TallSheet>
@@ -254,19 +282,235 @@ function ModelBody({
           </View>
         </View>
       ) : null}
+      {/* the window over the turns: the line says when this session is to be left */}
+      <ContextChart points={panel.series?.context ?? []} limit={c?.limit ?? 0} tone={tone} testID="wbo-panel-ctxchart" />
+      {estimate(panel, t) ? <Text style={s.dim}>{estimate(panel, t)}</Text> : null}
+      {/* one line of spending: what it cost and what it moved, the caches above it when opened */}
+      <Text style={s.spend} numberOfLines={1}>
+        {`${panel.tokens.cost != null ? `$${panel.tokens.cost.toFixed(2)}` : '–'} · ${kfmt(panel.tokens.input)} ${t.inTok} · ${kfmt(panel.tokens.output)} ${t.outTok}`}
+      </Text>
       <View style={s.grid}>
         <Row k={t.input} v={kfmt(panel.tokens.input)} />
         <Row k={t.output} v={kfmt(panel.tokens.output)} />
         {panel.tokens.cache_read != null ? <Row k={t.cacheRead} v={kfmt(panel.tokens.cache_read)} /> : null}
         {panel.tokens.cache_write != null ? <Row k={t.cacheWrite} v={panel.tokens.cache_write ? kfmt(panel.tokens.cache_write) : '—'} /> : null}
       </View>
-      <View style={s.cost}>
-        <Text style={s.kvKey}>{t.run.cost}</Text>
-        <Text style={s.kvVal}>{panel.tokens.cost != null ? `$${panel.tokens.cost.toFixed(2)}` : '–'}</Text>
-      </View>
       {panel.tokens.source === 'messages' ? <Text style={s.dim}>{t.lastMessages(panel.tokens.messages)}</Text> : null}
     </View>
   );
+}
+
+/**
+ * What the run is doing now: one line (the call and how long it has been on it, or the last thing it did), the
+ * strip of the last quarter of an hour, the output-token rate under it, the todo list's bar and the tools'
+ * share - the same three things the web's column has, in the same order.
+ */
+function FlowBody({
+  panel,
+  t,
+  now,
+  range,
+  onRange,
+  onJump,
+  all,
+  onMore,
+}: {
+  panel: WboPanel;
+  t: WboStrings;
+  now: number;
+  range: '15m' | '1h' | 'all';
+  onRange: (id: '15m' | '1h' | 'all') => void;
+  onJump: (message: string) => void;
+  all: boolean;
+  onMore: () => void;
+}) {
+  const spans = panel.series?.spans ?? [];
+  const working = panel.session.status === 'busy' || panel.session.status === 'retry';
+  // a call that does work says what the run is on: a todo list written is bookkeeping
+  const work = spans.filter((x) => x.cat !== 'other');
+  const last = (work.length ? work : spans)[(work.length ? work : spans).length - 1];
+  const rows = panel.tools?.items ?? [];
+  const total = rows.reduce((n, r) => n + r.count, 0);
+  const [open, setOpen] = useState(false);
+  const [todoOpen, setTodoOpen] = useState(false);
+  const todos = panel.todos;
+  const current =
+    todos?.items.find((r) => r.status === 'in_progress')?.content ?? todos?.items.find((r) => r.status === 'pending')?.content ?? '';
+  return (
+    <View>
+      {last ? (
+        <Text style={s.nowLine} numberOfLines={1} testID="wbo-panel-now">
+          <Text style={s.nowKey}>{working ? t.now : t.last}</Text>
+          {` ${last.server ? `${last.server} · ${last.tool}` : last.tool || catWord(last.cat, t)}${last.title ? ` · ${last.title}` : ''}`}
+        </Text>
+      ) : null}
+      <FlowStrip
+        series={panel.series}
+        now={now}
+        working={working}
+        range={range}
+        onRange={onRange}
+        onJump={onJump}
+        stall={stallNote(panel, t, now)}
+        testID="wbo-panel-strip"
+      />
+      {todos ? (
+        <Pressable onPress={() => setTodoOpen(!todoOpen)} accessibilityRole="button" style={s.todosLine}
+                   accessibilityState={{ expanded: todoOpen }} testID="wbo-panel-todos">
+          <View style={s.todoBar}>
+            <View style={[s.todoBarFill, { width: `${todos.total ? (todos.done * 100) / todos.total : 0}%` }]} />
+          </View>
+          <Text style={s.dim}>{`${todos.done}/${todos.total}`}</Text>
+          {current ? (
+            <Text style={s.rowText} numberOfLines={1}>
+              {current}
+            </Text>
+          ) : null}
+        </Pressable>
+      ) : null}
+      {todoOpen ? <TodosBody panel={panel} /> : null}
+      {rows.length ? (
+        <>
+          <Pressable onPress={() => setOpen(!open)} accessibilityRole="button" accessibilityState={{ expanded: open }}
+                     testID="wbo-panel-tools">
+            <Text style={s.link}>{open ? t.hideTools : t.whichTools}</Text>
+          </Pressable>
+          {open
+            ? (all ? rows : rows.slice(0, TOOLS_SHOWN)).map((r) => (
+                <Pressable key={`${r.server}:${r.name}`} onPress={() => onJump(r.message)} accessibilityRole="button"
+                           style={s.row} testID="wbo-panel-tool">
+                  <Text style={s.rowText} numberOfLines={1}>
+                    {r.server ? `${r.server} · ${r.name}` : r.name}
+                  </Text>
+                  <Text style={s.rowMeta} numberOfLines={1}>
+                    {toolLine(r, t)}
+                  </Text>
+                </Pressable>
+              ))
+            : null}
+          {open && rows.length > TOOLS_SHOWN && !all ? (
+            <Pressable onPress={onMore} accessibilityRole="button">
+              <Text style={s.link}>{t.moreTools(rows.length - TOOLS_SHOWN)}</Text>
+            </Pressable>
+          ) : null}
+        </>
+      ) : null}
+      {!open && total ? (
+        <Text style={s.dim} numberOfLines={1}>{`${total} ${t.tools.toLowerCase()}`}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** A category in the person's words: what the run is writing when it has called nothing. */
+function catWord(cat: string, t: WboStrings): string {
+  switch (cat) {
+    case 'read': return t.reading;
+    case 'edit': return t.editing;
+    case 'shell': return t.shellCat;
+    case 'web': return t.webCat;
+    case 'subagent': return t.subAgent;
+    case 'mcp': return 'MCP';
+    case 'text': return t.writingCat;
+    default: return t.otherCat;
+  }
+}
+
+/** "at this pace, compaction in ~6 turns" - from the last few turns, and only when they grew. */
+function estimate(panel: WboPanel, t: WboStrings): string {
+  const rows = (panel.series?.context ?? []).filter((p) => p.used > 0);
+  const limit = rows[rows.length - 1]?.limit ?? 0;
+  if (!limit || rows.length < 3) return '';
+  const last = rows.slice(-5);
+  const steps: number[] = [];
+  for (let i = 1; i < last.length; i++) steps.push(last[i].used - last[i - 1].used);
+  const grew = steps.filter((x) => x > 0);
+  if (!grew.length) return '';
+  const pace = grew.reduce((a, b) => a + b, 0) / grew.length;
+  const turns = Math.round((limit - rows[rows.length - 1].used) / pace);
+  return turns > 0 && turns < 10_000 ? t.compactionTurns(turns) : '';
+}
+
+/** Working, and nothing new for a couple of minutes: said, because a flat rate is easy to miss. */
+function stallNote(panel: WboPanel, t: WboStrings, now: number): string {
+  const working = panel.session.status === 'busy' || panel.session.status === 'retry';
+  if (!working) return '';
+  const spans = panel.series?.spans ?? [];
+  const lastCall = spans.reduce((p, x) => Math.max(p, x.end), 0);
+  const rate = panel.series?.rate;
+  const lastTokens = rate?.items.reduce((p, b) => Math.max(p, b.at + rate.step), 0) ?? 0;
+  const last = Math.max(lastCall, lastTokens, panel.session.since ?? 0);
+  const quiet = now - last;
+  if (!last || quiet < 120_000) return '';
+  return t.nothingNew(Math.round(quiet / 60_000));
+}
+
+/**
+ * The foot, in one dim line: the computer, the wb-opencode on it, the directory the session runs in and its MCP
+ * servers. Its own details - the platform, the OpenCode version, the full path, each server by name, the device
+ * key - are the sheet's older Computer section, and they are here, not repeated above.
+ */
+function FootLine({
+  panel,
+  t,
+  onCopy,
+  copied,
+}: {
+  panel: WboPanel;
+  t: WboStrings;
+  onCopy: (v: string) => string;
+  copied: boolean;
+}) {
+  const c = panel.session.computer;
+  const [open, setOpen] = useState(false);
+  if (!c) return null;
+  const mcp = c.mcp ?? [];
+  const ok = mcp.filter((m) => m.status === 'connected').length;
+  const mcpText = Array.isArray(c.mcp) ? (mcp.length ? `MCP ${ok}/${mcp.length}` : t.mcpNone) : '';
+  const dir = shortDir(panel.session.directory || '');
+  return (
+    <View>
+      <Pressable onPress={() => setOpen(!open)} accessibilityRole="button" accessibilityState={{ expanded: open }}
+                 style={s.foot} testID="wbo-panel-foot">
+        <View style={[s.footDot, { backgroundColor: c.connected ? colors.ok : colors.inkDim }]} />
+        <Text style={s.footText} numberOfLines={1}>
+          {`${c.host || c.name || 'OpenCode'} · wb-opencode ${c.version || '?'} · ${dir || '—'}${mcpText ? ` · ${mcpText}` : ''}`}
+        </Text>
+      </Pressable>
+      {open ? (
+        <View testID="wbo-panel-footmore">
+          <Text style={s.dim} numberOfLines={1}>{`${c.platform || ''} · OpenCode ${c.opencode || '?'}`}</Text>
+          {c.outdated && !c.self_updates ? <Text style={s.warn}>{t.updateWboLong}</Text> : null}
+          {c.cwd ? (
+            <Pressable onPress={() => onCopy(c.cwd)} accessibilityRole="button" accessibilityHint={t.copy}
+                       testID="wbo-panel-cwd">
+              <Text style={s.cwd} numberOfLines={2}>
+                {c.cwd}
+              </Text>
+              <Text style={s.dim} numberOfLines={1}>
+                {copied ? t.copied : t.copy}
+              </Text>
+            </Pressable>
+          ) : null}
+          {mcp.length
+            ? mcp.map((srv) => (
+                <Text key={srv.name} style={s.dim} numberOfLines={1}>
+                  {`MCP · ${srv.name} · ${srv.status || '?'}`}
+                </Text>
+              ))
+            : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** The directory as the foot has room for it: its last two segments, the whole path under the line. */
+function shortDir(path: string): string {
+  const one = (path || '').replace(/\/+$/, '');
+  if (!one || one === '~') return one;
+  const parts = one.split('/').filter(Boolean);
+  return parts.length <= 2 ? one : `…/${parts.slice(-2).join('/')}`;
 }
 
 function ComputerBody({
@@ -562,6 +806,25 @@ const s = StyleSheet.create({
   acts: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.xs },
   jump: { paddingTop: space.xs },
   link: { fontFamily: fonts.sans, fontSize: type.small, color: colors.accent, paddingVertical: space.xs },
+  /* the one line above the sections: a question stops the run, so it is not a section that can be folded */
+  wait: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.xs, paddingHorizontal: space.xs,
+          borderWidth: 1, borderColor: colors.warn, borderRadius: radius.sm, marginBottom: space.sm },
+  waitDot: { width: 6, height: 6, borderRadius: 3 },
+  waitText: { flex: 1, fontFamily: fonts.sans, fontSize: type.small, color: colors.ink },
+  /* what it spent, on one line; the numbers whole in the grid under it */
+  spend: { fontFamily: fonts.mono, fontSize: type.small, color: colors.ink, marginTop: space.xs },
+  /* what the run is on, right now */
+  nowLine: { fontFamily: fonts.sans, fontSize: type.small, color: colors.ink, marginBottom: space.xs },
+  nowKey: { fontFamily: fonts.sans, fontSize: type.micro, color: colors.inkDim, textTransform: 'uppercase' },
+  /* the todo list's bar and the one item under way */
+  todosLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.xs, minHeight: 32 },
+  todoBar: { width: 64, height: 3, borderRadius: 2, backgroundColor: colors.line, overflow: 'hidden' },
+  todoBarFill: { height: 3, borderRadius: 2, backgroundColor: colors.accent },
+  /* the foot: one dim line, its details under a tap */
+  foot: { flexDirection: 'row', alignItems: 'center', gap: space.sm, borderTopWidth: 1, borderTopColor: colors.line,
+          marginTop: space.sm, paddingTop: space.sm, minHeight: 32 },
+  footDot: { width: 6, height: 6, borderRadius: 3 },
+  footText: { flex: 1, fontFamily: fonts.mono, fontSize: type.micro, color: colors.inkDim },
   diff: { fontFamily: fonts.mono, fontSize: type.tiny, color: colors.inkDim },
   out: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
   tempRow: { opacity: 0.8 },

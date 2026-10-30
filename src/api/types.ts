@@ -933,7 +933,18 @@ export interface PanelTool {
 
 /** One session's column: what it is on, what it spent, its computer, its todo list, the files it changed,
  *  what it waits for and the tools it used. Empty parts come as null and are not drawn. */
+/** What the column's graphs are drawn from (backend/wb_panel.py's `series`): the window over the session's
+ *  turns, the run as slices of time, the output-token rate and the changed lines piling up. */
+export interface PanelSeries {
+  context: { turn: number; at: number | null; used: number; limit: number; drop?: boolean }[];
+  spans: { start: number; end: number; cat: string; tool: string; title: string; status: string; part: string;
+           n?: number; server?: string }[];
+  rate: { step: number; items: { at: number; n: number }[] } | null;
+  diff_series: { at: number; add: number; del: number }[] | null;
+}
 export interface WboPanel {
+  /** The window, the run and the changed lines: the column's graphs, in the same answer. */
+  series?: PanelSeries;
   session: {
     id: string;
     title: string;
@@ -943,6 +954,8 @@ export interface WboPanel {
     model: WboSelectedModel | null;
     context: { used: number; limit: number; model: string; pct: number | null } | null;
     computer: (WboBridge & { name?: string }) | null;
+    /** The directory it runs in, as the column says it (`~` in home); the computer's own `cwd` is whole. */
+    directory?: string;
   };
   todos: { items: PanelTodo[]; done: number; total: number; at: number | null } | null;
   files: { items: PanelFile[]; more: number; temp?: { items: PanelFile[]; more: number } } | null;

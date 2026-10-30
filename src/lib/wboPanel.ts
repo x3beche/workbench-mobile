@@ -12,7 +12,7 @@
 import type { PanelFile, PanelTool, WboPanel } from '../api/types';
 import type { WboStrings } from './wboStrings';
 
-export type PanelSectionId = 'pending' | 'todos' | 'files' | 'model' | 'computer' | 'tools';
+export type PanelSectionId = 'pending' | 'todos' | 'files' | 'model' | 'computer' | 'tools' | 'flow';
 
 export interface PanelSection {
   id: PanelSectionId;
@@ -23,41 +23,48 @@ export interface PanelSection {
   warn: boolean;
 }
 
-/** The tools a column shows before "N more": the five that did the most. */
+/** The tools a column shows before "N more" - in the flow's own list, not a section of its own. */
 export const TOOLS_SHOWN = 5;
 /** The window is nearly full at this share of it - and all but full at the second. */
 export const CTX_WARN = 80;
 export const CTX_DANGER = 95;
 
-/** The sections that have something to say, in the order the column shows them. `folds` is the person's, so a
- *  folded section's head can say what the open one's body would (the tools' own top three). */
-export function panelSections(p: WboPanel | null, t: WboStrings, folds: Record<string, boolean> = {}): PanelSection[] {
+/** The sections that have something to say, in the order a person reads them - the same order the web's
+ *  column has: the model and its window first (it is the thing a session is), then what the run is doing, then
+ *  the files it changed. The question waiting and the computer are not sections: the question is one line above
+ *  them (its card is in the conversation, where it is answered), and the computer is the dim line at the foot. */
+export function panelSections(p: WboPanel | null, t: WboStrings): PanelSection[] {
   if (!p) return [];
   const out: PanelSection[] = [];
-  if (p.pending?.length) {
-    out.push({ id: 'pending', label: t.waiting, count: String(p.pending.length), warn: true });
-  }
-  if (p.todos?.items.length) {
-    out.push({ id: 'todos', label: t.todos, count: `${p.todos.done}/${p.todos.total}`, warn: false });
+  out.push({ id: 'model', label: t.model, count: null, warn: p.session.status === 'error' });
+  if (p.series?.spans?.length || p.todos?.items.length) {
+    out.push({ id: 'flow', label: t.now, count: null, warn: false });
   }
   if (p.files?.items.length) {
     // the work's own files; the scratch ones are folded at the foot, and the head counts only the work
-    out.push({ id: 'files', label: t.changedFiles, count: String(p.files.items.length), warn: false });
-  }
-  out.push({ id: 'model', label: t.model, count: null, warn: p.session.status === 'error' });
-  if (p.session.computer) out.push({ id: 'computer', label: t.computer, count: null, warn: false });
-  if (p.tools?.items.length) {
-    const folded = folds.tools === false;
-    const errors = p.tools.items.reduce((n, r) => n + r.errors, 0);
-    const total = p.tools.items.reduce((n, r) => n + r.count, 0);
+    const counted = p.files.items.some((r) => r.additions != null);
+    const add = p.files.items.reduce((n, r) => n + (r.additions ?? 0), 0);
+    const del = p.files.items.reduce((n, r) => n + (r.deletions ?? 0), 0);
     out.push({
-      id: 'tools',
-      label: t.tools,
-      count: folded ? toolSummary(p.tools.items, errors) : String(total),
+      id: 'files',
+      label: t.changedFiles,
+      count: counted ? `+${add} −${del}` : String(p.files.items.length),
       warn: false,
     });
   }
   return out;
+}
+
+/** "Waiting: 1 permission" - the one line above the sections, when something is waiting. */
+export function waitingLine(p: WboPanel | null, t: WboStrings): string {
+  const rows = p?.pending ?? [];
+  if (!rows.length) return '';
+  const perm = rows.filter((a) => a.kind === 'permission').length;
+  const ask = rows.length - perm;
+  const bits: string[] = [];
+  if (perm) bits.push(t.permissions(perm));
+  if (ask) bits.push(t.questions(ask));
+  return `${t.waiting}: ${bits.join(' · ')}`;
 }
 
 /** "shell 120 · read 88 · edit 41 · +6" - what a folded tools head says instead of a bare number. */
