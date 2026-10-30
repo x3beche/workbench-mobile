@@ -150,9 +150,23 @@ export const SettingsScreen = forwardRef<
   ref,
 ) {
   const { user, client, signOut, account, accounts } = useSession();
-  /** The server's own pages are the owner's and the admins' (backend/access.py). */
-  const admin = (account?.user as { role?: string } | null)?.role === 'owner'
-    || (account?.user as { role?: string } | null)?.role === 'admin';
+  /** The server's own pages are the owner's and the admins' (backend/access.py):
+   *  the server says which role this person has, once per visit to Settings. */
+  const [role, setRole] = useState<string | null>(null);
+  useEffect(() => {
+    if (!client) return undefined;
+    let live = true;
+    Promise.resolve()
+      .then(() => client.authState())
+      .then(
+        (st) => live && setRole(st.role),
+        () => undefined,
+      );
+    return () => {
+      live = false;
+    };
+  }, [client]);
+  const admin = role === 'owner' || role === 'admin';
   const [page, setPage] = useState<Page>('menu');
   /** Signing out of the open account asks first: one tap used to end the session. */
   const [askOut, setAskOut] = useState(false);
