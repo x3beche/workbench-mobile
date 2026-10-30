@@ -39,6 +39,25 @@ async function shot(page, name) {
   console.log('shot', name);
 }
 
+/**
+ * Type into a field that may come back filled from last time (the app remembers
+ * the email it signed in with). The browser's own value is emptied through the
+ * setter React watches, so what is typed is the whole value and not an addition.
+ */
+async function typeInto(page, testID, text) {
+  await sleep(600);
+  await page.$eval(tid(testID), (el) => {
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    set.call(el, '');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await sleep(200);
+  await page.click(tid(testID));
+  await page.type(tid(testID), text);
+  const got = await page.$eval(tid(testID), (e) => e.value ?? '');
+  if (got !== text) console.log(`WARN ${testID} says "${got}", wanted "${text}"`);
+}
+
 async function scrollTo(page, testID) {
   await page.evaluate((id) => document.querySelector(`[data-testid="${id}"]`)?.scrollIntoView({ block: 'start' }), testID);
   await sleep(300);
@@ -142,7 +161,72 @@ async function pick(page, pageTestID, label) {
     await page.click(tid('dialog-cancel'));
     await sleep(300);
   }
+
+  // A second account on the same server (1.9.11): added from this page, signed in
+  // the way a second one is, so the switcher has two and tapping one moves "Active".
+  await page.click(tid('account-add'));
+  await page.waitForSelector(tid('server-connect'), { timeout: 20000 });
+  await page.click(tid('server-connect'));
+  await page.waitForSelector(tid('login-email'), { timeout: 20000 });
+  // The field comes back filled with the account of before: it is replaced, not added to.
+  await typeInto(page, 'login-email', 'bora.kaya@example.com');
+  await typeInto(page, 'login-password', 'mock');
+  await page.click(tid('login-submit'));
+  await page.waitForSelector(tid('new-chat-screen'), { timeout: 30000 });
+  console.log('second account added');
+  // Two of them: the open one "Active" in small quiet type, the other's "..." there too.
+  await page.click('[data-testid="open-drawer"],[data-testid$="-open-drawer"]');
+  await sleep(600);
+  await page.click(tid('open-account'));
+  await page.waitForSelector(tid('settings-screen'));
+  await scrollTo(page, 'settings-row-accounts');
+  await page.click(tid('settings-row-accounts'));
+  await page.waitForSelector(tid('settings-accounts-page'));
+  await shot(page, '75g-settings-accounts-two');
+  // The second account's own "..." - where signing one of two out lives.
+  const others = await page.$$('[data-testid^="account-remove-"]');
+  if (others.length > 1) {
+    await others[others.length - 1].click();
+    await page.waitForSelector(tid('account-menu'));
+    await shot(page, '75h-settings-account-menu-second');
+    // Out of the menu again: the dimmed ground above it closes it.
+    await page.mouse.click(195, 120);
+    await sleep(400);
+  }
+  // Tapping the account that is not open moves "Active" to it, on the page itself.
+  // The word in the row is the mark: the open one wears it, the other does not.
+  const closed = await page.evaluateHandle(() =>
+    [...document.querySelectorAll('[data-testid="settings-accounts-page"] [role="radio"]')].find(
+      (e) => !/ACTIVE|AKTİF/.test(e.innerText || ''),
+    ),
+  );
+  const row = closed.asElement();
+  if (row) {
+    await row.click();
+    await sleep(1500);
+    // Tapping opens the other account, and the app goes back to it: the page is
+    // opened again to show that the word moved with the account.
+    if (!(await page.$(tid('settings-accounts-page')))) {
+      await page.waitForSelector('[data-testid="open-drawer"],[data-testid$="-open-drawer"]', { timeout: 30000 });
+      await page.evaluate(() =>
+        document.querySelector('[data-testid="open-drawer"],[data-testid$="-open-drawer"]')?.click(),
+      );
+      await sleep(700);
+      await page.click(tid('open-account'));
+      await page.waitForSelector(tid('settings-screen'));
+      await scrollTo(page, 'settings-row-accounts');
+      await page.click(tid('settings-row-accounts'));
+      await page.waitForSelector(tid('settings-accounts-page'));
+      await sleep(500);
+    }
+    await shot(page, '75i-settings-accounts-switched');
+  } else {
+    console.log('WARN no closed account row to tap');
+  }
   await page.click(tid('settings-back'));
+  // And the foot of the menu now names the account it would sign out.
+  await scrollTo(page, 'action-sign-out');
+  await shot(page, '75j-settings-signout-named');
 
   // How much of an answer the Chat shows.
   await scrollTo(page, 'settings-row-chat');
@@ -168,10 +252,13 @@ async function pick(page, pageTestID, label) {
   await shot(page, '76-settings-themes');
   await page.click(tid('settings-back'));
 
-  // The home screen widget: the card as the launcher draws it, how to add it, and where it stands.
+  // The home screen widget (1.9.11): the card as the launcher draws it, the line that
+  // says whether it is there, and how to add it. The web build has no launcher, so the
+  // Android-only "Add to home screen" button is proved by a test, not by this picture.
   await scrollTo(page, 'settings-row-widget');
   await page.click(tid('settings-row-widget'));
   await page.waitForSelector(tid('settings-widget-page'));
+  await page.waitForSelector(tid('widget-preview'));
   await page.evaluate(() => document.querySelector('[data-testid="widget-preview"]')?.scrollIntoView({ block: 'center' }));
   await shot(page, '76d-settings-widget');
   await page.click(tid('settings-back'));
@@ -197,6 +284,18 @@ async function pick(page, pageTestID, label) {
   await page.waitForFunction(() => document.body.innerText.includes('Ayarlar'), { timeout: 5000 });
   await page.evaluate(() => document.querySelector('[data-testid="settings-screen"] [role="header"]')?.scrollIntoView());
   await shot(page, '77-settings-tr');
+  // The widget and About in Turkish: the two pages that are mostly words.
+  await scrollTo(page, 'settings-row-widget');
+  await page.click(tid('settings-row-widget'));
+  await page.waitForSelector(tid('widget-preview'));
+  await page.evaluate(() => document.querySelector('[data-testid="widget-preview"]')?.scrollIntoView({ block: 'center' }));
+  await shot(page, '77f-settings-widget-tr');
+  await page.click(tid('settings-back'));
+  await scrollTo(page, 'settings-row-about');
+  await page.click(tid('settings-row-about'));
+  await page.waitForSelector(tid('settings-about-page'));
+  await shot(page, '77g-settings-about-tr');
+  await page.click(tid('settings-back'));
 
   // The voice's language, in Turkish too.
   await scrollTo(page, 'settings-row-voice-lang');
@@ -267,6 +366,18 @@ async function pick(page, pageTestID, label) {
   await page.click(tid('settings-row-theme'));
   await page.waitForSelector(tid('settings-theme-page'));
   await shot(page, '79c-settings-themes-light');
+  await page.click(tid('settings-back'));
+  // The widget and About in the light theme as well: the card's own plate on white.
+  await scrollTo(page, 'settings-row-widget');
+  await page.click(tid('settings-row-widget'));
+  await page.waitForSelector(tid('widget-preview'));
+  await page.evaluate(() => document.querySelector('[data-testid="widget-preview"]')?.scrollIntoView({ block: 'center' }));
+  await shot(page, '79d-settings-widget-light');
+  await page.click(tid('settings-back'));
+  await scrollTo(page, 'settings-row-about');
+  await page.click(tid('settings-row-about'));
+  await page.waitForSelector(tid('settings-about-page'));
+  await shot(page, '79e-settings-about-light');
   await page.click(tid('settings-back'));
 
   // Wide: the same column, centred, and two cards a row in Analytics.

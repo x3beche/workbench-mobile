@@ -17,7 +17,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, fonts, gutter, indicatorStyle, sideWidth, space, type, wideAt } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, radius, sideWidth, space, type, wideAt } from '../theme/tokens';
 import { Check, ChevronLeft, ChevronRight, type LucideIcon } from './icons';
 import { ScreenHeader } from './ScreenHeader';
 import { Glyph, IconButton } from './ui';
@@ -83,7 +83,8 @@ export function SettingsRow({
   onPress,
   danger,
   accent,
-  chevron = true,
+  chevron,
+  trailing,
   last,
   testID,
   valueTestID,
@@ -95,11 +96,14 @@ export function SettingsRow({
   sub?: string;
   /** What it is set to now, at the right before the chevron. */
   value?: string;
-  onPress: () => void;
+  /** Where the row leads. A row without it only says something (the build, the licence). */
+  onPress?: () => void;
   danger?: boolean;
   accent?: boolean;
-  /** The chevron at the row's end: no where a tap only acts. */
+  /** The chevron at the row's end: no where a tap only acts. Where the row does nothing it is none. */
   chevron?: boolean;
+  /** A control of its own at the row's end, in place of the chevron (the update check). */
+  trailing?: ReactNode;
   /** The last row of its group: no hairline under it. */
   last?: boolean;
   testID?: string;
@@ -107,44 +111,57 @@ export function SettingsRow({
   accessibilityLabel?: string;
 }) {
   const tint = danger ? colors.danger : accent ? colors.accent : colors.ink;
+  const leads = onPress !== undefined;
+  const body = (
+    <>
+      {icon ? (
+        <View style={s.iconCol}>
+          <Glyph icon={icon} size={20} color={tint} />
+        </View>
+      ) : (
+        <View style={s.iconCol} />
+      )}
+      <View style={s.mid}>
+        <Text style={[s.title, danger && s.dangerText, accent && s.accentText]} numberOfLines={1}>
+          {title}
+        </Text>
+        {sub ? (
+          <Text style={s.sub} numberOfLines={1}>
+            {sub}
+          </Text>
+        ) : null}
+      </View>
+      {value ? (
+        <Text style={s.value} numberOfLines={1} testID={valueTestID}>
+          {value}
+        </Text>
+      ) : null}
+      {trailing ? <View style={s.trailing}>{trailing}</View> : null}
+      {trailing || chevron === false || !leads ? null : (
+        <View style={s.chev}>
+          <Glyph icon={ChevronRight} size={16} color={colors.inkDim} />
+        </View>
+      )}
+    </>
+  );
   return (
     <>
-      <Pressable
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? [title, value].filter(Boolean).join(', ')}
-        accessibilityHint={sub}
-        style={({ pressed }) => [s.row, pressed && s.pressed]}
-        testID={testID}
-      >
-        {icon ? (
-          <View style={s.iconCol}>
-            <Glyph icon={icon} size={20} color={tint} />
-          </View>
-        ) : (
-          <View style={s.iconCol} />
-        )}
-        <View style={s.mid}>
-          <Text style={[s.title, danger && s.dangerText, accent && s.accentText]} numberOfLines={1}>
-            {title}
-          </Text>
-          {sub ? (
-            <Text style={s.sub} numberOfLines={1}>
-              {sub}
-            </Text>
-          ) : null}
+      {onPress ? (
+        <Pressable
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel ?? [title, value].filter(Boolean).join(', ')}
+          accessibilityHint={sub}
+          style={({ pressed }) => [s.row, pressed && s.pressed]}
+          testID={testID}
+        >
+          {body}
+        </Pressable>
+      ) : (
+        <View style={s.row} testID={testID}>
+          {body}
         </View>
-        {value ? (
-          <Text style={s.value} numberOfLines={1} testID={valueTestID}>
-            {value}
-          </Text>
-        ) : null}
-        {chevron ? (
-          <View style={s.chev}>
-            <Glyph icon={ChevronRight} size={16} color={colors.inkDim} />
-          </View>
-        ) : null}
-      </Pressable>
+      )}
       {last ? null : <View style={s.sep} />}
     </>
   );
@@ -274,20 +291,29 @@ export function SettingsPage({
 export function SettingsScroll({
   children,
   columns,
+  footer,
 }: {
   children: ReactNode;
   columns?: [ReactNode, ReactNode];
+  /** What belongs to the menu and not to a column: drawn across the width, under both. */
+  footer?: ReactNode;
 }) {
   const two = useTwoColumns();
   return (
     <ScrollView indicatorStyle={indicatorStyle} contentContainerStyle={s.body}>
       {two && columns ? (
-        <View style={s.columns} testID="settings-columns">
-          <View style={s.col}>{columns[0]}</View>
-          <View style={[s.col, s.colGap]}>{columns[1]}</View>
-        </View>
+        <>
+          <View style={s.columns} testID="settings-columns">
+            <View style={s.col}>{columns[0]}</View>
+            <View style={[s.col, s.colGap]}>{columns[1]}</View>
+          </View>
+          {footer ? <View style={s.footer}>{footer}</View> : null}
+        </>
       ) : (
-        <View style={s.column}>{children}</View>
+        <View style={s.column}>
+          {children}
+          {footer}
+        </View>
       )}
     </ScrollView>
   );
@@ -298,8 +324,10 @@ const s = StyleSheet.create({
   body: { paddingBottom: space.xxl },
   column: { width: '100%', maxWidth: SETTINGS_COLUMN, alignSelf: 'center' },
   columns: { flexDirection: 'row', alignItems: 'flex-start', width: '100%' },
-  col: { flex: 1, minWidth: 0 },
+  /** Each column keeps the same right inset, so its hairlines stop short of the edge alike. */
+  col: { flex: 1, minWidth: 0, paddingRight: gutter },
   colGap: { marginLeft: space.xxl },
+  footer: { paddingTop: space.md },
   group: { paddingTop: space.lg },
   groupBare: { paddingTop: space.md },
   groupTitle: {
@@ -341,11 +369,20 @@ const s = StyleSheet.create({
   },
   /** The chevron: a hint, not a heading - it stays quieter than the value beside it. */
   chev: { marginLeft: 4, opacity: 0.55 },
+  /** "Active": a small pill beside the name, quieter than it - never a second heading. */
   badge: {
+    marginRight: 2,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: radius.round,
+    overflow: 'hidden',
     fontFamily: fonts.sansMedium,
     fontSize: type.micro,
     lineHeight: type.microLine,
-    color: colors.accent,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: colors.inkDim,
+    backgroundColor: colors.surface2,
   },
   checkPad: { width: 19 },
   trailing: { marginLeft: space.sm },

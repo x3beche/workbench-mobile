@@ -218,7 +218,7 @@ describe('Settings’ menu', () => {
     expect(screen.getByTestId('settings-about-page')).toBeTruthy();
   });
 
-  it('says the pool with the window that is fullest, in four words', async () => {
+  it('says the pool with the window that is fullest, and what that window is', async () => {
     mockClient = {
       ccpoolOverview: async () => ({
         me: { id: 'u1', name: 'Ada', role: 'owner', privileged: true, keys: 1, usage: {} },
@@ -236,8 +236,29 @@ describe('Settings’ menu', () => {
     const onPool = jest.fn();
     await open({ onPool });
     await act(async () => undefined);
-    // The fuller window is the one shown, with its own short name.
-    expect(screen.getByTestId('settings-value-ccpool')).toHaveTextContent('41.25% · 7 d');
+    // The fuller window is the one shown, in its own words: the weekly one here.
+    expect(screen.getByTestId('settings-value-ccpool')).toHaveTextContent('41.25% · weekly');
+    // A model's own window is named and then said: "Opus weekly", not "7 d Opus".
+    expect(t.window.sevenDayFor('Opus')).toBe('Opus weekly');
+    expect(t.window.fiveHour).toBe('5-hour');
+    // Turkish says it the same way round, its own way: "%78.00 · Opus haftalık".
+    expect(settingsStrings('tr').window.sevenDayFor('Opus')).toBe('Opus haftalık');
+    expect(settingsStrings('tr').window.fiveHour).toBe('5 saatlik');
+  });
+
+  it('says the five-hour window as one too when it is the fuller one', async () => {
+    mockClient = {
+      ccpoolOverview: async () => ({
+        me: { id: 'u1', name: 'Ada', role: 'owner', privileged: true, keys: 1, usage: {} },
+        plan: { five_hour: { pct: 9.1 }, seven_day: { pct: 4.5 }, week_pct: 4.5, week_api_usd: 0 },
+        accounts: [],
+        my_sessions: [],
+        gateway: { configured: true },
+      }),
+    };
+    await open({ onPool: jest.fn() });
+    await act(async () => undefined);
+    expect(screen.getByTestId('settings-value-ccpool')).toHaveTextContent('9.10% · 5-hour');
   });
 
   it('takes Back out of a page first, and only then out of Settings', async () => {
@@ -300,18 +321,22 @@ describe('Settings’ pages', () => {
     await open();
     await fireEvent.press(screen.getByTestId('settings-row-theme'));
     const page = within(screen.getByTestId('settings-theme-page'));
-    // The phone's own, then the dark ones, then the light ones - a heading each.
+    // The phone's own row comes first and alone: no heading over it to repeat it.
+    const system = within(screen.getByTestId('theme-group-system'));
+    expect(system.queryByRole('header')).toBeNull();
+    expect(system.getByText('Follow the phone')).toBeTruthy();
+    // It says which two themes it lands on, by the phone's own light or dark.
+    expect(screen.getByTestId('theme-system').props.accessibilityHint).toBe('Spartan Dark / Light');
+    // Then the dark ones and the light ones, a heading each, in the app's own words.
     const heading = (id: string) => within(screen.getByTestId(`theme-group-${id}`)).getByRole('header');
-    expect(heading('system')).toHaveTextContent('Follow the phone');
-    // The headings are the app's own words, drawn in small capitals by the style.
     expect(heading('dark')).toHaveTextContent(/^dark$/i);
     expect(heading('light')).toHaveTextContent(/^light$/i);
+    expect(screen.queryByTestId('theme-group-system')!.props.children).toBeTruthy();
     expect(screen.getByTestId('theme-system')).toBeTruthy();
     expect(screen.getByTestId('theme-spartan-dark').props.accessibilityState).toEqual({ checked: true });
     expect(page.getByText('Dracula')).toBeTruthy();
     // A theme is its name and its colours: the "Dark"/"Light" line under each is gone.
     expect(screen.getByTestId('theme-dracula').props.accessibilityHint).toBeUndefined();
-    expect(screen.getByTestId('theme-system').props.accessibilityHint).toBeUndefined();
     // Picking one keeps it and restarts the app to wear it.
     await fireEvent.press(screen.getByTestId('theme-dracula'));
     expect(screen.getByText(t.restartTitle('Dracula'))).toBeTruthy();
@@ -342,24 +367,72 @@ describe('Settings’ pages', () => {
     expect(mockRemove).toHaveBeenCalledWith('a2');
   });
 
-  it('describes the home screen widget, and on this platform has no button to add it', async () => {
+  it('describes the home screen widget, with a picture of it and a line saying whether it is there', async () => {
     await open();
     await fireEvent.press(screen.getByTestId('settings-row-widget'));
     const page = within(screen.getByTestId('settings-widget-page'));
     expect(page.getByText(t.widgetWhat)).toBeTruthy();
-    expect(page.getByText('Not added')).toBeTruthy();
+    // The picture is the widget, drawn from its own file: the card, at a launcher's width.
+    expect(page.getByTestId('widget-preview')).toBeTruthy();
+    expect(page.getByText(t.widgetPreview)).toBeTruthy();
+    // Whether it is there is a line under the picture, not a heading.
+    expect(page.getByTestId('widget-state')).toHaveTextContent('Status: not added');
     expect(page.getByText(t.widgetHow)).toBeTruthy();
     // Jest runs an iOS platform: adding a home screen widget is Android's alone.
     expect(screen.queryByTestId('widget-add')).toBeNull();
   });
 
+  it('offers the home screen widget on Android, where a launcher can wear it', async () => {
+    // The button is Android's: the platform is made to be one here, which is what
+    // a browser build cannot show (a widget only exists on a phone's home screen).
+    const { Platform } = jest.requireActual<typeof import('react-native')>('react-native');
+    const was = Platform.OS;
+    (Platform as { OS: string }).OS = 'android';
+    try {
+      await open();
+      await fireEvent.press(screen.getByTestId('settings-row-widget'));
+      expect(screen.getByTestId('widget-add')).toBeTruthy();
+      // And the note that says it is a phone's thing is not there.
+      expect(screen.queryByText(t.widgetOnlyAndroid)).toBeNull();
+    } finally {
+      (Platform as { OS: string }).OS = was;
+    }
+  });
+
   it('says the version, the licence and where the source is, on one About page', async () => {
-    await open();
+    // The app hands the page the update it watches: the build is up to date here.
+    const recheck = jest.fn();
+    await open({
+      update: {
+        installed: { version: installedApp().version, code: 46 },
+        check: { state: 'current', release: null },
+        checking: false,
+        job: { state: 'idle' as const },
+        canInstall: true,
+        recheck,
+        install: jest.fn(async () => undefined),
+        cancel: jest.fn(),
+        allow: jest.fn(async () => undefined),
+      },
+    });
     await fireEvent.press(screen.getByTestId('settings-row-about'));
     const about = within(screen.getByTestId('settings-about-page'));
     expect(about.getByText(t.aboutText)).toBeTruthy();
-    expect(about.getByText(`Workbench mobile ${installedApp().version}`)).toBeTruthy();
-    expect(about.getByText(t.licence)).toBeTruthy();
+    // Three rows of the same kind: the build with its state and a real Check, the
+    // licence, and where the source is.
+    expect(about.getByTestId('settings-version')).toBeTruthy();
+    expect(about.getByText(t.version)).toBeTruthy();
+    // The build and where it stands, in the row's value.
+    expect(about.getByTestId('settings-value-version')).toHaveTextContent(
+      `${installedApp().version} · Up to date`,
+    );
+    // A real button, not a word that looks like one: it asks the server again.
+    const check = about.getByTestId('update-check');
+    expect(check.props.accessibilityRole).toBe('button');
+    await fireEvent.press(check);
+    expect(recheck).toHaveBeenCalled();
+    expect(about.getByText('Licence')).toBeTruthy();
+    expect(about.getByText('MIT')).toBeTruthy();
     expect(about.getByText('github.com/x3beche/workbench-mobile')).toBeTruthy();
     expect(about.getByTestId('settings-source')).toBeTruthy();
   });

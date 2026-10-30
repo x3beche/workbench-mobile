@@ -25,11 +25,18 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/76-settings-themes.png" width="200" alt="The theme page: the phone's own, then the dark themes, then the light ones, each with a square of its colours">
   <img src="docs/screenshots/75e-settings-chat-detail.png" width="200" alt="Chat detail: what each stop shows of an answer's work, the chosen one ticked">
   <img src="docs/screenshots/75d-settings-accounts.png" width="200" alt="The accounts on this phone: the open one marked Active, a tap switching, the way out in the row's ...">
+  <img src="docs/screenshots/75g-settings-accounts-two.png" width="200" alt="Two accounts on the phone: the open one marked Active in a small quiet pill, a ... menu on each of them">
+  <img src="docs/screenshots/75i-settings-accounts-switched.png" width="200" alt="Tapped the other account and the word moved with it: the open one is now the one tapped">
+  <img src="docs/screenshots/75j-settings-signout-named.png" width="200" alt="Sign out at the foot of the menu names the account it would end">
   <img src="docs/screenshots/75f-settings-account-menu.png" width="200" alt="Signing one account out is in the row's ... menu, red, and asks first">
 </p>
 <p>
-  <img src="docs/screenshots/76d-settings-widget.png" width="200" alt="The home screen widget: the card as the launcher draws it, how to add it, and whether it is there">
-  <img src="docs/screenshots/76e-settings-about.png" width="200" alt="About: the version on this phone and its update, the licence and where the source is">
+  <img src="docs/screenshots/76d-settings-widget.png" width="200" alt="The home screen widget: the card itself, drawn from the widget's own file with sample figures, a line saying whether it is on the home screen, and how to add it">
+  <img src="docs/screenshots/79d-settings-widget-light.png" width="200" alt="The same card in the light theme: the plate's grey and the card's white">
+  <img src="docs/screenshots/77f-settings-widget-tr.png" width="200" alt="The widget's page in Turkish: Modeller, Araçlar, Durum: eklenmedi">
+  <img src="docs/screenshots/76e-settings-about.png" width="200" alt="About: the version on this phone and where it stands with a real Check button, the licence, and where the source is">
+  <img src="docs/screenshots/79e-settings-about-light.png" width="200" alt="About in the light theme">
+  <img src="docs/screenshots/77g-settings-about-tr.png" width="200" alt="About in Turkish: Sürüm 1.9.10 · Güncel, Denetle, Lisans MIT, Kaynak">
   <img src="docs/screenshots/80b-settings-wide.png" width="200" alt="A wide screen: the groups in two columns filling the width, the title lined up with them">
   <img src="docs/screenshots/75c-settings-signout.png" width="200" alt="Sign out is the last row, red, without a chevron, and asks before it does it">
 </p>
@@ -446,12 +453,17 @@ Then you sign in with the same e-mail address and password as on the web.
   the menu row has no room for - and the choice is kept the moment it is
   touched, so the menu behind it says **Spartan Dark**, **Türkçe**,
   **Normal** on the way back. The themes are grouped the way they are
-  chosen - **Follow the phone**, **Dark**, **Light** - with a square of each
-  one's four colours and no light/dark line of its own (1.9.10). The
-  accounts (the open one marked **Active** and a tap switching to another;
-  add one; sign one out alone, in the row's **...** menu), the
+  chosen - the phone's own row first and alone, with no heading over it to
+  say its name twice, under it the **Dark** and **Light** groups - with a
+  square of each one's four colours and no light/dark line of its own
+  (1.9.10). The phone's own row says where it lands instead, the two themes
+  the phone's light and dark pick: **Spartan Dark / Light** (1.9.11). The
+  accounts (the open one marked **Active** - a small quiet pill beside the
+  name, never a second heading - and a tap switching to another; add one;
+  sign one out alone, in the row's **...** menu), the
   **Orchestrator** (its own sheet) and the **Claude pool** - its row the
-  window that is fullest, in four words: **9.10% · 5 h** - how
+  window that is fullest, said in a word rather than counted in days:
+  **78.00% · Opus weekly**, **9.10% · 5-hour** (1.9.11) - how
   much of an answer the Chat shows (**Compact**, **Normal**, **Detailed**),
   the app's **language** (Auto, English, Türkçe - apart from the voice
   language; since 1.8.0 everything the app says follows it, the drawer and
@@ -462,18 +474,29 @@ Then you sign in with the same e-mail address and password as on the web.
   starts again to wear a new one - the voice language and when its words
   appear, and the **home screen widget**: the card drawn the way the
   launcher draws it, how to add it, and on Android the one tap that asks
-  the launcher for it (`requestPinAppWidget`). **About** is one row with
-  the version on this phone at its right (1.9.10, no second Version row),
-  and a newer build on the server has a row of its own above it, in the
-  accent: **Update ready: 1.9.11**. **Sign out** is the last row of the
-  menu, red, without a chevron, and asks first - naming the account when
-  more than one is on the phone (**Sign out of Ada Demir**). One measure on
+  the launcher for it (`requestPinAppWidget`). The widget's page draws the
+  card itself (1.9.11): not a second drawing of it but the widget's own file
+  read from here - the same words with `widgetTexts`, the same measures with
+  `metrics`, the same bars with `barsPlan`, the same plate and palette -
+  drawn with the app's views in the app's Plex, so a change to the widget is
+  a change to its picture; the state is a line under it (**Status: not
+  added**) rather than a heading. **About** is three rows of the one kind
+  (1.9.11): **Version** with this build and where it stands (**1.9.10 · Up
+  to date**) and a real **Check** button at its end, **Licence** with
+  **MIT**, and **Source** with the address it opens; a newer build on the
+  server has a row of its own above them, in the accent: **Update ready:
+  1.9.11**. **Sign out** is the last row of the menu, red, without a
+  chevron, and asks first - naming the account when more than one is on the
+  phone (**Sign out of Ada Demir**); on a wide screen it goes across the
+  foot of both columns rather than in one of them (1.9.11). One measure on
   every page (`src/components/SettingsList.tsx`): a row of at least 60 px
   with the icon column 28 wide, the title at 15, the second line and the
   value at 12, hairlines inset past the icon. A wide screen (1.9.10) puts
   the groups in two columns that fill it - Account and AI on the left,
   Appearance, Voice and App on the right - and the bar's title lines up
-  with the column under it, `column` on `ScreenHeader`. Colour is theme
+  with the column under it, `column` on `ScreenHeader`; each column keeps
+  the same right inset, so its hairlines stop short of the edge alike
+  (1.9.11). Colour is theme
   tokens only, so light and dark are the same screen in another palette.
 - **Claude pool** (from 1.6.2, in Settings where the server's pool is set up
   and the person may see it): the web's Settings > Claude pool, read-only

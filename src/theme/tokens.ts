@@ -70,8 +70,7 @@ export interface Palette {
 export const DEFAULT_THEME = 'spartan-dark';
 /** "Follow the phone": these two, by the phone's light or dark. */
 export const SYSTEM_THEME = 'system';
-const SYSTEM_LIGHT = 'light';
-const SYSTEM_DARK = 'spartan-dark';
+export const SYSTEM_THEMES = { dark: 'spartan-dark', light: 'light' } as const;
 
 /** `#rrggbb` (or `#rgb`) at `alpha`, as rgba(); anything else as it is. */
 export function withAlpha(hex: string, alpha: number): string {
@@ -160,7 +159,7 @@ export function groundUnder(fg: string, bg: string, need = 4.5): string {
 
 /** The theme for a stored choice: the one named, the phone's for "system", the default for anything unknown. */
 export function themeFor(choice: string | null, scheme: string | null | undefined): ThemeDef {
-  const id = choice === SYSTEM_THEME ? (scheme === 'light' ? SYSTEM_LIGHT : SYSTEM_DARK) : choice || DEFAULT_THEME;
+  const id = choice === SYSTEM_THEME ? (scheme === 'light' ? SYSTEM_THEMES.light : SYSTEM_THEMES.dark) : choice || DEFAULT_THEME;
   return THEMES.find((t) => t.id === id) ?? THEMES.find((t) => t.id === DEFAULT_THEME)!;
 }
 

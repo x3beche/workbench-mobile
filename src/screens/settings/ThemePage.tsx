@@ -17,19 +17,19 @@ import { SettingsAbout, SettingsChoice, SettingsGroup, SettingsPage } from '../.
 import { Dialog } from '../../components/Sheet';
 import type { SettingsStrings } from '../../lib/settingsStrings';
 import { writeThemePref } from '../../storage/themePref';
-import { SYSTEM_THEME, colors, theme, themeChoice } from '../../theme/tokens';
+import { SYSTEM_THEME, SYSTEM_THEMES, colors, space, theme, themeChoice } from '../../theme/tokens';
 import { THEMES } from '../../theme/themes';
 
 export function ThemePage({ t, onBack }: { t: SettingsStrings; onBack: () => void }) {
   /** The theme picked, waiting for its restart to be agreed to. */
   const [wear, setWear] = useState<{ id: string; name: string } | null>(null);
-  /** The phone's own, then the dark ones and the light ones under their own headings. */
+  // What "follow the phone" wears, by the phone's own light: the two themes'
+  // names, so the row says where it lands instead of repeating its own name.
+  const systemPair = `${THEMES.find((x) => x.id === SYSTEM_THEMES.dark)?.name ?? SYSTEM_THEMES.dark} / ${
+    THEMES.find((x) => x.id === SYSTEM_THEMES.light)?.name ?? SYSTEM_THEMES.light
+  }`;
+  /** The dark ones and the light ones under their own headings. */
   const groups: { key: string; title: string; rows: { id: string; name: string; swatch: string[] }[] }[] = [
-    {
-      key: 'system',
-      title: t.followPhone,
-      rows: [{ id: SYSTEM_THEME, name: t.followPhone, swatch: [colors.surface, colors.surface2, colors.accent, colors.ink] }],
-    },
     {
       key: 'dark',
       title: t.dark,
@@ -53,10 +53,31 @@ export function ThemePage({ t, onBack }: { t: SettingsStrings; onBack: () => voi
   return (
     <SettingsPage title={t.theme} onBack={onBack} backLabel={t.back} testID="settings-theme-page">
       <SettingsAbout>{t.themeAbout}</SettingsAbout>
+      {/* The phone's own row comes first and on its own: a heading over it would
+          only say the same thing twice. */}
+      <View style={s.top} testID="theme-group-system">
+        <SettingsChoice
+          title={t.followPhone}
+          sub={systemPair}
+          on={themeChoice === SYSTEM_THEME}
+          onPress={() => themeChoice !== SYSTEM_THEME && setWear({ id: SYSTEM_THEME, name: t.followPhone })}
+          leading={
+            <View style={s.leading}>
+              <View style={s.swatch}>
+                {[colors.surface, colors.surface2, colors.accent, colors.ink].map((c, k) => (
+                  <View key={k} style={[s.chip, { backgroundColor: c }]} />
+                ))}
+              </View>
+            </View>
+          }
+          last
+          testID="theme-system"
+        />
+      </View>
       {groups.map((g) => (
         <SettingsGroup key={g.key} title={g.title} testID={`theme-group-${g.key}`}>
           {g.rows.map((r, i) => {
-            const on = r.id === SYSTEM_THEME ? themeChoice === SYSTEM_THEME : themeChoice !== SYSTEM_THEME && theme.id === r.id;
+            const on = themeChoice !== SYSTEM_THEME && theme.id === r.id;
             return (
               <SettingsChoice
                 key={r.id}
@@ -73,7 +94,7 @@ export function ThemePage({ t, onBack }: { t: SettingsStrings; onBack: () => voi
                   </View>
                 }
                 last={i === g.rows.length - 1}
-                testID={r.id === SYSTEM_THEME ? 'theme-system' : `theme-${r.id}`}
+                testID={`theme-${r.id}`}
               />
             );
           })}
@@ -98,6 +119,8 @@ export function ThemePage({ t, onBack }: { t: SettingsStrings; onBack: () => voi
 }
 
 const s = StyleSheet.create({
+  /** The phone's own row: under the page's words, with no heading over it. */
+  top: { paddingTop: space.lg },
   leading: { width: 28, alignItems: 'flex-start' },
   // Two colours over two, so each patch is seen: the plate, its panels, the accent and the ink.
   swatch: {

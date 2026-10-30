@@ -102,7 +102,7 @@ const BOX: Record<keyof typeof FACE, { tall: number; under: number }> = {
 };
 const tall = (face: keyof typeof FACE, size: number) => Math.ceil(size * BOX[face].tall * 100) / 100;
 /** What lifts a line of `face` at `size` onto the baseline of a taller one beside it, both on the row's foot. */
-const lift = (face: keyof typeof FACE, size: number, by: keyof typeof FACE, bySize: number) =>
+export const lift = (face: keyof typeof FACE, size: number, by: keyof typeof FACE, bySize: number) =>
   Math.max(0, Math.round((bySize * BOX[by].under - size * BOX[face].under) * 10) / 10);
 /**
  * How wide each character is in IBM Plex Sans, in ems, at 500 and at 700 - read
@@ -138,7 +138,7 @@ function ems(text: string, face: 'sans' | 'mono', weight: 500 | 700 = 500): numb
 }
 
 /** What one half writes: its head and its figures row, the text the drawing is sized to. */
-interface HalfText {
+export interface HalfText {
   title: string;
   /** The head's right: a word in the sans face, or the monospace "88/298". */
   headRight?: { text: string; mono: boolean };
@@ -160,7 +160,7 @@ interface Room {
 }
 
 /** The widest of the halves' lines, line by line. */
-function widest(halves: HalfText[]): Room {
+export function widest(halves: HalfText[]): Room {
   const most: Room = { head: 0, row: 0, big: 0, small: 0 };
   for (const x of halves) {
     const right = x.headRight ? ems(x.headRight.text, x.headRight.mono ? 'mono' : 'sans') * (x.headRight.mono ? WEB.aside : WEB.head) : 0;
@@ -179,7 +179,7 @@ function widest(halves: HalfText[]): Room {
 const paint = (colour: string) => colour as ColorProp;
 
 /** The providers' colours in the server's order, as the Analytics screen draws them. */
-const SERIES: ColorProp[] = [
+export const SERIES: ColorProp[] = [
   colors.series1,
   colors.series2,
   colors.series3,
@@ -190,7 +190,7 @@ const SERIES: ColorProp[] = [
   colors.series8,
 ].map(paint);
 /** The tools' three sources: the Chat, the person's Claude Code, their OpenCode. */
-const TOOL_COLORS: ColorProp[] = [colors.series1, colors.series5, colors.series6].map(paint);
+export const TOOL_COLORS: ColorProp[] = [colors.series1, colors.series5, colors.series6].map(paint);
 
 /** A hex colour's channels: `#ddd` and `#a0a0a0` alike; anything else is not ours to mix. */
 function rgb(hex: string): number[] | null {
@@ -206,7 +206,7 @@ function rgb(hex: string): number[] | null {
  * on a home screen it is all the words there are, and at the dim itself they
  * read as faint.
  */
-function softInk(): string {
+export function softInk(): string {
   const a = rgb(colors.inkDim);
   const b = rgb(colors.ink);
   if (!a || !b) return colors.inkDim;
@@ -222,7 +222,7 @@ const glyph = (d: string, ink: string) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${ink}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
 
 /** Everything the drawing measures, from the box the launcher gave it. */
-interface Metrics {
+export interface Metrics {
   s: number;
   /** The small figure in a row of its own, under the big one. */
   stacked: boolean;
@@ -256,7 +256,7 @@ const MARGIN = 3;
 /** The least height the chart keeps in a short cell, in dp. */
 const MIN_CHART = 26;
 
-function metrics(w: number, h: number, room: Room): Metrics {
+export function metrics(w: number, h: number, room: Room): Metrics {
   const pad = PLATE_PAD;
   // A half's room inside the plate and the card's own borders.
   const half = (w - 2 * pad - 2) / 2;
@@ -383,6 +383,56 @@ function Figure({
  * series' colours - the web's mini-stack (charts.ts), which stands them on a
  * hairline and gives each segment a 1px radius and 1px of air above it.
  */
+/** One day's column: its segments' heights, the heaviest series first (bottom-up). */
+export interface BarColumn {
+  segments: { height: number; color: ColorProp }[];
+}
+
+/** What the chart draws: each bar's width, the air between bars, the floor, and each day's segments. */
+export interface BarsPlan {
+  bar: number;
+  gap: number;
+  /** The bars' floor: the last pixel of the chart is the line they stand on. */
+  floor: number;
+  columns: BarColumn[];
+}
+
+/**
+ * The chart's arithmetic, worked out once so the widget and the picture of it
+ * inside the app (Settings > Home screen widget) draw the same bars.
+ */
+export function barsPlan(
+  days: number[][],
+  width: number,
+  height: number,
+  barGap: number,
+  palette: ColorProp[],
+): BarsPlan {
+  const n = Math.max(1, days.length);
+  // The web's columns are `flex: 1`, so they share the width to the last fraction
+  // of a dp and the last bar ends flush with the card - a whole number each leaves
+  // a strip of nothing at the right.
+  const bar = Math.max(2, (width - barGap * (n - 1)) / n);
+  const most = Math.max(1, ...days.map((d) => d.reduce((a, v) => a + v, 0)));
+  const floor = Math.max(4, height - 1);
+  const columns = days.map((day) => {
+    // The heaviest series first, so the quietest sits on the baseline: the web chart's stack order, bottom-up.
+    const segments = day
+      .map((v, j) => ({ v, color: palette[j % palette.length] }))
+      .filter((x) => x.v > 0)
+      .reverse();
+    // The air between the segments comes out of the column before the heights are worked out, so the stack ends on the line.
+    const room = Math.max(1, floor - Math.max(0, segments.length - 1));
+    return {
+      segments: segments.map((x) => ({
+        height: Math.max(1, Math.round((x.v / most) * room)),
+        color: x.color,
+      })),
+    };
+  });
+  return { bar, gap: barGap, floor, columns };
+}
+
 function Bars({
   days,
   width,
@@ -396,42 +446,26 @@ function Bars({
   barGap: number;
   palette: ColorProp[];
 }) {
-  const n = Math.max(1, days.length);
-  // The web's columns are `flex: 1`, so they share the width to the last fraction
-  // of a dp and the last bar ends flush with the card - a whole number each leaves
-  // a strip of nothing at the right.
-  const bar = Math.max(2, (width - barGap * (n - 1)) / n);
-  const most = Math.max(1, ...days.map((d) => d.reduce((a, v) => a + v, 0)));
-  // The last pixel of the chart is the line the bars stand on.
-  const floor = Math.max(4, height - 1);
+  const plan = barsPlan(days, width, height, barGap, palette);
   return (
     <FlexWidget style={{ flexDirection: 'column', width, height }}>
-      <FlexWidget style={{ flexDirection: 'row', alignItems: 'flex-end', height: floor, width, flexGap: barGap }}>
-        {days.map((day, i) => {
-          // The heaviest series first, so the quietest sits on the baseline: the web chart's stack order, bottom-up.
-          const segments = day
-            .map((v, j) => ({ v, color: palette[j % palette.length] }))
-            .filter((x) => x.v > 0)
-            .reverse();
-          // The air between the segments comes out of the column before the heights are worked out, so the stack ends on the line.
-          const room = Math.max(1, floor - Math.max(0, segments.length - 1));
-          return (
-            <FlexWidget key={i} style={{ width: bar, height: floor, flexDirection: 'column', justifyContent: 'flex-end' }}>
-              {segments.map((x, j) => (
-                <FlexWidget
-                  key={j}
-                  style={{
-                    width: bar,
-                    height: Math.max(1, Math.round((x.v / most) * room)),
-                    borderRadius: 1,
-                    marginBottom: j < segments.length - 1 ? 1 : 0,
-                    backgroundColor: x.color,
-                  }}
-                />
-              ))}
-            </FlexWidget>
-          );
-        })}
+      <FlexWidget style={{ flexDirection: 'row', alignItems: 'flex-end', height: plan.floor, width, flexGap: plan.gap }}>
+        {plan.columns.map((column, i) => (
+          <FlexWidget key={i} style={{ width: plan.bar, height: plan.floor, flexDirection: 'column', justifyContent: 'flex-end' }}>
+            {column.segments.map((x, j) => (
+              <FlexWidget
+                key={j}
+                style={{
+                  width: plan.bar,
+                  height: x.height,
+                  borderRadius: 1,
+                  marginBottom: j < column.segments.length - 1 ? 1 : 0,
+                  backgroundColor: x.color,
+                }}
+              />
+            ))}
+          </FlexWidget>
+        ))}
       </FlexWidget>
       <FlexWidget style={{ height: 1, width, backgroundColor: paint(colors.line) }} />
     </FlexWidget>
@@ -550,6 +584,32 @@ function Half({
 
 const count = (n: number) => n.toLocaleString('en-US');
 
+/**
+ * The two halves' own words and figures - what the widget writes, and what a
+ * picture of it inside the app writes too (Settings > Home screen widget), so
+ * the two cannot say different things.
+ */
+export function widgetTexts(snap: WidgetSnapshot, t: SettingsStrings): { models: HalfText; tools: HalfText } {
+  const models: HalfText = {
+    title: t.models,
+    headRight: { text: t.period.month, mono: false },
+    big: figure(snap.models.tokens),
+    unit: 'tok',
+    value: count(snap.models.calls),
+    word: t.calls,
+  };
+  const tools: HalfText = {
+    title: t.tools,
+    // The web head's "88/298" - the tools that are on, out of all of them.
+    headRight: snap.tools.total ? { text: `${snap.tools.on}/${count(snap.tools.total)}`, mono: true } : undefined,
+    big: snap.tools.week >= 1e4 ? figure(snap.tools.week) : String(snap.tools.week),
+    unit: t.period.week,
+    value: count(snap.tools.kinds),
+    word: t.toolWord(snap.tools.kinds),
+  };
+  return { models, tools };
+}
+
 export function StatsWidget({
   snap,
   w,
@@ -564,23 +624,9 @@ export function StatsWidget({
 }) {
   // The text each half writes, worked out once: the drawing below writes it and
   // `widest` sizes the card to it.
-  const models: HalfText = {
-    title: t.models,
-    headRight: { text: t.period.month, mono: false },
-    big: snap ? figure(snap.models.tokens) : '',
-    unit: 'tok',
-    value: snap ? count(snap.models.calls) : '',
-    word: t.calls,
-  };
-  const tools: HalfText = {
-    title: t.tools,
-    // The web head's "88/298" - the tools that are on, out of all of them.
-    headRight: snap?.tools.total ? { text: `${snap.tools.on}/${count(snap.tools.total)}`, mono: true } : undefined,
-    big: snap ? (snap.tools.week >= 1e4 ? figure(snap.tools.week) : String(snap.tools.week)) : '',
-    unit: t.period.week,
-    value: snap ? count(snap.tools.kinds) : '',
-    word: t.toolWord(snap?.tools.kinds ?? 0),
-  };
+  const texts = snap ? widgetTexts(snap, t) : null;
+  const models: HalfText = texts?.models ?? { title: t.models, big: '', unit: '', value: '', word: '' };
+  const tools: HalfText = texts?.tools ?? { title: t.tools, big: '', unit: '', value: '', word: '' };
   const m = metrics(w, h, widest(snap ? [models, tools] : [{ ...models, big: '', unit: '', value: '', word: '' }]));
   // One sentence for a screen reader: the widget itself is a picture to it.
   const label = snap

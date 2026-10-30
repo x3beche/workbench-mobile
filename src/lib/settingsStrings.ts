@@ -23,7 +23,10 @@ export interface SettingsStrings {
   app: string;
   about: string;
   aboutText: string;
-  licence: string;
+  /** The build on this phone, and its state, as a row of their own. */
+  version: string;
+  licenceLabel: string;
+  licenceValue: string;
   source: string;
   // Settings' menu (1.9.9)
   /** The way back from a page under Settings. */
@@ -36,7 +39,7 @@ export interface SettingsStrings {
   voiceModeAbout: string;
   /** The one line a menu row carries; the page under it says the rest. */
   rowSub: { theme: string; chat: string; pool: string };
-  /** The subscription's windows, short enough to sit beside their figure: "5 h". */
+  /** The subscription's windows, short enough to sit beside their figure: "5-hour". */
   window: { fiveHour: string; sevenDay: string; sevenDayFor: (name: string) => string };
   /** What each choice means, under its name on the page that offers it. */
   languageChoice: { auto: string; en: string; tr: string };
@@ -53,6 +56,8 @@ export interface SettingsStrings {
   /** What the picture of the widget on its page says it is. */
   widgetPreview: string;
   widgetPreviewLabel: string;
+  /** Whether the widget is on the home screen: a line under the picture, not a heading. */
+  widgetStatus: (on: boolean) => string;
   signOutAbout: string;
   aboutSub: string;
   // Analytics
@@ -140,7 +145,9 @@ const en: SettingsStrings = {
   app: 'App',
   about: 'About',
   aboutText: 'Workbench mobile, the chat of any Workbench server.',
-  licence: 'MIT licence',
+  version: 'Version',
+  licenceLabel: 'Licence',
+  licenceValue: 'MIT',
   source: 'Source',
   back: 'Back',
   menuGroups: {
@@ -155,7 +162,7 @@ const en: SettingsStrings = {
     chat: 'How much detail in answers',
     pool: 'Subscription usage',
   },
-  window: { fiveHour: '5 h', sevenDay: '7 d', sevenDayFor: (name) => `7 d ${name}` },
+  window: { fiveHour: '5-hour', sevenDay: 'weekly', sevenDayFor: (name) => `${name} weekly` },
   accountsAddAbout: 'Another server, or another person',
   accountsNote: 'Signing out takes only that account off this phone.',
   voiceLangAbout: 'What your voice is written in',
@@ -186,6 +193,7 @@ const en: SettingsStrings = {
   widgetOnlyAndroid: 'The home screen widget is Android’s. On this platform Settings only describes it.',
   widgetPreview: 'On the home screen',
   widgetPreviewLabel: 'The widget as it looks: this month’s models and this week’s tools, each with its last 14 days.',
+  widgetStatus: (on) => `Status: ${on ? 'added' : 'not added'}`,
   signOutAbout: 'The conversations stay',
   aboutSub: 'Licence and source',
   models: 'Models',
@@ -263,7 +271,9 @@ const tr: SettingsStrings = {
   app: 'Uygulama',
   about: 'Hakkında',
   aboutText: 'Workbench mobil, her Workbench sunucusunun sohbeti.',
-  licence: 'MIT lisansı',
+  version: 'Sürüm',
+  licenceLabel: 'Lisans',
+  licenceValue: 'MIT',
   source: 'Kaynak',
   back: 'Geri',
   menuGroups: {
@@ -278,7 +288,7 @@ const tr: SettingsStrings = {
     chat: 'Yanıtlarda ne kadar ayrıntı',
     pool: 'Abonelik kullanımı',
   },
-  window: { fiveHour: '5 sa', sevenDay: '7 gün', sevenDayFor: (name) => `7 gün ${name}` },
+  window: { fiveHour: '5 saatlik', sevenDay: 'haftalık', sevenDayFor: (name) => `${name} haftalık` },
   accountsAddAbout: 'Başka sunucu, ya da aynı sunucuda başka biri',
   accountsNote: 'Çıkış yalnızca o hesabı bu telefondan kaldırır.',
   voiceLangAbout: 'Konuşmanız hangi dilde yazıya dökülür',
@@ -309,6 +319,7 @@ const tr: SettingsStrings = {
   widgetOnlyAndroid: 'Ana ekran widget’ı Android’in. Bu platformda Ayarlar onu yalnızca anlatır.',
   widgetPreview: 'Ana ekranda',
   widgetPreviewLabel: 'Widget’ın görünüşü: bu ayın modelleri ve bu haftanın araçları, her biri son 14 günüyle.',
+  widgetStatus: (on) => `Durum: ${on ? 'eklendi' : 'eklenmedi'}`,
   signOutAbout: 'Konuşmalar telefonda kalır',
   aboutSub: 'Lisans ve kaynak',
   models: 'Modeller',

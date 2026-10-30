@@ -365,7 +365,6 @@ export const SettingsScreen = forwardRef<
           <Fragment key="left">
             {accountGroup}
             {aiGroup}
-            {signOutRow}
           </Fragment>,
           <Fragment key="right">
             {lookGroup}
@@ -373,13 +372,14 @@ export const SettingsScreen = forwardRef<
             {appGroup}
           </Fragment>,
         ]}
+        // Signing out is not one column's business: it goes across both, under them.
+        footer={signOutRow}
       >
         {accountGroup}
         {aiGroup}
         {lookGroup}
         {voiceGroup}
         {appGroup}
-        {signOutRow}
       </SettingsScroll>
     </SafeAreaView>
   );
