@@ -1048,3 +1048,32 @@ export interface PoolOverview {
   my_hidden?: { count: number; cost_usd: number };
   gateway: { configured: boolean };
 }
+
+/** GET /api/admin/server-health: the server itself, for its owner and admins (backend/hosthealth.py). */
+export interface HostHealth {
+  now: {
+    at: number;
+    sample: {
+      psi_mem_full60: number | null; psi_mem_some60: number | null; psi_mem_full10: number | null;
+      psi_io_full60: number | null; psi_cpu_some60: number | null; avail_gb: number | null;
+      swap_used_pct: number | null; oom_kill: number | null; temp_max: number | null;
+      temp_cpu: number | null; temp_gpu: number | null; disk_pct: number | null;
+      load1: number | null; uptime_s: number | null;
+    };
+    uptime_s: number | null; boot_id: string | null; load: number[];
+    disks: Record<string, { total_gb: number; free_gb: number; pct: number }>;
+    unreadable: string[];
+  };
+  thresholds: Record<string, number>;
+  verdict: { tone: 'ok' | 'warn' | 'danger'; quiet: boolean; en: string; tr: string };
+  series: { range: string; t0: number; step: number; n: number; psi: (number | null)[];
+            avail: (number | null)[]; temp: (number | null)[] };
+  events: {
+    id: string; kind: string; title: string; at: string; detail?: string | null;
+    source: 'host' | 'derived';
+    impact: { counts: { orchestrator?: number; sandboxes?: number; jobs?: number }; total?: number };
+  }[];
+  sources: { id: string; label: string; ok: boolean; why: string | null }[];
+  cost: { samples: number; cpu_ms: number | null; avg_ms?: number | null };
+  containers: { name: string; state: string; status: string; unhealthy: boolean; restarting: boolean }[];
+}

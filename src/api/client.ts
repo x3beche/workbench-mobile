@@ -21,6 +21,7 @@ import type {
   ChatEvent,
   ChatScope,
   FileFolder,
+  HostHealth,
   Ideas,
   Incident,
   LlmSummary,
@@ -759,6 +760,11 @@ export class WorkbenchClient {
       `/api/wbo/sessions/${encodeURIComponent(sid)}/asks/${encodeURIComponent(ask)}/answer`,
       body,
     );
+  }
+
+  /** The server itself, for its owner and admins (GET /api/admin/server-health). */
+  serverHealth(range: string, days: number): Promise<HostHealth> {
+    return this.request<HostHealth>('GET', `/api/admin/server-health?range=${encodeURIComponent(range)}&days=${days}`);
   }
 
   /** Select the model for this OpenCode session: PUT /api/wbo/sessions/:id/model */

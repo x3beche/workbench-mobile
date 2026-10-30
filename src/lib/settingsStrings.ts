@@ -91,6 +91,9 @@ export interface SettingsStrings {
   opencodeTools: string;
   orchestrator: string;
   orchestratorAbout: string;
+  /** Settings > Server health: the row, and what the page is for. */
+  serverHealth: string;
+  serverHealthSub: string;
   agentsNow: (n: number) => string;
   incidents: string;
   noIncidents: string;
@@ -222,6 +225,8 @@ const en: SettingsStrings = {
   opencodeTools: 'Your OpenCode tool calls, from your computers',
   orchestrator: 'Orchestrator',
   orchestratorAbout: 'Your agent on the server',
+  serverHealth: 'Server health',
+  serverHealthSub: 'Memory pressure, out-of-memory kills, restarts, the disk and the heat - and what each broke',
   agentsNow: (n) => (n === 1 ? '1 sub-agent in its tree' : `${n} sub-agents in its tree`),
   incidents: 'Incidents',
   noIncidents: 'Nothing has gone wrong yet.',
@@ -348,6 +353,8 @@ const tr: SettingsStrings = {
   opencodeTools: 'OpenCode araç çağrıların, bilgisayarlarından',
   orchestrator: 'Orkestratör',
   orchestratorAbout: 'Sunucudaki ajanınız',
+  serverHealth: 'Sunucu sağlığı',
+  serverHealthSub: 'Bellek baskısı, OOM öldürmeleri, yeniden başlamalar, disk ve ısı - ve her birinin neyi bozduğu',
   agentsNow: (n) => `ağacında ${n} alt ajan`,
   incidents: 'Olaylar',
   noIncidents: 'Henüz bir sorun olmadı.',

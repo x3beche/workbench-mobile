@@ -28,6 +28,7 @@ import type { VoiceLang } from '../api/client';
 import type { ChatDetail, OrchStatus, PoolOverview } from '../api/types';
 import { accountStrings, localized } from '../components/accountStrings';
 import {
+  Activity,
   AudioLines,
   Bot,
   ChartColumn,
@@ -67,12 +68,13 @@ import type { Update } from '../update/useUpdate';
 import { VOICE_LANGS, VOICE_MODES, type VoiceMode } from '../voice/voice';
 import { useWidgetsOnHome } from '../widget/home';
 import { AccountsPage } from './settings/AccountsPage';
+import { ServerHealthPage } from './settings/ServerHealthPage';
 import { AboutPage, WidgetPage } from './settings/AppPages';
 import { ChoicePage } from './settings/ChoicePage';
 import { ThemePage } from './settings/ThemePage';
 
 /** The pages under Settings' menu. */
-type Page = 'menu' | 'accounts' | 'chat' | 'language' | 'theme' | 'voice-lang' | 'voice-mode' | 'widget' | 'about';
+type Page = 'menu' | 'accounts' | 'chat' | 'language' | 'theme' | 'voice-lang' | 'voice-mode' | 'widget' | 'about' | 'serverhealth';
 
 /** A row of the menu: what it says, and where its tap leads. */
 interface MenuRow {
@@ -148,6 +150,9 @@ export const SettingsScreen = forwardRef<
   ref,
 ) {
   const { user, client, signOut, account, accounts } = useSession();
+  /** The server's own pages are the owner's and the admins' (backend/access.py). */
+  const admin = (account?.user as { role?: string } | null)?.role === 'owner'
+    || (account?.user as { role?: string } | null)?.role === 'admin';
   const [page, setPage] = useState<Page>('menu');
   /** Signing out of the open account asks first: one tap used to end the session. */
   const [askOut, setAskOut] = useState(false);
@@ -225,6 +230,15 @@ export const SettingsScreen = forwardRef<
       sub: orch.model ? modelName(orch.model) : t.orchestratorAbout,
       value: stateWord(orch, ot),
       onPress: onAgent,
+    });
+  // The server itself, for its owner and the admins (backend/hosthealth.py).
+  if (admin)
+    aiRows.push({
+      key: 'serverhealth',
+      icon: Activity,
+      title: t.serverHealth,
+      sub: t.serverHealthSub,
+      onPress: () => setPage('serverhealth'),
     });
   if (pool && onPool)
     aiRows.push({
@@ -444,6 +458,15 @@ export const SettingsScreen = forwardRef<
       />
     ) : page === 'widget' ? (
       <WidgetPage t={t} onTheHomeScreen={widgets} onBack={onBack} />
+    ) : page === 'serverhealth' ? (
+      <ServerHealthPage
+        client={client ?? null}
+        lang={ui === 'tr' ? 'tr' : 'en'}
+        onBack={onBack}
+        backLabel={t.back}
+        title={t.serverHealth}
+        about={t.serverHealthSub}
+      />
     ) : page === 'about' ? (
       <AboutPage t={t} update={update} ut={ut} lang={ui} version={version} onBack={onBack} />
     ) : (
