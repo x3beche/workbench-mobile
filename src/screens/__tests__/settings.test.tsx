@@ -152,12 +152,23 @@ describe('Settings’ menu', () => {
     expect(screen.getByTestId('settings-group-appearance')).toBeTruthy();
   });
 
-  it('opens the Orchestrator sheet from its row, and says which model it is on', async () => {
+  it('opens the Orchestrator page from its row, and the model sheet from that page', async () => {
     const onAgent = jest.fn();
     await open({ onAgent });
     expect(within(screen.getByTestId('settings-row-orchestrator')).getByText('claude-sonnet-4-5')).toBeTruthy();
-    fireEvent.press(screen.getByTestId('settings-row-orchestrator'));
-    expect(onAgent).toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('settings-row-orchestrator'));
+    });
+    // its own page (Settings > Orchestrator), not the sheet: the state, the figures, the work
+    expect(screen.getByTestId('settings-orchestrator')).toBeTruthy();
+    expect(screen.getByTestId('orch-state')).toBeTruthy();
+    // Back to the menu, and the sheet is still what picks the model (its row is on the page when the
+    // server has said what the Orchestrator runs on)
+    expect(onAgent).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('settings-back'));
+    });
+    expect(screen.getByTestId('settings-row-orchestrator')).toBeTruthy();
   });
 
   it('asks before signing out, and then signs the open account out', async () => {

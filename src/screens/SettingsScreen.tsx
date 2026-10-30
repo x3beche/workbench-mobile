@@ -68,13 +68,14 @@ import type { Update } from '../update/useUpdate';
 import { VOICE_LANGS, VOICE_MODES, type VoiceMode } from '../voice/voice';
 import { useWidgetsOnHome } from '../widget/home';
 import { AccountsPage } from './settings/AccountsPage';
+import { OrchestratorPage } from './settings/OrchestratorPage';
 import { ServerHealthPage } from './settings/ServerHealthPage';
 import { AboutPage, WidgetPage } from './settings/AppPages';
 import { ChoicePage } from './settings/ChoicePage';
 import { ThemePage } from './settings/ThemePage';
 
 /** The pages under Settings' menu. */
-type Page = 'menu' | 'accounts' | 'chat' | 'language' | 'theme' | 'voice-lang' | 'voice-mode' | 'widget' | 'about' | 'serverhealth';
+type Page = 'menu' | 'accounts' | 'chat' | 'language' | 'theme' | 'voice-lang' | 'voice-mode' | 'widget' | 'about' | 'orchestrator' | 'serverhealth';
 
 /** A row of the menu: what it says, and where its tap leads. */
 interface MenuRow {
@@ -126,6 +127,8 @@ export const SettingsScreen = forwardRef<
     onMenu?: () => void;
     /** Settings > Claude pool opened, with what was read for its row. */
     onPool?: (d: PoolOverview) => void;
+    /** The Orchestrator's page: open it in the Chat. */
+    onOrchRoom?: () => void;
   }
 >(function SettingsScreen(
   {
@@ -143,6 +146,7 @@ export const SettingsScreen = forwardRef<
     update,
     orch,
     onAgent,
+    onOrchRoom,
     wide = false,
     onMenu,
     onPool,
@@ -236,14 +240,16 @@ export const SettingsScreen = forwardRef<
     onPress: () => setPage('accounts'),
   };
   const aiRows: MenuRow[] = [];
-  if (orch && onAgent)
+  if (orch)
     aiRows.push({
       key: 'orchestrator',
       icon: Bot,
       title: ot.orchestrator,
       sub: orch.model ? modelName(orch.model) : t.orchestratorAbout,
       value: stateWord(orch, ot),
-      onPress: onAgent,
+      // its own page: the state, the figures, what it handed out and what went wrong (the sheet behind
+      // the model row is the one that picks the model)
+      onPress: () => setPage('orchestrator'),
     });
   // The server itself, for its owner and the admins (backend/hosthealth.py).
   if (admin)
@@ -413,7 +419,17 @@ export const SettingsScreen = forwardRef<
   );
 
   const body =
-    page === 'accounts' ? (
+    page === 'orchestrator' ? (
+      <OrchestratorPage
+        client={client}
+        t={ot}
+        lang={ui}
+        onBack={onBack}
+        backLabel={t.back}
+        onModel={onAgent ?? (() => undefined)}
+        onOpenRoom={onOrchRoom}
+      />
+    ) : page === 'accounts' ? (
       <AccountsPage t={t} ui={ui} onBack={onBack} />
     ) : page === 'chat' ? (
       <ChoicePage

@@ -79,6 +79,32 @@ export interface OrchStrings {
   cantRead: string;
   mayNot: string;
   modelNow: (m: string) => string;
+  // Settings > Orchestrator: the dashboard (screens/settings/OrchestratorPage.tsx)
+  upFor: string;
+  restartsToday: string;
+  memory: string;
+  tokensToday: string;
+  tokensWeek: string;
+  nowBusy: string;
+  asking1: string;
+  lastEvent: string;
+  figures: string;
+  handoffs: string;
+  noHandoffs: string;
+  noIncidents: string;
+  more: string;
+  fewer: string;
+  allOfThem: string;
+  incidents: string;
+  allOrchestrators: string;
+  allIncidents: string;
+  atMost: string;
+  answersEveryRoom: string;
+  cancelled: string;
+  dayShort: string;
+  hourShort: string;
+  minShort: string;
+  secShort: string;
   /** Over a thread, when something new came while one reads further up. */
   newBelow: string;
 }
@@ -168,6 +194,31 @@ const en: OrchStrings = {
   cantRead: 'The Orchestrator could not be read.',
   mayNot: 'Your account has no Orchestrator on this server.',
   modelNow: (m) => `Now: ${m}`,
+  upFor: 'Up for',
+  restartsToday: 'Restarts today',
+  memory: 'Memory',
+  tokensToday: 'Tokens today',
+  tokensWeek: 'Tokens this week',
+  nowBusy: 'Busy · asking · hand-offs',
+  asking1: '1 asking',
+  lastEvent: 'Last event',
+  figures: 'Figures',
+  handoffs: 'Hand-offs',
+  noHandoffs: 'Nothing handed out yet.',
+  noIncidents: 'Nothing has gone wrong yet.',
+  more: 'More',
+  fewer: 'Fewer',
+  allOfThem: 'All of them',
+  incidents: 'Incidents',
+  allOrchestrators: 'All Orchestrators',
+  allIncidents: 'All incidents',
+  atMost: 'at most',
+  answersEveryRoom: 'Answers in every room; hands 3D, PCB and firmware work to its agents',
+  cancelled: 'Cancelled',
+  dayShort: 'd',
+  hourShort: 'h',
+  minShort: 'min',
+  secShort: 's',
   newBelow: 'New messages',
 };
 
@@ -256,6 +307,31 @@ const tr: OrchStrings = {
   cantRead: 'Orkestratör okunamadı.',
   mayNot: 'Hesabınızın bu sunucuda bir orkestratörü yok.',
   modelNow: (m) => `Şu an: ${m}`,
+  upFor: 'Çalışma süresi',
+  restartsToday: 'Bugünkü yeniden başlatmalar',
+  memory: 'Bellek',
+  tokensToday: 'Bugünkü tokenlar',
+  tokensWeek: 'Bu haftaki tokenlar',
+  nowBusy: 'Meşgul · bekleyen · devir',
+  asking1: '1 soru bekliyor',
+  lastEvent: 'Son olay',
+  figures: 'Rakamlar',
+  handoffs: 'Devirler',
+  noHandoffs: 'Henüz bir iş devredilmedi.',
+  noIncidents: 'Henüz bir şey ters gitmedi.',
+  more: 'Daha fazla',
+  fewer: 'Daha az',
+  allOfThem: 'Hepsi',
+  incidents: 'Olaylar',
+  allOrchestrators: 'Tüm Orkestratörler',
+  allIncidents: 'Tüm olaylar',
+  atMost: 'en fazla',
+  answersEveryRoom: 'Her odada yanıtlar; 3D, PCB ve firmware işini ajanlarına devreder',
+  cancelled: 'İptal edildi',
+  dayShort: 'g',
+  hourShort: 'sa',
+  minShort: 'dk',
+  secShort: 'sn',
   newBelow: 'Yeni mesajlar',
 };
 

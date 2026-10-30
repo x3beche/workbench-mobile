@@ -1,6 +1,6 @@
 {
   "name": "workbench-mobile",
-  "version": "1.9.21",
+  "version": "1.9.22",
   "main": "index.ts",
   "dependencies": {
     "@expo-google-fonts/ibm-plex-mono": "^0.4.1",

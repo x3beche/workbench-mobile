@@ -975,6 +975,7 @@ export function Workspace({
               update={update}
               orch={orchSt}
               onAgent={() => setAgentSheet(true)}
+              onOrchRoom={openOrch}
               wide={wide}
               onMenu={() => setDrawer(true)}
               onPool={(d) => {
