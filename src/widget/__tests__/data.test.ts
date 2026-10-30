@@ -1,6 +1,8 @@
 /** What the home screen widget counts: the web Chat tab's two cards, from the same two routes. */
 import type { LlmSummary, ToolsUsage } from '../../api/types';
-import { modelDays, snapshotOf, toolDays, toolKinds, toolSwitchboard, toolWeek } from '../data';
+import { modelDays, snapshotOf, toolDays, toolKinds, toolSwitchboard, toolWeek, toolMonth, hasToolMonth } from '../data';
+import { widgetTexts } from '../StatsWidget';
+import { settingsStrings } from '../../lib/settingsStrings';
 
 const day = (n: number) => `2026-10-${String(n).padStart(2, '0')}`;
 
@@ -90,15 +92,34 @@ describe('the snapshot', () => {
   it('carries the month, the week and both charts', () => {
     const snap = snapshotOf(
       summary([{ day: day(1), calls: 1, tokens: 90, cost_usd: null }]),
-      usage([{ day: day(1), by: { Read: 3 } }], { Read: { uses: 3, done: 3, week: 3 } }),
+      usage([{ day: day(1), by: { Read: 3 } }], { Read: { uses: 3, done: 3, week: 3, month: 5 } }),
       null,
       7,
     );
     expect(snap).toEqual({
       at: 7,
       models: { tokens: 2_190_000_000, calls: 9807, days: [[90]] },
-      tools: { week: 3, kinds: 1, on: 0, total: 0, days: [[3, 0, 0]] },
+      tools: { month: 5, week: 3, kinds: 1, on: 0, total: 0, days: [[3, 0, 0]] },
     });
+    const t = settingsStrings('en');
+    const texts = widgetTexts(snap, t);
+    expect(texts.tools.unit).toBe(t.period.month);
+    expect(texts.tools.big).toBe('5');
+  });
+
+  it('falls back to week when server provides no month (older server)', () => {
+    const snap = snapshotOf(
+      summary([{ day: day(1), calls: 1, tokens: 90, cost_usd: null }]),
+      usage([{ day: day(1), by: { Read: 3 } }], { Read: { uses: 3, done: 3, week: 3 } }),
+      null,
+      7,
+    );
+    expect(snap.tools.month).toBeUndefined();
+    expect(snap.tools.week).toBe(3);
+    const t = settingsStrings('en');
+    const texts = widgetTexts(snap, t);
+    expect(texts.tools.unit).toBe(t.period.week);
+    expect(texts.tools.big).toBe('3');
   });
 
   it('counts the tools that are on, out of all of them, when the list was read', () => {

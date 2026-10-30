@@ -35,7 +35,7 @@ export async function saveSnapshot(snap: WidgetSnapshot): Promise<void> {
   }
 }
 
-/** This month's models and this week's tools, read as the last account signed in. */
+/** This month's models and this month's tools, read as the last account signed in. */
 export async function fetchSnapshot(): Promise<WidgetSnapshot | null> {
   const accounts = await loadAccounts();
   if (!accounts.length) return null;

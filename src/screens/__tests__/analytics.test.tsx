@@ -125,6 +125,27 @@ function client(over: Partial<Record<string, unknown>> = {}) {
     expect(screen.getByTestId('analytics-tools')).toBeTruthy();
     expect(screen.queryByTestId('analytics-tools-claude')).toBeNull();
   });
+
+  it('shows this month for tools when the server provides month', async () => {
+    const c = client({
+      toolsUsage: jest.fn(async () => ({
+        tools: { part_search: { uses: 30, done: 30, week: 7, week_done: 7, month: 25, month_done: 25 } },
+        mine: 30,
+        days: [],
+        span: 'month',
+        external: {
+          claude: { tools: { Bash: { uses: 40, week: 20, month: 35 } }, days: {} },
+          opencode: { tools: { edit: { uses: 4, week: 2, month: 4 } }, days: {} },
+        },
+      })),
+    });
+    await render(<AnalyticsScreen client={c} t={settingsStrings('en')} ot={orchStrings('en')} lang="en" />);
+    await act(async () => undefined);
+    // 25 + 35 + 4 = 64 this month
+    expect(screen.getByText('64')).toBeTruthy();
+    expect(screen.getAllByText('this month')).toHaveLength(2);
+    expect(screen.getByText('Bash · 35 uses')).toBeTruthy();
+  });
 });
 
 (canRender ? describe : describe.skip)('Analytics, live', () => {

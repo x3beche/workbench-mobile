@@ -769,25 +769,37 @@ const extWeek = (x: ExtToolUses | null | undefined) => (x ? Object.values(x.tool
 const bucketSum = (by: Record<string, number> | undefined) => Object.values(by ?? {}).reduce((a, n) => a + n, 0);
 
 /**
- * The week's tool calls - the Chat's, and the person's own in Claude Code and
+ * The tool calls - the Chat's, and the person's own in Claude Code and
  * OpenCode - the last 14 days stacked by source like the Models card's, and,
  * opened, the split and the most used tool (the web card's tooltip).
  */
 function ToolsCard({ u, t, lang }: { u: ToolsUsage; t: SettingsStrings; lang: 'en' | 'tr' }) {
   const ext = u.external;
-  const own = Object.values(u.tools).reduce((a, v) => a + v.week, 0);
-  const done = Object.values(u.tools).reduce((a, v) => a + (v.week_done ?? v.week), 0);
-  const split: Record<string, number> = { workbench: own, claude: extWeek(ext?.claude), opencode: extWeek(ext?.opencode) };
+  const hasMonth = Object.values(u.tools).some((v) => v.month !== undefined);
+  const own = Object.values(u.tools).reduce((a, v) => a + (hasMonth ? (v.month ?? v.week) : v.week), 0);
+  const done = Object.values(u.tools).reduce(
+    (a, v) => a + (hasMonth ? (v.month_done ?? v.week_done ?? v.uses) : (v.week_done ?? v.week)),
+    0,
+  );
+  const extCount = (x: ExtToolUses | null | undefined) =>
+    x ? Object.values(x.tools).reduce((a, v) => a + (hasMonth ? (v.month ?? v.week) : v.week), 0) : 0;
+  const split: Record<string, number> = { workbench: own, claude: extCount(ext?.claude), opencode: extCount(ext?.opencode) };
   const total = split.workbench + split.claude + split.opencode;
-  // The week's most used tool of any source, each by its own name.
+  // The month's (or week fallback) most used tool of any source, each by its own name.
   const best = [
-    ...Object.entries(u.tools).map(([n, v]) => ({ name: n.replace(/_/g, ' '), week: v.week })),
+    ...Object.entries(u.tools).map(([n, v]) => ({
+      name: n.replace(/_/g, ' '),
+      count: hasMonth ? (v.month ?? v.week) : v.week,
+    })),
     ...(['claude', 'opencode'] as ExtId[]).flatMap((id) =>
-      Object.entries(ext?.[id]?.tools ?? {}).map(([n, v]) => ({ name: n, week: v.week })),
+      Object.entries(ext?.[id]?.tools ?? {}).map(([n, v]) => ({
+        name: n,
+        count: hasMonth ? (v.month ?? v.week) : v.week,
+      })),
     ),
   ]
-    .filter((x) => x.week > 0)
-    .sort((a, b) => b.week - a.week)[0];
+    .filter((x) => x.count > 0)
+    .sort((a, b) => b.count - a.count)[0];
   const cols = u.days.slice(-14).map((x) => ({
     label: dayLabel(x.day, lang),
     parts: TOOL_SOURCES.map((src) => ({
@@ -800,12 +812,12 @@ function ToolsCard({ u, t, lang }: { u: ToolsUsage; t: SettingsStrings; lang: 'e
     <Card
       icon={Wrench}
       title={t.tools}
-      period={t.period.week}
+      period={hasMonth ? t.period.month : t.period.week}
       big={String(total)}
       unit={t.uses(total).replace(/^\d+\s*/, '')}
       right={t.worked(done)}
       chart={total ? <Columns data={cols} height={40} bare testID="tools-chart" /> : undefined}
-      caption={best ? `${best.name} · ${t.uses(best.week)}` : t.nothing}
+      caption={best ? `${best.name} · ${t.uses(best.count)}` : t.nothing}
       more={
         shown.length > 1 || best ? (
           <View style={s.lines} testID="tools-split">
@@ -822,7 +834,7 @@ function ToolsCard({ u, t, lang }: { u: ToolsUsage; t: SettingsStrings; lang: 'e
             {best ? (
               <Text style={s.line} numberOfLines={1}>
                 <Text style={s.dim}>{t.mostUsed}: </Text>
-                {best.name} ({best.week}×)
+                {best.name} ({best.count}×)
               </Text>
             ) : null}
           </View>

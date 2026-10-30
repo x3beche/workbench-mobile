@@ -598,12 +598,14 @@ export function widgetTexts(snap: WidgetSnapshot, t: SettingsStrings): { models:
     value: count(snap.models.calls),
     word: t.calls,
   };
+  const hasMonth = snap.tools.month !== undefined;
+  const countVal = hasMonth ? snap.tools.month! : snap.tools.week;
   const tools: HalfText = {
     title: t.tools,
     // The web head's "88/298" - the tools that are on, out of all of them.
     headRight: snap.tools.total ? { text: `${snap.tools.on}/${count(snap.tools.total)}`, mono: true } : undefined,
-    big: snap.tools.week >= 1e4 ? figure(snap.tools.week) : String(snap.tools.week),
-    unit: t.period.week,
+    big: countVal >= 1e4 ? figure(countVal) : String(countVal),
+    unit: hasMonth ? t.period.month : t.period.week,
     value: count(snap.tools.kinds),
     word: t.toolWord(snap.tools.kinds),
   };

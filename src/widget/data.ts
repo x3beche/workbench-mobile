@@ -24,9 +24,11 @@ export interface WidgetSnapshot {
     days: number[][];
   };
   tools: {
+    /** Tool calls this month (falls back to week if server gives no month), all three sources together. */
+    month?: number;
     /** Tool calls this week, all three sources together. */
     week: number;
-    /** How many different tools were used this week. */
+    /** How many different tools were used this month (or week on older servers). */
     kinds: number;
     /** The tools the model may use with this person's lines, and how many are on - the web head's 88/298. */
     on: number;
@@ -41,6 +43,14 @@ const total = (by: Record<string, number> | undefined) => Object.values(by ?? {}
 /** An outside source's week: each of its tools' own week, summed. */
 const extWeek = (x: ExtToolUses | null | undefined) =>
   x ? Object.values(x.tools).reduce((a, v) => a + v.week, 0) : 0;
+
+/** An outside source's month: each of its tools' own month (or week fallback), summed. */
+const extMonth = (x: ExtToolUses | null | undefined) =>
+  x ? Object.values(x.tools).reduce((a, v) => a + (v.month ?? v.week), 0) : 0;
+
+export function hasToolMonth(u: ToolsUsage): boolean {
+  return Object.values(u.tools).some((v) => v.month !== undefined);
+}
 
 /** A day's tokens by provider, or the day's whole count when the server names no providers. */
 export function modelDays(summary: LlmSummary): number[][] {
@@ -60,14 +70,24 @@ export function toolDays(u: ToolsUsage): number[][] {
     .map((d) => [total(d.by), total(ext?.claude?.days[d.day]), total(ext?.opencode?.days[d.day])]);
 }
 
-/** Every tool used this week, of any source, counted once. */
+/** Every tool used this month (or week if no month), of any source, counted once. */
 export function toolKinds(u: ToolsUsage): number {
-  const weeks = [
-    ...Object.values(u.tools).map((v) => v.week),
-    ...Object.values(u.external?.claude?.tools ?? {}).map((v) => v.week),
-    ...Object.values(u.external?.opencode?.tools ?? {}).map((v) => v.week),
+  const isMonth = hasToolMonth(u);
+  const counts = [
+    ...Object.values(u.tools).map((v) => (isMonth ? (v.month ?? v.week) : v.week)),
+    ...Object.values(u.external?.claude?.tools ?? {}).map((v) => (isMonth ? (v.month ?? v.week) : v.week)),
+    ...Object.values(u.external?.opencode?.tools ?? {}).map((v) => (isMonth ? (v.month ?? v.week) : v.week)),
   ];
-  return weeks.filter((w) => w > 0).length;
+  return counts.filter((w) => w > 0).length;
+}
+
+/** The month's calls, the Chat's and the person's own together. */
+export function toolMonth(u: ToolsUsage): number {
+  return (
+    Object.values(u.tools).reduce((a, v) => a + (v.month ?? v.week), 0) +
+    extMonth(u.external?.claude) +
+    extMonth(u.external?.opencode)
+  );
 }
 
 /** The week's calls, the Chat's and the person's own together. */
@@ -96,6 +116,12 @@ export function snapshotOf(
   return {
     at,
     models: { tokens: summary.month.tokens, calls: summary.month.calls, days: modelDays(summary) },
-    tools: { week: toolWeek(tools), kinds: toolKinds(tools), ...switchboard, days: toolDays(tools) },
+    tools: {
+      month: hasToolMonth(tools) ? toolMonth(tools) : undefined,
+      week: toolWeek(tools),
+      kinds: toolKinds(tools),
+      ...switchboard,
+      days: toolDays(tools),
+    },
   };
 }
