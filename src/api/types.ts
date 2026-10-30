@@ -582,6 +582,8 @@ export interface ActivityData extends ActivityNow {
     cache_read?: number;
     cache_write?: number;
   } | null;
+  since?: number;
+  tz?: string;
 }
 
 // ---- Claude sessions (backend/wbclaude.py: /api/wbc/*) -------------------------

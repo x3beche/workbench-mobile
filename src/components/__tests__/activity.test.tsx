@@ -102,6 +102,25 @@ describe('actSpan', () => {
     await fireEvent.press(screen.getByTestId('activity-show-tps'));
     expect(screen.queryByTestId('activity-dot-on')).toBeNull();
     expect((await readActPrefs('acct-1')).show).not.toContain('tps');
+
+    // Selecting 'today': asked for with device timezone, strip shows 'since 00:00'
+    await fireEvent.press(screen.getByTestId('activity-range-today'));
+    await settle();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    expect(c.activity).toHaveBeenLastCalledWith('today', tz);
+    expect((await readActPrefs('acct-1')).range).toBe('today');
+    expect(screen.getByText('tok · since 00:00')).toBeTruthy();
+    expect(screen.getByText('Tokens · Today')).toBeTruthy();
+
+    // Typing 'today' into custom range also selects today
+    await fireEvent.press(screen.getByTestId('activity-range-1h'));
+    await settle();
+    expect((await readActPrefs('acct-1')).range).toBe('1h');
+    await fireEvent.changeText(screen.getByTestId('activity-own-range'), 'today');
+    await fireEvent(screen.getByTestId('activity-own-range'), 'submitEditing');
+    await settle();
+    expect(c.activity).toHaveBeenLastCalledWith('today', tz);
+    expect((await readActPrefs('acct-1')).range).toBe('today');
   });
 
   it('speaks Turkish as the web does', async () => {
@@ -113,6 +132,12 @@ describe('actSpan', () => {
     expect(screen.getByText('Etkinlik')).toBeTruthy();
     expect(screen.getByText('Şeritte gösterilenler')).toBeTruthy();
     expect(screen.getByText('Sohbet 30.0 · Orkestratör 12.4')).toBeTruthy();
+
+    // In Turkish, today range button is 'Bugün' and strip says "00:00'dan beri"
+    await fireEvent.press(screen.getByTestId('activity-range-today'));
+    await settle();
+    expect(screen.getByText("tok · 00:00'dan beri")).toBeTruthy();
+    expect(screen.getByText('Token · Bugün')).toBeTruthy();
   });
 
   it('is not there when the server has no Activity', async () => {

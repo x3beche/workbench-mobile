@@ -32,6 +32,7 @@ export const METRICS: { id: ActMetric; label: string }[] = [
 const ALL: ActMetric[] = METRICS.map((m) => m.id);
 
 export const RANGES: { id: string; long: string }[] = [
+  { id: 'today', long: 'Since midnight (00:00)' },
   { id: '30m', long: 'The last 30 minutes' },
   { id: '1h', long: 'The last hour' },
   { id: '3h', long: 'The last 3 hours' },
@@ -55,9 +56,24 @@ export function actSpan(r: unknown): number | null {
   return s >= 60 && s <= 30 * 86400 ? s : null;
 }
 
+/** Whether a range is valid: 'today', one of RANGES, or a custom one (1m..30d). */
+export function isActRange(r: unknown): boolean {
+  const s = String(r ?? '').trim().toLowerCase();
+  return s === 'today' || s === 'bugün' || actSpan(s) !== null;
+}
+
 /** How often the range is asked again: as the web's, 5 s to 2 min by its length. */
 const EVERY_MS: Record<string, number> = {
-  '30m': 15_000, '1h': 20_000, '3h': 20_000, '6h': 30_000, '12h': 45_000, '24h': 60_000, '3d': 90_000, '7d': 120_000, '30d': 120_000,
+  today: 30_000,
+  '30m': 15_000,
+  '1h': 20_000,
+  '3h': 20_000,
+  '6h': 30_000,
+  '12h': 45_000,
+  '24h': 60_000,
+  '3d': 90_000,
+  '7d': 120_000,
+  '30d': 120_000,
 };
 export function everyMs(r: string): number {
   return EVERY_MS[r] ?? Math.max(5_000, Math.min(120_000, ((actSpan(r) ?? 86400) * 1000) / 60));
@@ -124,6 +140,11 @@ const TR: Record<string, string> = {
   Close: 'Kapat',
   'Activity of this account - a tap opens it': 'Bu hesabın etkinliği - dokununca açılır',
   '30m': '30dk', '1h': '1sa', '3h': '3sa', '6h': '6sa', '12h': '12sa', '24h': '24sa', '3d': '3g', '7d': '7g', '30d': '30g',
+  today: 'bugün',
+  Today: 'Bugün',
+  'Since midnight (00:00)': 'Gece yarısından (00:00) beri',
+  'since 00:00': '00:00\'dan beri',
+  'tok · since 00:00': 'tok · 00:00\'dan beri',
   'The last 30 minutes': 'Son 30 dakika',
   'The last hour': 'Son bir saat',
   'The last 3 hours': 'Son 3 saat',
@@ -143,7 +164,7 @@ export function words(lang: 'en' | 'tr'): Tr {
   };
 }
 /** A range as the buttons write it ("24h", Turkish "24sa"); one's own as typed. */
-export const rangeWord = (r: string, t: Tr) => t(r);
+export const rangeWord = (r: string, t: Tr) => (r === 'today' ? t('Today') : t(r));
 
 // ---- what the strip shows, kept per account -------------------------------
 export interface ActPrefs {
@@ -157,7 +178,8 @@ const cache: Record<string, ActPrefs> = {};
 
 function clean(x: unknown): ActPrefs {
   const o = (x && typeof x === 'object' ? x : {}) as { range?: unknown; show?: unknown };
-  const range = actSpan(o.range) !== null ? String(o.range).trim().toLowerCase() : DEFAULT_PREFS.range;
+  const r = String(o.range ?? '').trim().toLowerCase();
+  const range = r === 'today' || actSpan(r) !== null ? r : DEFAULT_PREFS.range;
   const show = Array.isArray(o.show) ? ALL.filter((m) => (o.show as unknown[]).includes(m)) : ALL;
   return { range, show };
 }

@@ -41,6 +41,7 @@ import {
   actSpan,
   cpu,
   everyMs,
+  isActRange,
   mem,
   nice,
   onActPrefs,
@@ -104,9 +105,12 @@ export function useActivity(client: WorkbenchClient | null, scope: string): Acti
     if (!client || !ready) return;
     let gone = false;
     const r = prefs.range;
+    let lastDay = new Date().toLocaleDateString('en-CA');
     const load = () => {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      lastDay = new Date().toLocaleDateString('en-CA');
       Promise.resolve()
-        .then(() => client.activity(r))
+        .then(() => (r === 'today' ? client.activity(r, tz) : client.activity(r)))
         .then(
           (d) => {
             if (gone || d.range !== r) return;
@@ -118,7 +122,15 @@ export function useActivity(client: WorkbenchClient | null, scope: string): Acti
         );
     };
     load();
-    const t = setInterval(() => inFront() && load(), everyMs(r));
+    const t = setInterval(() => {
+      if (!inFront()) return;
+      const curDay = new Date().toLocaleDateString('en-CA');
+      if (r === 'today' && curDay !== lastDay) {
+        load();
+      } else {
+        load();
+      }
+    }, everyMs(r));
     return () => {
       gone = true;
       clearInterval(t);
@@ -228,7 +240,7 @@ export function ActivityStrip({
           {show('tokens') && data ? (
             <View style={s.cell}>
               <Text style={s.b}>{tok(data.total.tokens)}</Text>
-              <Text style={s.small}>{`tok · ${t(prefs.range)}`}</Text>
+              <Text style={s.small}>{prefs.range === 'today' ? t('tok · since 00:00') : `tok · ${t(prefs.range)}`}</Text>
             </View>
           ) : null}
           {show('claude') && data?.claude ? (
@@ -286,11 +298,13 @@ export function ActivitySheet({ feed, lang, onClose }: { feed: ActivityFeed; lan
   const [hide, setHide] = useState<ReadonlySet<ActSource>>(new Set());
   const [draft, setDraft] = useState('');
   const custom = !RANGES.some((r) => r.id === prefs.range);
-  const bad = !!draft.trim() && actSpan(draft) === null;
+  const bad = !!draft.trim() && !isActRange(draft);
   const apply = () => {
     const v = draft.trim().toLowerCase();
-    if (!v || actSpan(v) === null) return;
-    setPrefs({ ...prefs, range: v });
+    if (!v) return;
+    const target = v === 'today' || v === 'bugün' ? 'today' : v;
+    if (!isActRange(target)) return;
+    setPrefs({ ...prefs, range: target });
     setDraft('');
   };
   const flip = (id: ActSource) => {
@@ -330,7 +344,7 @@ export function ActivitySheet({ feed, lang, onClose }: { feed: ActivityFeed; lan
   const claude = d?.claude ?? null;
 
   const figs: { k: string; label: string; value: string; unit?: string; sub: string }[] = [
-    { k: 'tokens', label: `${t('Tokens')} · ${t(prefs.range)}`, value: x ? tok(x.tokens) : '–', sub: split },
+    { k: 'tokens', label: `${t('Tokens')} · ${prefs.range === 'today' ? t('Today') : t(prefs.range)}`, value: x ? tok(x.tokens) : '–', sub: split },
     { k: 'now', label: t('Now'), value: tps(now?.live?.tps ?? 0), unit: t('tokens out/s'), sub: liveLine },
     { k: 'calls', label: t('Calls'), value: (x?.calls ?? 0).toLocaleString('en-US'), sub: t('in-app models') },
     ...(claude
@@ -364,7 +378,7 @@ export function ActivitySheet({ feed, lang, onClose }: { feed: ActivityFeed; lan
                 style={({ pressed }) => [s.seg, i === 0 && s.segFirst, sel && s.segOn, pressed && s.segPressed]}
                 testID={`activity-range-${r.id}`}
               >
-                <Text style={[s.segText, sel && s.segTextOn]}>{t(r.id)}</Text>
+                <Text style={[s.segText, sel && s.segTextOn]}>{r.id === 'today' ? t('Today') : t(r.id)}</Text>
               </Pressable>
             );
           })}
@@ -522,7 +536,19 @@ function ActivityChart({
   }, [d, w, hide, height]);
 
   const loc = lang === 'tr' ? 'tr-TR' : 'en-GB';
-  const label = (i: number, long: boolean) => {
+  const label = (i: number, long: boolean, tickPos?: number) => {
+    if (d.range === 'today') {
+      let when: Date;
+      if (tickPos === 0) {
+        when = new Date((d.since ?? d.t0) * 1000);
+      } else if (tickPos === 2) {
+        when = new Date((d.t0 + d.n * d.step) * 1000);
+      } else {
+        when = new Date((d.t0 + (i + (long ? 0 : 0.5)) * d.step) * 1000);
+      }
+      if (!long) return when.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
+      return when.toLocaleString(loc, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
     const when = new Date((d.t0 + (i + 1) * d.step) * 1000);
     if (d.step * d.n <= 86400 && !long) return when.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
     return long
@@ -579,7 +605,7 @@ function ActivityChart({
                   fill={colors.inkDim}
                   fontFamily={fonts.sans}
                 >
-                  {label(i, false)}
+                  {label(i, false, k)}
                 </SvgText>
               ))
             : null}

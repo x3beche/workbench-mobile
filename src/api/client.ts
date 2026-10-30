@@ -583,8 +583,10 @@ export class WorkbenchClient {
   }
 
   /** The tokens over a range by source, with its totals and what goes on now (the web top bar's Activity). */
-  activity(range: string): Promise<ActivityData> {
-    return this.request<ActivityData>('GET', `/api/me/activity?range=${encodeURIComponent(range)}`);
+  activity(range: string, tz?: string): Promise<ActivityData> {
+    const q = new URLSearchParams({ range });
+    if (tz) q.set('tz', tz);
+    return this.request<ActivityData>('GET', `/api/me/activity?${q.toString()}`);
   }
 
   // ---- live streams through S2 (backend/s2live.py) ---------------------------
