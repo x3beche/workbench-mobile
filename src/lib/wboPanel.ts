@@ -113,9 +113,10 @@ export function diffText(f: PanelFile): string {
   return `+${f.additions} −${f.deletions}`;
 }
 
-/** A row's own line: "+12 −3 · 7 edits · 21 min ago", what of it is known. */
+/** A row's own line: "7 edits · 21 min ago" - the counts are beside the name now (the web's second round),
+ *  so they are not said twice. */
 export function fileLine(f: PanelFile, when: string, t: WboStrings): string {
-  return [diffText(f), editsLabel(f, t), when].filter(Boolean).join(' · ');
+  return [editsLabel(f, t), when].filter(Boolean).join(' · ');
 }
 
 /** A tool's row: its server, how often, its failures. */
