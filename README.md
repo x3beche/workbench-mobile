@@ -722,6 +722,54 @@ no way back - everyone has to uninstall again). So:
 Check a copy with `keytool -list -v -keystore upload.keystore` (it asks for
 the password): the SHA-256 fingerprint must match the one the build prints.
 
+### Publishing a version
+
+Three things go out with a version, and each one on its own: the APK the
+phones download (published by the server, from the redline-studio checkout:
+`backend/mobile_app.publish`), the version in `app.json` and
+`package.json`, and the **web build on
+[workbench-mobil.medipol.dev](https://workbench-mobil.medipol.dev)** - the
+same app in a browser, served by that host's nginx straight from the
+folder. Do all three, or the site quietly stays on the version it was
+built from.
+
+```sh
+# 1. the version, and the APK that phones get
+#    app.json: version, android.versionCode + 1, ios.buildNumber + 1; package.json too
+WORKERS=2 scripts/build-android.sh          # -> build-out/workbench-release.apk
+# then publish that APK on the server (redline-studio): backend/mobile_app.publish
+
+# 2. the web build, from a clean main
+git status --short                          # nothing to lose: the build is main's
+npx expo export --platform web --clear      # --clear: else a cached app config keeps the old version
+rsync -a --delete dist/ ~/stacks/workbench-mobile/site/
+
+# 3. check it is the new one, then commit
+grep -o 'index-[a-f0-9]*\.js' ~/stacks/workbench-mobile/site/index.html   # a new hash
+curl -s https://workbench-mobil.medipol.dev/ | grep -o 'index-[a-f0-9]*\.js'  # the same hash
+```
+
+The two commands of step 2 are the whole site update: nginx serves the
+folder as it is, so nothing is restarted and no container is touched
+(`rsync -a --delete` replaces the folder's contents, not the folder - the
+mount and its owner stay). `--clear` is not optional: without it the export
+reuses the cached app config and the bundle goes on saying the version it
+was first built with.
+
+What the deployed bundle says is worth checking, not just the file name:
+
+```sh
+grep -aoE '"version":"[0-9.]+"' \
+  ~/stacks/workbench-mobile/site/_expo/static/js/web/index-*.js        # app.json's version
+```
+
+The site's nginx passes `/api/` and `/s2/` to the server
+(`redline.medipol.dev`), so the site's own address is what a browser enters
+as the server and sign-in works from the page itself
+(`https://workbench-mobil.medipol.dev/api/public/m/app.json` is the APK the
+phones are offered). A new build that loads but cannot reach `/api/` is that
+proxy, not the export.
+
 ## Develop
 
 ```sh
