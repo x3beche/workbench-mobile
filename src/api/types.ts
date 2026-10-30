@@ -742,6 +742,9 @@ export interface WboSession {
   status: 'idle' | 'busy' | 'retry' | 'waiting' | 'ended';
   /** OpenCode waits for an answer (a question or a permission). */
   asking?: boolean;
+  /** What its last step was sent of the model's window (the head's "Context" line, and the composer's own line
+   *  under the model chip). Limit 0 when the run cannot tell. */
+  context?: { used: number; limit: number; model: string; pct?: number | null } | null;
   directory: string;
   computer: string;
   updated: number | null;

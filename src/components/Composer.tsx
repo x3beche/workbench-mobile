@@ -29,6 +29,8 @@ import { ErrorText, Glyph, Hint, IconButton } from './ui';
 export const MAX_LINES = 6;
 const PAD_V = 11;
 const MIN_H = type.inputLine + PAD_V * 2;
+/** The least width the words are typed in, on the narrowest phone: the rest of the row gives way. */
+const MIN_INPUT = 120;
 const MAX_H = type.inputLine * MAX_LINES + PAD_V * 2;
 /** The round button at the end of the row. */
 const ROUND = 36;
@@ -53,7 +55,11 @@ export const Composer = forwardRef<
     placeholder?: string;
     /** Above the box: what goes with the line (a Claude session's pictures). */
     above?: ReactNode;
-    /** In the box's row, before the microphone (the paperclip). */
+    /** A thin line of its own right above the box: the model in use and its window (an OpenCode session's
+     *  chip and context). A line of its own, never in the box's row - a chip there took the room the words
+     *  are written in (20 dp of a 360 dp phone). */
+    meta?: ReactNode;
+    /** In the box's row, before the microphone (the paperclip). It may be squeezed, never the words. */
     tool?: ReactNode;
     /** Something goes with the line already: Send works with no words. */
     ready?: boolean;
@@ -67,7 +73,7 @@ export const Composer = forwardRef<
     draftKey?: string;
   }
 >(function Composer(
-  { client, lang, mode = 'record', writing, onSend, onStop, onVoiceNote, placeholder, above, tool, ready = false, suggestion = null, draftKey },
+  { client, lang, mode = 'record', writing, onSend, onStop, onVoiceNote, placeholder, above, meta, tool, ready = false, suggestion = null, draftKey },
   ref,
 ) {
   // Read from the conversation's kept draft: coming back to it finds the text.
@@ -183,11 +189,13 @@ export const Composer = forwardRef<
         notice
       )}
       {above}
+      {meta ? <View style={s.meta}>{meta}</View> : null}
       <View style={[s.field, focused && s.focused]}>
         <TextInput
           ref={input}
           testID="composer-input"
-          style={[s.input, offer && s.suggested, Platform.OS === 'web' && { height: webHeight }]}
+          style={[s.input, offer && s.suggested,
+                  Platform.OS === 'web' && { height: text ? webHeight : MIN_H }]}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           value={text}
@@ -285,6 +293,8 @@ const s = StyleSheet.create({
   flex: { flex: 1 },
   input: {
     flex: 1,
+    // Whatever a screen puts in the box's row, the words keep a width worth typing in: the tools give way.
+    minWidth: MIN_INPUT,
     minHeight: MIN_H,
     maxHeight: MAX_H,
     paddingHorizontal: 10,
@@ -296,7 +306,10 @@ const s = StyleSheet.create({
     color: colors.ink,
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
   },
-  tools: { flexDirection: 'row', alignItems: 'center', height: MIN_H, gap: 2 },
+  // The row's other end: it shrinks (and its own content with it) rather than the words' box.
+  tools: { flexDirection: 'row', alignItems: 'center', height: MIN_H, gap: 2, flexShrink: 1, minWidth: 0 },
+  // A line of its own above the box: the model and its window, small and quiet.
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 22, paddingHorizontal: 2, flexShrink: 0 },
   // The suggestion in the empty box: dim and italic, as in Claude Code's terminal.
   suggested: { fontStyle: 'italic' },
   use: {

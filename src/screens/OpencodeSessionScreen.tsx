@@ -57,6 +57,7 @@ import { SessionPanelSheet } from '../components/SessionPanelSheet';
 import { modelName } from '../components/MessageItem';
 import { chatDetailStrings } from '../lib/chatDetail';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
+import { shortK } from '../lib/wboPanel';
 import { ago } from '../lib/time';
 import { admit, IMAGE_RULES, pickedOf, serverWords, type Picked } from '../lib/wbc';
 import { readPictureHead } from '../lib/pictureFile';
@@ -446,6 +447,13 @@ export function OpencodeSessionScreen({
     return null;
   }, [s]);
 
+  /** What its last step was sent of the model's window, short - the column's own line in the Chat. */
+  const contextLabel = useMemo(() => {
+    const c = s?.context;
+    if (!c || (!c.used && !c.limit)) return '';
+    return `${shortK(c.used)} / ${c.limit ? shortK(c.limit) : '?'}`;
+  }, [s?.context]);
+
   const modelDisabled = useMemo(() => {
     if (!s) return true;
     if (!s.bridge?.connected) return true;
@@ -786,17 +794,8 @@ export function OpencodeSessionScreen({
                   </View>
                 ) : null
               }
-              tool={
-                <View style={st.toolWrap}>
-                  <IconButton
-                    icon={Paperclip}
-                    label={t.attach}
-                    onPress={attach}
-                    testID="wbo-attach"
-                    size={20}
-                    color={colors.inkDim}
-                    style={st.clip}
-                  />
+              meta={
+                <>
                   <Pressable
                     style={[st.modelChip, modelDisabled && st.modelDisabled]}
                     onPress={() => {
@@ -814,7 +813,23 @@ export function OpencodeSessionScreen({
                       {modelLabel}
                     </Text>
                   </Pressable>
-                </View>
+                  {contextLabel ? (
+                    <Text style={st.metaContext} numberOfLines={1} testID="wbo-context">
+                      {contextLabel}
+                    </Text>
+                  ) : null}
+                </>
+              }
+              tool={
+                <IconButton
+                  icon={Paperclip}
+                  label={t.attach}
+                  onPress={attach}
+                  testID="wbo-attach"
+                  size={20}
+                  color={colors.inkDim}
+                  style={st.clip}
+                />
               }
             />
           </View>
@@ -1070,13 +1085,14 @@ const st = StyleSheet.create({
   },
   picError: { flexBasis: '100%', fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.danger },
   clip: { width: 40, height: 40 },
-  toolWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  metaContext: { marginLeft: 'auto', fontFamily: fonts.mono, fontSize: type.micro, color: colors.inkDim },
   modelChip: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceHover,
-    maxWidth: 180,
+    borderRadius: radius.round,
+    backgroundColor: colors.hover,
+    flexShrink: 1,
+    maxWidth: 200,
   },
   modelDisabled: { opacity: 0.6 },
   modelChipText: {
@@ -1098,7 +1114,7 @@ const st = StyleSheet.create({
     backgroundColor: colors.surface2,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: radius.pill,
+    borderRadius: radius.round,
     overflow: 'hidden',
   },
   asstHead: {
