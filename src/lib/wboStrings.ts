@@ -64,6 +64,29 @@ export interface WboStrings extends WbcStrings {
   appliesNextMessage: string;
   /** The stats under an answer: its line and the card it opens (lib/runStats.ts). */
   run: RunWords;
+  // the session's column (lib/wboPanel.ts, the sheet the "i" button opens)
+  columnTitle: string;
+  columnAria: string;
+  computer: string;
+  todos: string;
+  changedFiles: string;
+  waiting: string;
+  tools: string;
+  idle: string;
+  errorWord: string;
+  doneOf: (done: number, total: number) => string;
+  touchedTimes: (n: number) => string;
+  moreFiles: (n: number) => string;
+  moreTools: (n: number) => string;
+  failedTimes: (n: number) => string;
+  onlyOwnerAnswers: string;
+  answerItOnComputer: string;
+  showInConversation: string;
+  readingColumn: string;
+  columnFailed: string;
+  updateWbo: string;
+  notConnectedShort: string;
+  sessions: string;
 }
 
 const wen = wbcStrings('en');
@@ -130,6 +153,28 @@ const en: WboStrings = {
   updateWboModels: 'Update wb-opencode on that computer (at least 0.2.8)',
   onlyOwnerCanChoose: 'Only the owner of this session can choose its model',
   appliesNextMessage: 'applies from the next message',
+  columnTitle: 'Session',
+  columnAria: 'What this session is doing',
+  computer: 'Computer',
+  todos: 'To-dos',
+  changedFiles: 'Changed files',
+  waiting: 'Waiting',
+  tools: 'Tools',
+  idle: 'idle',
+  errorWord: 'error',
+  doneOf: (done, total) => `${done}/${total} done`,
+  touchedTimes: (n) => `touched ${n} times`,
+  moreFiles: (n) => `and ${n} more`,
+  moreTools: (n) => `and ${n} more`,
+  failedTimes: (n) => `${n} failed`,
+  onlyOwnerAnswers: 'Only the owner of this session can answer it',
+  answerItOnComputer: 'Answer this one on the computer: it asks more than this card holds.',
+  showInConversation: 'Show it in the conversation',
+  readingColumn: 'Reading the session…',
+  columnFailed: 'Could not read the session',
+  updateWbo: 'Update wb-opencode',
+  notConnectedShort: 'not connected',
+  sessions: 'Sessions',
   run: {
     details: 'Details',
     sent: 'Sent',
@@ -217,9 +262,31 @@ const tr: WboStrings = {
   initial: 'başlangıç',
   notConnectedComp: 'Bilgisayar bağlı değil',
   remoteOffComp: 'Uzaktan mesaj kapalı (--no-remote)',
-  updateWboModels: "wb-opencode'u güncelleyin (en az 0.2.8)",
+  updateWboModels: "O bilgisayarda wb-opencode'u güncelleyin (en az 0.2.8)",
   onlyOwnerCanChoose: 'Sadece oturumun sahibi model seçebilir',
   appliesNextMessage: 'sıradaki mesajdan itibaren geçerli',
+  columnTitle: 'Oturum',
+  columnAria: 'Bu oturumun ne yaptığı',
+  computer: 'Bilgisayar',
+  todos: 'Yapılacaklar',
+  changedFiles: 'Değişen dosyalar',
+  waiting: 'Bekleyen',
+  tools: 'Araçlar',
+  idle: 'boşta',
+  errorWord: 'hata',
+  doneOf: (done, total) => `${done}/${total} tamam`,
+  touchedTimes: (n) => `${n} kez dokunuldu`,
+  moreFiles: (n) => `ve ${n} tane daha`,
+  moreTools: (n) => `ve ${n} tane daha`,
+  failedTimes: (n) => `${n} hatalı`,
+  onlyOwnerAnswers: 'Sadece oturumun sahibi yanıtlayabilir',
+  answerItOnComputer: 'Bunu bilgisayarda yanıtlayın: bu kartın sığdığından fazlasını soruyor.',
+  showInConversation: 'Konuşmada göster',
+  readingColumn: 'Oturum okunuyor…',
+  columnFailed: 'Oturum okunamadı',
+  updateWbo: "wb-opencode'u güncelleyin",
+  notConnectedShort: 'bağlı değil',
+  sessions: 'Oturumlar',
   // The web app's i18n.ts, in Turkish, for the stats under an answer.
   run: {
     details: 'Ayrıntılar',

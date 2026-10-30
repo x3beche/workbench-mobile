@@ -19,6 +19,7 @@ export const SIDE_EMPTY: SidePrefs = {
   pins: { claude: [], opencode: [] },
   folds: { claude: null, opencode: null, rooms: null },
   chat: { detail: 'normal' },
+  panel: {},
 };
 
 /** Open or folded: the person's choice, else the default (`auto`: a session in it is live or open, or a search is on). */
@@ -68,6 +69,17 @@ export function withPin(prefs: SidePrefs, g: SideGroup, id: string, pinned: bool
 
 export function withFold(prefs: SidePrefs, g: FoldGroup, open: boolean | null): SidePrefs {
   return { ...prefs, folds: { ...prefs.folds, [g]: open } };
+}
+
+/** A section of a session's column (the OpenCode screen's sheet) folded or opened: kept on the server, so the
+ *  web's right-hand column and the phone agree. A section never touched is open. */
+export function withPanel(prefs: SidePrefs, id: string, open: boolean): SidePrefs {
+  return { ...prefs, panel: { ...prefs.panel, [id]: open } };
+}
+
+/** Whether a section of the column is open: the person's choice, else open. */
+export function panelOpen(prefs: SidePrefs, id: string): boolean {
+  return prefs.panel?.[id] !== false;
 }
 
 /** How much of an answer's work the Chat shows, as chosen in Settings > Chat. */

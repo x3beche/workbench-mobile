@@ -43,7 +43,7 @@ import { Appear } from '../components/Appear';
 import { ChatHeader } from '../components/ChatHeader';
 import { AskCard } from '../components/AskCard';
 import { Composer } from '../components/Composer';
-import { ArrowUpToLine, Camera, Images, Paperclip, SquareCode, X } from '../components/icons';
+import { ArrowUpToLine, Camera, Images, Info, Paperclip, SquareCode, X } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Markdown } from '../components/Markdown';
 import { CompactWork, Steps, Thinking, TypingDots } from '../components/MessageItem';
@@ -53,9 +53,11 @@ import { StateDot } from '../components/StateDot';
 import { EmptyState, ErrorText, Glyph, IconButton, LoadError, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
 import { WboModelSheet } from '../components/WboModelSheet';
+import { SessionPanelSheet } from '../components/SessionPanelSheet';
 import { modelName } from '../components/MessageItem';
 import { chatDetailStrings } from '../lib/chatDetail';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
+import { ago } from '../lib/time';
 import { admit, IMAGE_RULES, pickedOf, serverWords, type Picked } from '../lib/wbc';
 import { readPictureHead } from '../lib/pictureFile';
 import {
@@ -148,6 +150,8 @@ export function OpencodeSessionScreen({
   const [pics, setPics] = useState<Picked[]>([]);
   const [picError, setPicError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
+  /** The session's column, opened by the "i" (rooms/session-panel.ts in the web app, the same answer). */
+  const [column, setColumn] = useState(false);
   const [zoom, setZoom] = useState<string | null>(null);
   const [s2Live, setS2Live] = useState(false);
   const list = useRef<FlatList<Item>>(null);
@@ -413,6 +417,18 @@ export function OpencodeSessionScreen({
     if (more) setCount((n) => n + TURNS_PAGE);
   };
 
+  /** A row in the column was tapped: close it and put the call it is about in the middle. A call in a turn
+   *  that is not loaded yet (the list shows the latest ones) scrolls nowhere until "Show earlier" brings it
+   *  in: the column's own answer is the newest call, which is what is on screen. */
+  const jumpTo = (message: string) => {
+    setColumn(false);
+    const at = items.findIndex(
+      (it) => it.kind === 'turn' && it.turn.kind === 'assistant' && it.turn.steps.some((m) => m.id === message),
+    );
+    if (at < 0) return;
+    setTimeout(() => list.current?.scrollToIndex({ index: at, viewPosition: 0.5, animated: true }), 60);
+  };
+
   /** The detail setting's words, in the app's language. */
   const dw = chatDetailStrings(uiLang(lang));
   const dot = wboDot(s);
@@ -623,7 +639,17 @@ export function OpencodeSessionScreen({
         onMenu={onMenu}
         menuTestID="wbo-open-drawer"
         titleTestID="wbo-title"
-        right={<IconButton icon={X} label={t.back} onPress={() => onClose?.()} testID="wbo-close" />}
+        right={
+          <>
+            <IconButton
+              icon={Info}
+              label={t.columnAria}
+              onPress={() => setColumn(true)}
+              testID="wbo-column"
+            />
+            <IconButton icon={X} label={t.back} onPress={() => onClose?.()} testID="wbo-close" />
+          </>
+        }
         sub={
           <>
             {dot ? <StateDot s={dot} /> : null}
@@ -817,6 +843,17 @@ export function OpencodeSessionScreen({
             ]}
           />
         </Sheet>
+      ) : null}
+      {column ? (
+        <SessionPanelSheet
+          client={client}
+          sid={sid}
+          t={t}
+          onClose={() => setColumn(false)}
+          onJump={jumpTo}
+          onAnswer={(a, decision) => void answer(a, { decision })}
+          when={(at) => (at ? ago(new Date(at).toISOString(), new Date(), uiLang(lang)) : '')}
+        />
       ) : null}
       {zoom ? (
         <PictureViewer uri={zoom} label={t.showWhole} closeLabel={t.close} onClose={() => setZoom(null)} />

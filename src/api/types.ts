@@ -722,6 +722,8 @@ export interface WboBridge {
   started: number | null;
   /** A newer wb-opencode is out. */
   outdated?: boolean;
+  /** It takes the newer client from the server itself (0.2.2 on): only an older one needs telling how. */
+  self_updates?: boolean;
   /** The server's own wb-opencode version (the one to update to). */
   latest?: string;
   /** It hands answers to OpenCode (0.2.0 and newer): what OpenCode asks can be answered from here. */
@@ -835,6 +837,9 @@ export interface WboAsk {
   resources?: string[];
   save?: string[];
   message_text?: string;
+  /** More was asked than a card can hold (a long command, or more patterns than are kept): answered on the
+   *  computer only, because a rule remembered from a part of a request is a rule nobody agreed to. */
+  cut?: boolean;
   status: 'pending' | 'answering' | 'answered' | 'replied' | 'cancelled' | 'gone';
   answer?: Record<string, unknown> | null;
   decision?: 'once' | 'always' | 'reject' | null;
@@ -880,6 +885,66 @@ export interface SidePrefs {
   folds: Record<FoldGroup, boolean | null>;
   /** How much of an answer's work the Chat shows: the same on every device, as the server keeps it. */
   chat: { detail: ChatDetail };
+  /** The sections of a session's column (the OpenCode screen's sheet; the web's right-hand column), folded or
+   *  open as the person left them: <section id> -> open. A section never touched is open. */
+  panel: Record<string, boolean>;
+}
+
+// ---- a session's column (backend/wb_panel.py: GET /api/wbo/sessions/{sid}/panel) ----
+
+export interface PanelTodo {
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+}
+
+export interface PanelFile {
+  path: string;
+  /** How many calls touched it. */
+  count: number;
+  /** When it was last touched (ms), or null. */
+  at: number | null;
+  status: string;
+  /** Its last call failed. */
+  error: boolean;
+  /** The message that call is in: a tap scrolls the conversation to it. */
+  message: string;
+  /** The run's own line counts, when it reported a diff (wb-opencode 0.3.0 on). */
+  additions?: number;
+  deletions?: number;
+}
+
+export interface PanelTool {
+  name: string;
+  /** The MCP server it belongs to, '' for OpenCode's own tools. */
+  server: string;
+  count: number;
+  errors: number;
+  /** The newest call of it: where a tap scrolls to. */
+  message: string;
+  tool: string;
+}
+
+/** One session's column: what it is on, what it spent, its computer, its todo list, the files it changed,
+ *  what it waits for and the tools it used. Empty parts come as null and are not drawn. */
+export interface WboPanel {
+  session: {
+    id: string;
+    title: string;
+    status: 'idle' | 'busy' | 'retry' | 'waiting' | 'error';
+    asking: boolean;
+    since: number | null;
+    model: WboSelectedModel | null;
+    context: { used: number; limit: number; model: string; pct: number | null } | null;
+    computer: (WboBridge & { name?: string }) | null;
+  };
+  todos: { items: PanelTodo[]; done: number; total: number; at: number | null } | null;
+  files: { items: PanelFile[]; more: number } | null;
+  tools: { items: PanelTool[]; more: number } | null;
+  tokens: { input: number; output: number; cache_read: number; cache_write: number; cost: number | null };
+  pending: WboAsk[];
+  may_answer: boolean;
+  why: string;
+  at: number;
 }
 
 // ---- Settings > Claude pool (backend/ccpool.py: GET /api/ccpool/overview) ----

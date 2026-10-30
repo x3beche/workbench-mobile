@@ -55,6 +55,9 @@ import type {
   WboAnswer,
   WboAsk,
   WboDetail,
+  WboModel,
+  WboPanel,
+  WboSelectedModel,
   WboSend,
   WboSession,
   WbcSession,
@@ -770,6 +773,12 @@ export class WorkbenchClient {
     );
   }
 
+  /** One session's column: its model, window and cost, its computer, its todos, the files it changed, what it
+   *  waits for and the tools it used (backend/wb_panel.py). One answer, so the sheet costs one request. */
+  wboPanel(sid: string): Promise<WboPanel> {
+    return this.request<WboPanel>('GET', `/api/wbo/sessions/${encodeURIComponent(sid)}/panel`);
+  }
+
   /** The models available to OpenCode on that computer. */
   async wboModels(sid: string): Promise<{ models: WboModel[]; selected_model?: WboSelectedModel | null }> {
     return this.request<{ models: WboModel[]; selected_model?: WboSelectedModel | null }>(
@@ -788,6 +797,11 @@ export class WorkbenchClient {
   /** One's own pins and folds of the session groups, as the web keeps them. */
   async side(): Promise<SidePrefs> {
     return sideOf(await this.request<Partial<SidePrefs>>('GET', '/api/me/side'));
+  }
+
+  /** One section of a session's column folded (false) or opened (true), on every device. */
+  async sidePanel(id: string, open: boolean): Promise<SidePrefs> {
+    return sideOf(await this.request<Partial<SidePrefs>>('PUT', '/api/me/side/panel', { id, open }));
   }
 
   async sidePin(group: SideGroup, id: string, pinned: boolean): Promise<SidePrefs> {
@@ -1096,5 +1110,10 @@ export function sideOf(v: Partial<SidePrefs> | null | undefined): SidePrefs {
     pins: { claude: list(pins.claude), opencode: list(pins.opencode) },
     folds: { claude: fold(folds.claude), opencode: fold(folds.opencode), rooms: fold(folds.rooms) },
     chat: { detail: detailOf(chat?.detail) },
+    panel: Object.fromEntries(
+      Object.entries((v as Partial<SidePrefs> | null | undefined)?.panel ?? {}).filter(
+        (e): e is [string, boolean] => typeof e[1] === 'boolean',
+      ),
+    ),
   };
 }

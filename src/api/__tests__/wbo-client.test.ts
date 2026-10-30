@@ -79,6 +79,7 @@ describe('the side prefs through the client', () => {
       pins: { claude: [], opencode: [] },
       folds: { claude: null, opencode: null, rooms: null },
       chat: { detail: 'normal' },
+      panel: {},
     });
     expect(sideOf({ pins: { claude: ['a', 3 as unknown as string] } } as never).pins.claude).toEqual(['a']);
     // A stop the app does not know (a newer server's) is drawn as normal.

@@ -10,6 +10,8 @@ import {
   withDetail,
   withFold,
   withPin,
+  withPanel,
+  panelOpen,
   withRoomsFold,
 } from '../side';
 
@@ -68,6 +70,11 @@ describe('folding and pins', () => {
       pins: { claude: [], opencode: [] },
       folds: { claude: null, opencode: null, rooms: false },
       chat: { detail: 'detailed' },
+      panel: {},
     });
+    // A section of a session's column: folded by the person, open until they do.
+    expect(panelOpen(SIDE_EMPTY, 'files')).toBe(true);
+    expect(panelOpen(withPanel(SIDE_EMPTY, 'files', false), 'files')).toBe(false);
+    expect(withPanel(SIDE_EMPTY, 'files', false).chat.detail).toBe('normal');
   });
 });
