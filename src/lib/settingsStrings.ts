@@ -29,20 +29,19 @@ export interface SettingsStrings {
   /** The way back from a page under Settings. */
   back: string;
   menuGroups: { account: string; ai: string; appearance: string; voice: string; app: string };
-  accountsAbout: string;
-  /** Under Add account, and the line under the accounts of this phone. */
+  /** Under Add account, and the one line under the accounts of this phone. */
   accountsAddAbout: string;
   accountsNote: string;
   voiceLangAbout: string;
   voiceModeAbout: string;
   /** The one line a menu row carries; the page under it says the rest. */
-  rowSub: { theme: string; language: string; chat: string; pool: string };
+  rowSub: { theme: string; chat: string; pool: string };
+  /** The subscription's windows, short enough to sit beside their figure: "5 h". */
+  window: { fiveHour: string; sevenDay: string; sevenDayFor: (name: string) => string };
   /** What each choice means, under its name on the page that offers it. */
   languageChoice: { auto: string; en: string; tr: string };
   voiceLangChoice: { auto: string; en: string; tr: string };
   voiceModeChoice: { live: string; record: string };
-  version: string;
-  versionAbout: string;
   widget: string;
   widgetAbout: string;
   widgetNone: string;
@@ -51,6 +50,9 @@ export interface SettingsStrings {
   widgetWhat: string;
   widgetHow: string;
   widgetOnlyAndroid: string;
+  /** What the picture of the widget on its page says it is. */
+  widgetPreview: string;
+  widgetPreviewLabel: string;
   signOutAbout: string;
   aboutSub: string;
   // Analytics
@@ -148,16 +150,14 @@ const en: SettingsStrings = {
     voice: 'Voice',
     app: 'App',
   },
-  accountsAbout: 'Who is signed in on this phone',
   rowSub: {
-    theme: 'The web app’s, or the phone’s',
-    language: 'The app’s words',
-    chat: 'What an answer shows',
-    pool: 'Who may use this account',
+    theme: 'The web’s themes, or the phone’s',
+    chat: 'How much detail in answers',
+    pool: 'Subscription usage',
   },
+  window: { fiveHour: '5 h', sevenDay: '7 d', sevenDayFor: (name) => `7 d ${name}` },
   accountsAddAbout: 'Another server, or another person',
-  accountsNote:
-    'Signing one out takes only that account off this phone. The conversation you have open stays, and so does the draft in the box.',
+  accountsNote: 'Signing out takes only that account off this phone.',
   voiceLangAbout: 'What your voice is written in',
   voiceModeAbout: 'Live, or once the take is done',
   languageChoice: {
@@ -174,8 +174,6 @@ const en: SettingsStrings = {
     live: 'While you speak, where the server offers it',
     record: 'All at once, when the recording stops',
   },
-  version: 'Version',
-  versionAbout: 'The build on this phone',
   widget: 'Home screen widget',
   widgetAbout: 'The Chat tab’s two cards',
   widgetNone: 'Not added',
@@ -186,8 +184,10 @@ const en: SettingsStrings = {
   widgetHow:
     'Touch and hold an empty place on the home screen, choose Widgets, then Workbench. The card takes five cells across and two down.',
   widgetOnlyAndroid: 'The home screen widget is Android’s. On this platform Settings only describes it.',
+  widgetPreview: 'On the home screen',
+  widgetPreviewLabel: 'The widget as it looks: this month’s models and this week’s tools, each with its last 14 days.',
   signOutAbout: 'The conversations stay',
-  aboutSub: 'Version, licence and source',
+  aboutSub: 'Licence and source',
   models: 'Models',
   modelsAbout: 'Tokens a day, last 14 days, by provider',
   thisMonth: 'This month',
@@ -273,16 +273,14 @@ const tr: SettingsStrings = {
     voice: 'Ses',
     app: 'Uygulama',
   },
-  accountsAbout: 'Bu telefonda kim oturum açmış',
   rowSub: {
-    theme: 'Web uygulamasının ya da telefonun',
-    language: 'Uygulamanın sözleri',
-    chat: 'Bir yanıtın gösterdikleri',
-    pool: 'Bu hesabı kim kullanabilir',
+    theme: 'Webdeki temalar ya da telefonunki',
+    chat: 'Yanıtlarda ne kadar ayrıntı',
+    pool: 'Abonelik kullanımı',
   },
+  window: { fiveHour: '5 sa', sevenDay: '7 gün', sevenDayFor: (name) => `7 gün ${name}` },
   accountsAddAbout: 'Başka sunucu, ya da aynı sunucuda başka biri',
-  accountsNote:
-    'Çıkış yalnızca o hesabı bu telefondan kaldırır. Açık konuşma ve kutudaki taslak yerinde kalır.',
+  accountsNote: 'Çıkış yalnızca o hesabı bu telefondan kaldırır.',
   voiceLangAbout: 'Konuşmanız hangi dilde yazıya dökülür',
   voiceModeAbout: 'Konuşurken, ya da kayıttan sonra',
   languageChoice: {
@@ -299,8 +297,6 @@ const tr: SettingsStrings = {
     live: 'Sunucu sunuyorsa konuşurken',
     record: 'Kayıt bitince bir arada',
   },
-  version: 'Sürüm',
-  versionAbout: 'Bu telefondaki sürüm',
   widget: 'Ana ekran widget’ı',
   widgetAbout: 'Sohbet sekmesinin iki kartı',
   widgetNone: 'Eklenmedi',
@@ -311,8 +307,10 @@ const tr: SettingsStrings = {
   widgetHow:
     'Ana ekranda boş bir yere basılı tutun, Widget’lar’ı seçin, sonra Workbench. Kart enine beş, boyuna iki hücre yer kaplar.',
   widgetOnlyAndroid: 'Ana ekran widget’ı Android’in. Bu platformda Ayarlar onu yalnızca anlatır.',
+  widgetPreview: 'Ana ekranda',
+  widgetPreviewLabel: 'Widget’ın görünüşü: bu ayın modelleri ve bu haftanın araçları, her biri son 14 günüyle.',
   signOutAbout: 'Konuşmalar telefonda kalır',
-  aboutSub: 'Sürüm, lisans ve kaynak',
+  aboutSub: 'Lisans ve kaynak',
   models: 'Modeller',
   modelsAbout: 'Günlük token, son 14 gün, sağlayıcıya göre',
   thisMonth: 'Bu ay',

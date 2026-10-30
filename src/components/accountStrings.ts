@@ -16,6 +16,7 @@ export interface AccountStrings {
   cancel: string;
   /** A row of another account: switch to it. */
   switchHint: string;
+  /** The account that is open now, in a word: "Active". */
   current: string;
   removeLabel: (who: string) => string;
   removeTitle: (who: string) => string;
@@ -24,6 +25,9 @@ export interface AccountStrings {
   /** Signing the open account out: the one that keeps everything it had open. */
   signOutTitle: string;
   signOutText: string;
+  /** The same, naming the account: "Sign out of Ada Demir". */
+  signOutOf: (who: string) => string;
+  signOutTitleOf: (who: string) => string;
   sessionEnded: string;
   // Before signing in: choosing the server and the way in
   serverSub: string;
@@ -59,7 +63,7 @@ const en: AccountStrings = {
   addAccount: 'Add account',
   cancel: 'Cancel',
   switchHint: 'Switch to this account',
-  current: 'Open now',
+  current: 'Active',
   removeLabel: (who) => `Sign out of ${who}`,
   removeTitle: (who) => `Sign out of ${who}?`,
   removeText: 'Only this account is signed out and taken off this phone; the others stay signed in.',
@@ -67,6 +71,8 @@ const en: AccountStrings = {
   signOutTitle: 'Sign out of Workbench?',
   signOutText:
     'The conversation you have open stays on this phone, and a draft stays in the box. You need your password to come back.',
+  signOutOf: (who) => `Sign out of ${who}`,
+  signOutTitleOf: (who) => `Sign out of ${who}?`,
   sessionEnded: 'Signed out',
   serverSub: 'Connect to a Workbench server: the address you open the web app at.',
   serverAddress: 'Server address',
@@ -101,7 +107,7 @@ const tr: AccountStrings = {
   addAccount: 'Hesap ekle',
   cancel: 'Vazgeç',
   switchHint: 'Bu hesaba geç',
-  current: 'Şu an açık',
+  current: 'Aktif',
   removeLabel: (who) => `${who} hesabından çıkış yap`,
   removeTitle: (who) => `${who} hesabından çıkılsın mı?`,
   removeText: 'Yalnızca bu hesaptan çıkılır ve bu telefondan kaldırılır; diğerleri oturum açık kalır.',
@@ -109,6 +115,8 @@ const tr: AccountStrings = {
   signOutTitle: 'Workbench\u2019ten çıkılsın mı?',
   signOutText:
     'Açık konuşma bu telefonda kalır, yazdığın taslak kutuda durur. Geri dönmek için şifren gerekir.',
+  signOutOf: (who) => `${who} hesabından çık`,
+  signOutTitleOf: (who) => `${who} hesabından çıkılsın mı?`,
   sessionEnded: 'Oturum kapalı',
   serverSub: 'Bir Workbench sunucusuna bağlanın: web uygulamasını açtığınız adres.',
   serverAddress: 'Sunucu adresi',

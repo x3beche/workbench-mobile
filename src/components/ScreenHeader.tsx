@@ -22,6 +22,7 @@ export function ScreenHeader({
   menuTestID,
   menuLabel = 'Open the conversations',
   sub,
+  column,
 }: {
   /** The page's name, unless `center` says something else. */
   title?: string;
@@ -35,6 +36,12 @@ export function ScreenHeader({
   menuLabel?: string;
   /** A second line under the title (the Orchestrator's state). */
   sub?: ReactNode;
+  /**
+   * The width of the column the page's content is drawn in: the bar keeps the
+   * whole width (its hairline reaches both edges) and what is written in it
+   * lines up with the content under it, which is centred in the same column.
+   */
+  column?: number;
 }) {
   const leading =
     left ??
@@ -45,29 +52,30 @@ export function ScreenHeader({
     ));
   return (
     <View style={s.head}>
-      {leading}
-      {center ??
-        (title !== undefined ? (
-          <View style={s.mid}>
-            <Text style={s.title} accessibilityRole="header" numberOfLines={1}>
-              {title}
-            </Text>
-            {sub ? <View style={s.sub}>{sub}</View> : null}
-          </View>
-        ) : null)}
-      {right ?? null}
+      <View style={[s.inner, column ? { maxWidth: column, width: '100%', alignSelf: 'center' } : null]}>
+        {leading}
+        {center ??
+          (title !== undefined ? (
+            <View style={s.mid}>
+              <Text style={s.title} accessibilityRole="header" numberOfLines={1}>
+                {title}
+              </Text>
+              {sub ? <View style={s.sub}>{sub}</View> : null}
+            </View>
+          ) : null)}
+        {right ?? null}
+      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  head: {
+  head: { borderBottomWidth: 1, borderBottomColor: colors.line },
+  inner: {
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: space.xs + 2,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
   },
   pad: { width: space.sm },
   mid: { flex: 1, minWidth: 0, paddingHorizontal: 4 },

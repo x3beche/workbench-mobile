@@ -20,7 +20,7 @@
  * Android's Back leaves a page for the menu before it leaves Settings
  * (`back()` below, called by the workspace's hardware back).
  */
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
+import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -31,6 +31,7 @@ import {
   AudioLines,
   Bot,
   ChartColumn,
+  Download,
   Info,
   Gauge,
   Languages,
@@ -38,19 +39,20 @@ import {
   LogOut,
   Mic,
   Palette,
-  Smartphone,
   UserRound,
   type LucideIcon,
 } from '../components/icons';
 import { ScreenHeader } from '../components/ScreenHeader';
 import {
+  SETTINGS_COLUMN,
   SettingsGroup,
   SettingsRow,
   SettingsScroll,
+  useTwoColumns,
 } from '../components/SettingsList';
 import { Dialog } from '../components/Sheet';
 import { modelName } from '../components/MessageItem';
-import { meters, poolShown } from '../lib/ccpool';
+import { meters, poolShown, type Meter } from '../lib/ccpool';
 import { activityWords, chatDetailStrings } from '../lib/chatDetail';
 import { ccpoolStrings } from '../lib/ccpoolStrings';
 import { stateWord } from '../lib/orchestrator';
@@ -65,21 +67,33 @@ import type { Update } from '../update/useUpdate';
 import { VOICE_LANGS, VOICE_MODES, type VoiceMode } from '../voice/voice';
 import { useWidgetsOnHome } from '../widget/home';
 import { AccountsPage } from './settings/AccountsPage';
-import { AboutPage, VersionPage, WidgetPage, updateLine } from './settings/AppPages';
+import { AboutPage, WidgetPage } from './settings/AppPages';
 import { ChoicePage } from './settings/ChoicePage';
 import { ThemePage } from './settings/ThemePage';
 
 /** The pages under Settings' menu. */
-type Page = 'menu' | 'accounts' | 'chat' | 'language' | 'theme' | 'voice-lang' | 'voice-mode' | 'version' | 'widget' | 'about';
+type Page = 'menu' | 'accounts' | 'chat' | 'language' | 'theme' | 'voice-lang' | 'voice-mode' | 'widget' | 'about';
 
 /** A row of the menu: what it says, and where its tap leads. */
 interface MenuRow {
   key: string;
   icon: LucideIcon;
   title: string;
-  sub: string;
+  /** One line under it; a row whose value already says everything has none. */
+  sub?: string;
   value?: string;
+  /** News of its own, in the accent: a newer build is on the server. */
+  accent?: boolean;
   onPress: () => void;
+}
+
+/** The shortest name of a subscription window, to sit beside its figure: "5 h", "7 d Opus". */
+function windowWord(m: Meter, t: SettingsStrings, plan: PoolOverview['plan'] | undefined): string {
+  if (m.id === 'five_hour') return t.window.fiveHour;
+  if (m.id === 'seven_day') return t.window.sevenDay;
+  // A window of the plan's own, named after the model it is for: the API's "7-day Opus" is "7 d Opus".
+  const name = plan?.extra?.find((w) => w.id === m.id)?.label.replace(/^7-day\s+/, '').trim();
+  return name ? t.window.sevenDayFor(name) : m.label;
 }
 
 export interface SettingsHandle {
@@ -133,7 +147,7 @@ export const SettingsScreen = forwardRef<
   },
   ref,
 ) {
-  const { user, client, signOut, account } = useSession();
+  const { user, client, signOut, account, accounts } = useSession();
   const [page, setPage] = useState<Page>('menu');
   /** Signing out of the open account asks first: one tap used to end the session. */
   const [askOut, setAskOut] = useState(false);
@@ -162,6 +176,8 @@ export const SettingsScreen = forwardRef<
     };
   }, [client, onPool]);
   const widgets = useWidgetsOnHome();
+  /** Wide enough for two columns of groups: the menu fills the width instead of one column. */
+  const two = useTwoColumns();
 
   const onBack = useCallback(() => setPage('menu'), []);
   useImperativeHandle(
@@ -185,15 +201,18 @@ export const SettingsScreen = forwardRef<
   const voiceName = voiceLangs.find((l) => l.id === lang)?.label ?? lang;
   const modeName = voiceModes.find((m) => m.id === voiceMode)?.label ?? voiceMode;
   const detailName = dw.levels.find((l) => l.id === detail)?.label ?? '';
-  // The pool's row says its first meter ("5-hour 9.10%"), not a paragraph.
-  const poolMeter = pool ? meters(pool.plan, pt, ui)[0] : undefined;
-  const poolValue = poolMeter ? `${poolMeter.label} ${poolMeter.text}` : '';
+  // The pool's row says the window that is fullest, in four words: "9.10% · 5 h".
+  const poolMeters = pool ? meters(pool.plan, pt, ui) : [];
+  const poolMeter = poolMeters.reduce<Meter | null>((most, m) => (!most || m.pct > most.pct ? m : most), null);
+  const poolValue = poolMeter ? `${poolMeter.text} · ${windowWord(poolMeter, t, pool?.plan)}` : '';
+  // Signing out names the account when there is more than one to tell apart.
+  const outName = account?.user?.name || account?.user?.email || '';
+  const named = accounts.length > 1 && !!outName;
 
   const accountsRow: MenuRow = {
     key: 'accounts',
     icon: UserRound,
     title: a.accounts,
-    sub: t.accountsAbout,
     value: activeName,
     onPress: () => setPage('accounts'),
   };
@@ -238,7 +257,6 @@ export const SettingsScreen = forwardRef<
       key: 'language',
       icon: Languages,
       title: t.language,
-      sub: t.rowSub.language,
       value: langName,
       onPress: () => setPage('language'),
     },
@@ -259,14 +277,28 @@ export const SettingsScreen = forwardRef<
     value: modeName,
     onPress: () => setPage('voice-mode'),
   };
+  // A newer build, when there is one: its own row, in the accent, above nothing
+  // else - the version below is the one on this phone.
+  const ready = update?.check.state === 'available' ? update.check.release.version : null;
   const appRows: MenuRow[] = [
+    ...(ready
+      ? [
+          {
+            key: 'update',
+            icon: Download,
+            title: ut.drawer(ready),
+            accent: true,
+            onPress: () => setPage('about'),
+          },
+        ]
+      : []),
     {
-      key: 'version',
-      icon: Smartphone,
-      title: t.version,
-      sub: updateLine(update, ut) || t.versionAbout,
+      key: 'about',
+      icon: Info,
+      title: t.about,
+      sub: t.aboutSub,
       value: version,
-      onPress: () => setPage('version'),
+      onPress: () => setPage('about'),
     },
     {
       key: 'widget',
@@ -275,13 +307,6 @@ export const SettingsScreen = forwardRef<
       sub: t.widgetAbout,
       value: widgets ? t.widgetAdded : t.widgetNone,
       onPress: () => setPage('widget'),
-    },
-    {
-      key: 'about',
-      icon: Info,
-      title: t.about,
-      sub: t.aboutSub,
-      onPress: () => setPage('about'),
     },
   ];
 
@@ -295,6 +320,7 @@ export const SettingsScreen = forwardRef<
             title={r.title}
             sub={r.sub}
             value={r.value}
+            accent={r.accent}
             onPress={r.onPress}
             last={i === rows.length - 1}
             testID={`settings-row-${r.key}`}
@@ -304,29 +330,56 @@ export const SettingsScreen = forwardRef<
       </SettingsGroup>
     ) : null;
 
+  const accountGroup = group(t.menuGroups.account, 'account', [accountsRow]);
+  const aiGroup = group(t.menuGroups.ai, 'ai', aiRows);
+  const lookGroup = group(t.menuGroups.appearance, 'appearance', lookRows);
+  const voiceGroup = group(t.menuGroups.voice, 'voice', [voiceRow, modeRow]);
+  const appGroup = group(t.menuGroups.app, 'app', appRows);
+  // The one dangerous thing in the menu, red, asked, and without a chevron -
+  // it acts here rather than leading anywhere.
+  const signOutRow = user ? (
+    <View style={s.danger}>
+      <SettingsRow
+        icon={LogOut}
+        title={named ? a.signOutOf(outName) : a.signOut}
+        sub={t.signOutAbout}
+        onPress={() => setAskOut(true)}
+        danger
+        chevron={false}
+        last
+        testID="action-sign-out"
+      />
+    </View>
+  ) : null;
+
   const menu = (
     <SafeAreaView style={s.safe} edges={['top', 'left', 'right', 'bottom']} testID="settings-screen">
-      <ScreenHeader title={t.settings} onMenu={wide ? undefined : onMenu} menuTestID="settings-open-drawer" />
-      <SettingsScroll>
-        {group(t.menuGroups.account, 'account', [accountsRow])}
-        {group(t.menuGroups.ai, 'ai', aiRows)}
-        {group(t.menuGroups.appearance, 'appearance', lookRows)}
-        {group(t.menuGroups.voice, 'voice', [voiceRow, modeRow])}
-        {group(t.menuGroups.app, 'app', appRows)}
-        {/* The one dangerous thing in the menu, at its foot, red, and asked. */}
-        {user ? (
-          <View style={s.danger}>
-            <SettingsRow
-              icon={LogOut}
-              title={a.signOut}
-              sub={t.signOutAbout}
-              onPress={() => setAskOut(true)}
-              danger
-              last
-              testID="action-sign-out"
-            />
-          </View>
-        ) : null}
+      <ScreenHeader
+        title={t.settings}
+        column={two ? undefined : SETTINGS_COLUMN}
+        onMenu={wide ? undefined : onMenu}
+        menuTestID="settings-open-drawer"
+      />
+      <SettingsScroll
+        columns={[
+          <Fragment key="left">
+            {accountGroup}
+            {aiGroup}
+            {signOutRow}
+          </Fragment>,
+          <Fragment key="right">
+            {lookGroup}
+            {voiceGroup}
+            {appGroup}
+          </Fragment>,
+        ]}
+      >
+        {accountGroup}
+        {aiGroup}
+        {lookGroup}
+        {voiceGroup}
+        {appGroup}
+        {signOutRow}
       </SettingsScroll>
     </SafeAreaView>
   );
@@ -389,12 +442,10 @@ export const SettingsScreen = forwardRef<
         onBack={onBack}
         testID="settings-voice-mode"
       />
-    ) : page === 'version' ? (
-      <VersionPage t={t} update={update} ut={ut} lang={ui} version={version} onBack={onBack} />
     ) : page === 'widget' ? (
       <WidgetPage t={t} onTheHomeScreen={widgets} onBack={onBack} />
     ) : page === 'about' ? (
-      <AboutPage t={t} version={version} onBack={onBack} />
+      <AboutPage t={t} update={update} ut={ut} lang={ui} version={version} onBack={onBack} />
     ) : (
       menu
     );
@@ -404,7 +455,7 @@ export const SettingsScreen = forwardRef<
       {body}
       {askOut ? (
         <Dialog
-          title={a.signOutTitle}
+          title={named ? a.signOutTitleOf(outName) : a.signOutTitle}
           text={a.signOutText}
           confirm={a.signOut}
           cancel={a.cancel}

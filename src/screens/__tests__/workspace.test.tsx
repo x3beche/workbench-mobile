@@ -28,6 +28,14 @@ jest.mock('expo-audio', () => ({
 }));
 
 const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+/** The conversations grouped by day are read whatever the hour: this one is today's, that one yesterday's. */
+const today = () => new Date().toISOString();
+const yesterday = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  d.setHours(12, 0, 0, 0);
+  return d.toISOString();
+};
 const listed = (id: string, title: string, min: number, extra: Partial<Chat> = {}) =>
   ({
     id,
@@ -41,8 +49,8 @@ const listed = (id: string, title: string, min: number, extra: Partial<Chat> = {
   }) as Chat;
 
 const CHATS = [
-  listed('c1', 'Rail sag', 5),
-  listed('c2', 'Enclosure walls', 60 * 24 * 1.2),
+  listed('c1', 'Rail sag', 0, { created_at: today(), updated_at: today() }),
+  listed('c2', 'Enclosure walls', 0, { created_at: yesterday(), updated_at: yesterday() }),
   listed('c3', 'Stepper heat', 60 * 24 * 40),
   listed('c0', 'Bring-up', 60 * 24 * 3, { pinned: true }),
 ];
@@ -433,7 +441,8 @@ describe('workspace', () => {
     // A menu of groups, each row carrying what it is set to.
     expect(screen.getByText('Account')).toBeTruthy();
     expect(screen.getByText('Voice language')).toBeTruthy();
-    expect(screen.getByText('Sign out')).toBeTruthy();
+    // Two accounts on the phone: the row says which one it signs out.
+    expect(screen.getByText('Sign out of Ada Demir')).toBeTruthy();
     expect(screen.getByText('Language')).toBeTruthy();
     expect(screen.getByTestId('settings-value-theme')).toHaveTextContent('Spartan Dark');
     // A page under it, and Back coming out of the page first.
@@ -472,6 +481,8 @@ describe('workspace', () => {
     await fireEvent.press(screen.getByTestId('account-a2'));
     expect(mockSwitch).toHaveBeenCalledWith('a2');
     await fireEvent.press(screen.getByTestId('account-remove-a2'));
+    // The "..." menu of that row holds the way out; it asks, naming the account.
+    await fireEvent.press(screen.getByTestId('action-sign-out'));
     expect(screen.getByText('Sign out of Bo?')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('dialog-confirm'));
     expect(mockRemove).toHaveBeenCalledWith('a2');

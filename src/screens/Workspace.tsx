@@ -69,7 +69,7 @@ import { useBus, useLive } from '../live/LiveContext';
 import { shareFile, sharePdf } from '../lib/share';
 import { useSession } from '../state/session';
 import * as prefs from '../storage/prefs';
-import { colors, drawerMax, fonts, motion, radius, type, wideAt } from '../theme/tokens';
+import { colors, drawerMax, fonts, motion, radius, sideWidth, type, wideAt } from '../theme/tokens';
 import { workspaceStrings } from '../lib/workspaceStrings';
 import { uiLang, updateStrings } from '../update/strings';
 import { useUpdate } from '../update/useUpdate';
@@ -149,7 +149,7 @@ export function Workspace({
   const keep = acct?.id ?? server;
   const { width } = useWindowDimensions();
   const wide = width >= wideAt;
-  const drawerWidth = wide ? 300 : Math.min(drawerMax, Math.round(width * 0.84));
+  const drawerWidth = wide ? sideWidth : Math.min(drawerMax, Math.round(width * 0.84));
 
   const [chats, setChats] = useState<Chat[] | null>(null);
   const [listError, setListError] = useState<string | null>(null);

@@ -301,5 +301,8 @@ export const motion = { enter: 220, sheet: 180, shift: 12, drawer: 240, fade: 16
 /** The drawer's width on a phone: most of the screen, never more than this. */
 export const drawerMax = 320;
 
+/** The drawer's column once it stays open beside the content (a tablet, a desktop browser). */
+export const sideWidth = 300;
+
 /** At least this wide (a tablet, a desktop browser), the drawer stays open as a side column. */
 export const wideAt = 860;

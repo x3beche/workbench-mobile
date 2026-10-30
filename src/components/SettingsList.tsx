@@ -14,21 +14,32 @@
  * bottom of its list.
  */
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, fonts, gutter, indicatorStyle, space, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, sideWidth, space, type, wideAt } from '../theme/tokens';
 import { Check, ChevronLeft, ChevronRight, type LucideIcon } from './icons';
 import { ScreenHeader } from './ScreenHeader';
 import { Glyph, IconButton } from './ui';
 
 /** The column a page is drawn in: the same on a phone and centred on a wide screen. */
-const COLUMN = 640;
+export const SETTINGS_COLUMN = 640;
 /** The icon's own column, and the gap after it: the hairline starts where the words do. */
 const ICON_COL = 28;
 const GAP = 12;
 /** Every row at least this tall, with or without its second line. */
 const ROW_MIN = 60;
+/**
+ * The room two columns of groups need beside the drawer: below it the menu is
+ * one column, a line of rows that a phone and a small window read better.
+ */
+const TWO_COLUMNS_AT = 820;
+
+/** Whether the menu has the room to put its groups in two columns. */
+export function useTwoColumns(): boolean {
+  const { width } = useWindowDimensions();
+  return width >= wideAt && width - sideWidth >= TWO_COLUMNS_AT;
+}
 
 /** A heading over a run of rows: "ACCOUNT", "APPEARANCE". */
 export function SettingsGroup({
@@ -60,7 +71,9 @@ export function SettingsGroup({
 /**
  * A row that goes somewhere: its icon, its name, one line about it, the value
  * it is set to now and a chevron. `danger` draws it in the theme's red - only
- * for what ends a session or takes an account off the phone.
+ * for what ends a session or takes an account off the phone - and `accent`
+ * marks news of its own (an update waiting). A row that does something rather
+ * than lead somewhere is drawn without the chevron (`chevron={false}`).
  */
 export function SettingsRow({
   icon,
@@ -69,6 +82,8 @@ export function SettingsRow({
   value,
   onPress,
   danger,
+  accent,
+  chevron = true,
   last,
   testID,
   valueTestID,
@@ -82,13 +97,16 @@ export function SettingsRow({
   value?: string;
   onPress: () => void;
   danger?: boolean;
+  accent?: boolean;
+  /** The chevron at the row's end: no where a tap only acts. */
+  chevron?: boolean;
   /** The last row of its group: no hairline under it. */
   last?: boolean;
   testID?: string;
   valueTestID?: string;
   accessibilityLabel?: string;
 }) {
-  const tint = danger ? colors.danger : colors.ink;
+  const tint = danger ? colors.danger : accent ? colors.accent : colors.ink;
   return (
     <>
       <Pressable
@@ -107,7 +125,7 @@ export function SettingsRow({
           <View style={s.iconCol} />
         )}
         <View style={s.mid}>
-          <Text style={[s.title, danger && s.dangerText]} numberOfLines={1}>
+          <Text style={[s.title, danger && s.dangerText, accent && s.accentText]} numberOfLines={1}>
             {title}
           </Text>
           {sub ? (
@@ -121,7 +139,11 @@ export function SettingsRow({
             {value}
           </Text>
         ) : null}
-        <Glyph icon={ChevronRight} size={17} color={colors.inkDim} />
+        {chevron ? (
+          <View style={s.chev}>
+            <Glyph icon={ChevronRight} size={16} color={colors.inkDim} />
+          </View>
+        ) : null}
       </Pressable>
       {last ? null : <View style={s.sep} />}
     </>
@@ -131,7 +153,8 @@ export function SettingsRow({
 /**
  * One choice on a page of choices: the name, what choosing it means, and a
  * check when it is the one set now. `leading` takes the place of the check's
- * column for something to look at (a theme's colours).
+ * column for something to look at (a theme's colours), and `badge` says in a
+ * word where the check would be (the account that is open).
  */
 export function SettingsChoice({
   title,
@@ -140,6 +163,7 @@ export function SettingsChoice({
   onPress,
   leading,
   trailing,
+  badge,
   last,
   testID,
   accessibilityLabel,
@@ -149,8 +173,10 @@ export function SettingsChoice({
   on: boolean;
   onPress: () => void;
   leading?: ReactNode;
-  /** A control of its own at the row's end (taking an account off the phone). */
+  /** A control of its own at the row's end (opening the ways out of an account). */
   trailing?: ReactNode;
+  /** The word that stands in for the check: "Active". */
+  badge?: string;
   last?: boolean;
   testID?: string;
   accessibilityLabel?: string;
@@ -161,7 +187,7 @@ export function SettingsChoice({
         onPress={onPress}
         accessibilityRole="radio"
         accessibilityState={{ checked: on }}
-        accessibilityLabel={accessibilityLabel ?? title}
+        accessibilityLabel={badge && on ? `${accessibilityLabel ?? title}, ${badge}` : accessibilityLabel ?? title}
         accessibilityHint={sub}
         style={({ pressed }) => [s.row, pressed && s.pressed]}
         testID={testID}
@@ -177,7 +203,15 @@ export function SettingsChoice({
             </Text>
           ) : null}
         </View>
-        {on ? <Glyph icon={Check} size={19} color={colors.inkBright} /> : <View style={s.checkPad} />}
+        {on ? (
+          badge ? (
+            <Text style={s.badge}>{badge}</Text>
+          ) : (
+            <Glyph icon={Check} size={19} color={colors.inkBright} />
+          )
+        ) : (
+          <View style={s.checkPad} />
+        )}
         {trailing ? <View style={s.trailing}>{trailing}</View> : null}
       </Pressable>
       {last ? null : <View style={s.sep} />}
@@ -221,6 +255,7 @@ export function SettingsPage({
     <SafeAreaView style={s.safe} edges={['top', 'left', 'right', 'bottom']} testID={testID}>
       <ScreenHeader
         title={title}
+        column={SETTINGS_COLUMN}
         left={<IconButton icon={ChevronLeft} label={backLabel} onPress={onBack} testID="settings-back" />}
       />
       <ScrollView indicatorStyle={indicatorStyle} contentContainerStyle={s.body} testID="settings-page">
@@ -230,11 +265,30 @@ export function SettingsPage({
   );
 }
 
-/** The menu's own scroll: the same column, with the room a thumb needs at the foot. */
-export function SettingsScroll({ children }: { children: ReactNode }) {
+/**
+ * The menu's own scroll: the same column, with the room a thumb needs at the
+ * foot - and, where the window is wide enough, the groups in two columns
+ * (`columns`, left first) filling the width instead of one narrow column
+ * down the middle. Below that width its `children` are drawn as they are.
+ */
+export function SettingsScroll({
+  children,
+  columns,
+}: {
+  children: ReactNode;
+  columns?: [ReactNode, ReactNode];
+}) {
+  const two = useTwoColumns();
   return (
     <ScrollView indicatorStyle={indicatorStyle} contentContainerStyle={s.body}>
-      <View style={s.column}>{children}</View>
+      {two && columns ? (
+        <View style={s.columns} testID="settings-columns">
+          <View style={s.col}>{columns[0]}</View>
+          <View style={[s.col, s.colGap]}>{columns[1]}</View>
+        </View>
+      ) : (
+        <View style={s.column}>{children}</View>
+      )}
     </ScrollView>
   );
 }
@@ -242,7 +296,10 @@ export function SettingsScroll({ children }: { children: ReactNode }) {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   body: { paddingBottom: space.xxl },
-  column: { width: '100%', maxWidth: COLUMN, alignSelf: 'center' },
+  column: { width: '100%', maxWidth: SETTINGS_COLUMN, alignSelf: 'center' },
+  columns: { flexDirection: 'row', alignItems: 'flex-start', width: '100%' },
+  col: { flex: 1, minWidth: 0 },
+  colGap: { marginLeft: space.xxl },
   group: { paddingTop: space.lg },
   groupBare: { paddingTop: space.md },
   groupTitle: {
@@ -270,15 +327,25 @@ const s = StyleSheet.create({
   title: { fontFamily: fonts.sans, fontSize: type.lead, lineHeight: type.leadLine, color: colors.ink },
   on: { fontFamily: fonts.sansSemi, color: colors.inkBright },
   dangerText: { color: colors.danger },
+  accentText: { color: colors.accent },
   sub: { fontFamily: fonts.sans, fontSize: type.tiny, lineHeight: type.tinyLine, color: colors.inkDim },
   value: {
     flexShrink: 1,
     maxWidth: '45%',
     marginLeft: space.sm,
     fontFamily: fonts.sans,
-    fontSize: type.small,
+    fontSize: type.tiny,
+    lineHeight: type.tinyLine,
     color: colors.inkDim,
     textAlign: 'right',
+  },
+  /** The chevron: a hint, not a heading - it stays quieter than the value beside it. */
+  chev: { marginLeft: 4, opacity: 0.55 },
+  badge: {
+    fontFamily: fonts.sansMedium,
+    fontSize: type.micro,
+    lineHeight: type.microLine,
+    color: colors.accent,
   },
   checkPad: { width: 19 },
   trailing: { marginLeft: space.sm },

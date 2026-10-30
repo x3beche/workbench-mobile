@@ -22,10 +22,16 @@ Then you sign in with the same e-mail address and password as on the web.
   <img src="docs/screenshots/14-chat-actions.png" width="200" alt="Rename, archive or delete a conversation">
 </p>
 <p>
-  <img src="docs/screenshots/76-settings-themes.png" width="200" alt="The theme page: every theme of the web app colour for colour, or the phone's own light or dark">
+  <img src="docs/screenshots/76-settings-themes.png" width="200" alt="The theme page: the phone's own, then the dark themes, then the light ones, each with a square of its colours">
   <img src="docs/screenshots/75e-settings-chat-detail.png" width="200" alt="Chat detail: what each stop shows of an answer's work, the chosen one ticked">
-  <img src="docs/screenshots/75d-settings-accounts.png" width="200" alt="The accounts on this phone: switch to one, add one, sign one out alone">
-  <img src="docs/screenshots/75c-settings-signout.png" width="200" alt="Sign out is the last row, red, and asks before it does it">
+  <img src="docs/screenshots/75d-settings-accounts.png" width="200" alt="The accounts on this phone: the open one marked Active, a tap switching, the way out in the row's ...">
+  <img src="docs/screenshots/75f-settings-account-menu.png" width="200" alt="Signing one account out is in the row's ... menu, red, and asks first">
+</p>
+<p>
+  <img src="docs/screenshots/76d-settings-widget.png" width="200" alt="The home screen widget: the card as the launcher draws it, how to add it, and whether it is there">
+  <img src="docs/screenshots/76e-settings-about.png" width="200" alt="About: the version on this phone and its update, the licence and where the source is">
+  <img src="docs/screenshots/80b-settings-wide.png" width="200" alt="A wide screen: the groups in two columns filling the width, the title lined up with them">
+  <img src="docs/screenshots/75c-settings-signout.png" width="200" alt="Sign out is the last row, red, without a chevron, and asks before it does it">
 </p>
 <p>
   <img src="docs/screenshots/77d-drawer-tr.png" width="200" alt="The drawer in Turkish: Odalar, Sohbetler, Arşiv, Çöp, Dosyalar, Analiz">
@@ -432,13 +438,20 @@ Then you sign in with the same e-mail address and password as on the web.
   a menu since 1.9.9, as ChatGPT's and Claude's are): small-capital groups -
   **Account**, **Artificial intelligence**, **Appearance**, **Voice**,
   **App** - and one row per setting: an icon, its name, the one line it is
-  about, and at the right what it is set to now (a **>** after it where the
-  row leads somewhere). Every setting that is a choice of something has a
+  about, and at the right what it is set to now, a size under the name and
+  in the dim ink, with a quiet **>** after it where the row leads somewhere
+  and none where it only acts (1.9.10). A row whose value says it all
+  carries no second line. Every setting that is a choice of something has a
   page of its own - a radio list with the explanation on it, the paragraph
   the menu row has no room for - and the choice is kept the moment it is
   touched, so the menu behind it says **Spartan Dark**, **Türkçe**,
-  **Normal** on the way back. The accounts (switch, add, sign one out
-  alone), the **Orchestrator** (its own sheet) and the **Claude pool**, how
+  **Normal** on the way back. The themes are grouped the way they are
+  chosen - **Follow the phone**, **Dark**, **Light** - with a square of each
+  one's four colours and no light/dark line of its own (1.9.10). The
+  accounts (the open one marked **Active** and a tap switching to another;
+  add one; sign one out alone, in the row's **...** menu), the
+  **Orchestrator** (its own sheet) and the **Claude pool** - its row the
+  window that is fullest, in four words: **9.10% · 5 h** - how
   much of an answer the Chat shows (**Compact**, **Normal**, **Detailed**),
   the app's **language** (Auto, English, Türkçe - apart from the voice
   language; since 1.8.0 everything the app says follows it, the drawer and
@@ -447,14 +460,21 @@ Then you sign in with the same e-mail address and password as on the web.
   for colour (`src/theme/themes.ts`, written from its styles.css by
   `scripts/make-themes.mjs`), or the phone's own light or dark; the app
   starts again to wear a new one - the voice language and when its words
-  appear, the **home screen widget** the figures are added from, and the
-  app's version, its update and About. **Sign out** is the last row of the
-  menu, red, and asks first. One measure on every page
-  (`src/components/SettingsList.tsx`): a row of at least 60 px with the
-  icon column 28 wide, the title at 15 and the second line at 12, the value
-  at 13 pushed right, hairlines inset past the icon - and one column 640 px
-  wide, centred, on a wide screen. Colour is theme tokens only, so light
-  and dark are the same screen in another palette.
+  appear, and the **home screen widget**: the card drawn the way the
+  launcher draws it, how to add it, and on Android the one tap that asks
+  the launcher for it (`requestPinAppWidget`). **About** is one row with
+  the version on this phone at its right (1.9.10, no second Version row),
+  and a newer build on the server has a row of its own above it, in the
+  accent: **Update ready: 1.9.11**. **Sign out** is the last row of the
+  menu, red, without a chevron, and asks first - naming the account when
+  more than one is on the phone (**Sign out of Ada Demir**). One measure on
+  every page (`src/components/SettingsList.tsx`): a row of at least 60 px
+  with the icon column 28 wide, the title at 15, the second line and the
+  value at 12, hairlines inset past the icon. A wide screen (1.9.10) puts
+  the groups in two columns that fill it - Account and AI on the left,
+  Appearance, Voice and App on the right - and the bar's title lines up
+  with the column under it, `column` on `ScreenHeader`. Colour is theme
+  tokens only, so light and dark are the same screen in another palette.
 - **Claude pool** (from 1.6.2, in Settings where the server's pool is set up
   and the person may see it): the web's Settings > Claude pool, read-only
   (`GET /api/ccpool/overview`). The subscription's windows (5-hour, 7-day
@@ -695,10 +715,11 @@ made-up server, which also runs tools and writes an answer slowly; with
 that server, whose own wrong-password error is shown;
 `SHOTS=orchestrator scripts/shots.sh` takes only the Orchestrator's, 40-48;
 `SHOTS=rooms` a room read a page at a time, 50-54; `SHOTS=accounts` 60-63;
-`SHOTS=settings` Settings and the pages under it - the accounts, Chat
-detail, the themes, the languages, sign out - with the Claude pool and
-Analytics, 70-81 and 74b-77c, and the light theme and the wide screen,
-79b-79c, 80-analytics-wide, 80b-settings-wide; `SHOTS=claude` the Claude
+`SHOTS=settings` Settings and the pages under it - the accounts and their
+`...` menu, Chat detail, the themes, the languages, the widget, About, sign
+out - with the Claude pool and Analytics, 70-81, 74b-77c and 75f-76e, and
+the light theme and the wide screen, 79b-79c, 80-analytics-wide,
+80b-settings-wide, 80c-settings-wide-page; `SHOTS=claude` the Claude
 sessions, 90-99; and `SHOTS=opencode` the OpenCode sessions and the groups'
 folds and pins, 80b-89b). The keyboard shot makes the window 336 px shorter,
 as a phone keyboard does, and checks the composer is still on screen.

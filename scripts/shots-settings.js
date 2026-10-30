@@ -127,11 +127,21 @@ async function pick(page, pageTestID, label) {
   await page.click(tid('dialog-cancel'));
   await sleep(400);
 
-  // Accounts: the open one marked, each signed out alone.
+  // Accounts: the open one marked "Active", the way out in the row's "..." menu.
   await scrollTo(page, 'settings-row-accounts');
   await page.click(tid('settings-row-accounts'));
   await page.waitForSelector(tid('settings-accounts-page'));
   await shot(page, '75d-settings-accounts');
+  const ways = await page.$('[data-testid^="account-remove-"]');
+  if (ways) {
+    await ways.click();
+    await page.waitForSelector(tid('account-menu'));
+    await shot(page, '75f-settings-account-menu');
+    await page.click(tid('action-sign-out'));
+    await page.waitForFunction(() => document.body.innerText.includes('Sign out of'), { timeout: 5000 });
+    await page.click(tid('dialog-cancel'));
+    await sleep(300);
+  }
   await page.click(tid('settings-back'));
 
   // How much of an answer the Chat shows.
@@ -156,6 +166,21 @@ async function pick(page, pageTestID, label) {
   await page.click(tid('settings-row-theme'));
   await page.waitForSelector(tid('settings-theme-page'));
   await shot(page, '76-settings-themes');
+  await page.click(tid('settings-back'));
+
+  // The home screen widget: the card as the launcher draws it, how to add it, and where it stands.
+  await scrollTo(page, 'settings-row-widget');
+  await page.click(tid('settings-row-widget'));
+  await page.waitForSelector(tid('settings-widget-page'));
+  await page.evaluate(() => document.querySelector('[data-testid="widget-preview"]')?.scrollIntoView({ block: 'center' }));
+  await shot(page, '76d-settings-widget');
+  await page.click(tid('settings-back'));
+
+  // About: the version, its update, the licence and the source, on one page.
+  await scrollTo(page, 'settings-row-about');
+  await page.click(tid('settings-row-about'));
+  await page.waitForSelector(tid('settings-about-page'));
+  await shot(page, '76e-settings-about');
   await page.click(tid('settings-back'));
 
   // The app's language, in a page of its own.
@@ -256,6 +281,10 @@ async function pick(page, pageTestID, label) {
   await page.click(tid('open-account'));
   await page.waitForSelector(tid('settings-screen'));
   await shot(page, '80b-settings-wide');
+  // A page under it on a wide screen: the same centred column, the bar's title lined up with it.
+  await page.click(tid('settings-row-theme'));
+  await page.waitForSelector(tid('settings-theme-page'));
+  await shot(page, '80c-settings-wide-page');
   console.log('S2 reads', JSON.stringify(s2.reads), '| token in an address or no header:', s2.bad);
   await browser.close();
 })().catch((e) => {

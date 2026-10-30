@@ -29,6 +29,9 @@ const mockSignOut = jest.fn(async () => undefined);
 const mockSwitchTo = jest.fn(async () => undefined);
 const mockRemove = jest.fn(async () => undefined);
 const mockAddAnother = jest.fn();
+/** The accounts on the phone and the client the pool's row is read with: both per test. */
+let mockAccounts: { id: string; server: string; user: { id: string; name: string; email: string } }[] = [];
+let mockClient: unknown = null;
 const mockAccount = {
   id: 'a1',
   server: 'https://wb.example.com',
@@ -42,14 +45,14 @@ const mockOther = {
 jest.mock('../../state/session', () => ({
   useSession: () => ({
     user: mockAccount.user,
-    client: null,
+    client: mockClient,
     account: mockAccount,
-    accounts: [mockAccount, mockOther],
+    accounts: mockAccounts,
     signOut: mockSignOut,
     switchTo: mockSwitchTo,
     remove: mockRemove,
     addAnother: mockAddAnother,
-    clientFor: () => null,
+    clientFor: () => mockClient,
   }),
 }));
 
@@ -98,6 +101,8 @@ async function open(extra: Partial<React.ComponentProps<typeof SettingsScreen>> 
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockAccounts = [mockAccount, mockOther];
+  mockClient = null;
 });
 
 describe('Settings’ menu', () => {
@@ -128,8 +133,12 @@ describe('Settings’ menu', () => {
       expect(row.getByText(title)).toBeTruthy();
       expect(screen.getByTestId(`settings-value-${key}`)).toHaveTextContent(value);
     }
-    // The version is the build's own.
-    expect(screen.getByTestId('settings-value-version')).toHaveTextContent(installedApp().version);
+    // Version and About are one row: its name, and the build as its value.
+    expect(screen.getByTestId('settings-value-about')).toHaveTextContent(installedApp().version);
+    expect(screen.queryByTestId('settings-row-version')).toBeNull();
+    // A row whose value says it all carries no second line: the accounts, the language.
+    expect(screen.getByTestId('settings-row-accounts').props.accessibilityHint).toBeUndefined();
+    expect(screen.getByTestId('settings-row-language').props.accessibilityHint).toBeUndefined();
     // A row is a button a screen reader names with its value, and it leads somewhere: a chevron.
     const accounts = screen.getByTestId('settings-row-accounts');
     expect(accounts.props.accessibilityRole).toBe('button');
@@ -154,15 +163,81 @@ describe('Settings’ menu', () => {
   it('asks before signing out, and then signs the open account out', async () => {
     await open();
     const row = screen.getByTestId('action-sign-out');
-    expect(within(row).getByText('Sign out')).toBeTruthy();
+    // Two accounts on the phone: the row and the question both name this one.
+    expect(within(row).getByText('Sign out of Ada Demir')).toBeTruthy();
+    // It acts here rather than leading anywhere, so it has no chevron.
+    expect(row.props.accessibilityRole).toBe('button');
     await fireEvent.press(row);
-    expect(screen.getByText('Sign out of Workbench?')).toBeTruthy();
+    expect(screen.getByText('Sign out of Ada Demir?')).toBeTruthy();
     // Saying no leaves everything as it was.
     await fireEvent.press(screen.getByTestId('dialog-cancel'));
     expect(mockSignOut).not.toHaveBeenCalled();
     await fireEvent.press(row);
     await fireEvent.press(screen.getByTestId('dialog-confirm'));
     expect(mockSignOut).toHaveBeenCalled();
+  });
+
+  it('names no account when only one is on the phone', async () => {
+    mockAccounts = [mockAccount];
+    await open();
+    expect(within(screen.getByTestId('action-sign-out')).getByText('Sign out')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('action-sign-out'));
+    expect(screen.getByText('Sign out of Workbench?')).toBeTruthy();
+  });
+
+  it('gives a newer build a row of its own, in the accent, only when there is one', async () => {
+    const update = {
+      installed: { version: '1.9.9', code: 44 },
+      check: {
+        state: 'available' as const,
+        release: {
+          version: '1.9.10',
+          versionCode: 45,
+          size: null,
+          sha256: null,
+          url: '/api/public/m/workbench-1.9.10.apk',
+          notes: null,
+          minSdk: null,
+          publishedAt: null,
+        },
+      },
+      checking: false,
+      job: { state: 'idle' as const },
+      canInstall: true,
+      recheck: jest.fn(),
+      install: jest.fn(async () => undefined),
+      cancel: jest.fn(),
+      allow: jest.fn(async () => undefined),
+    };
+    await open({ update });
+    const row = screen.getByTestId('settings-row-update');
+    expect(within(row).getByText('Update ready: 1.9.10')).toBeTruthy();
+    expect(screen.getByTestId('settings-value-about')).toHaveTextContent(installedApp().version);
+    // It leads to About, where the download is described and started.
+    await fireEvent.press(row);
+    expect(screen.getByTestId('settings-about-page')).toBeTruthy();
+  });
+
+  it('says the pool with the window that is fullest, in four words', async () => {
+    mockClient = {
+      ccpoolOverview: async () => ({
+        me: { id: 'u1', name: 'Ada', role: 'owner', privileged: true, keys: 1, usage: {} },
+        plan: {
+          five_hour: { pct: 9.1 },
+          seven_day: { pct: 41.25 },
+          week_pct: 41.25,
+          week_api_usd: 0,
+        },
+        accounts: [],
+        my_sessions: [],
+        gateway: { configured: true },
+      }),
+    };
+    const onPool = jest.fn();
+    await open({ onPool });
+    await act(async () => undefined);
+    // The fuller window is the one shown, with its own short name.
+    expect(screen.getByTestId('settings-value-ccpool')).toHaveTextContent('41.25% · 7 d');
   });
 
   it('takes Back out of a page first, and only then out of Settings', async () => {
@@ -221,14 +296,22 @@ describe('Settings’ pages', () => {
     expect(screen.getByText(t.voiceModeChoice.record)).toBeTruthy();
   });
 
-  it('offers the themes with their own colours, the phone’s light or dark first', async () => {
+  it('offers the themes under three headings, with their own colours and no dark/light line each', async () => {
     await open();
     await fireEvent.press(screen.getByTestId('settings-row-theme'));
     const page = within(screen.getByTestId('settings-theme-page'));
-    expect(page.getByText('Follow the phone')).toBeTruthy();
+    // The phone's own, then the dark ones, then the light ones - a heading each.
+    const heading = (id: string) => within(screen.getByTestId(`theme-group-${id}`)).getByRole('header');
+    expect(heading('system')).toHaveTextContent('Follow the phone');
+    // The headings are the app's own words, drawn in small capitals by the style.
+    expect(heading('dark')).toHaveTextContent(/^dark$/i);
+    expect(heading('light')).toHaveTextContent(/^light$/i);
     expect(screen.getByTestId('theme-system')).toBeTruthy();
     expect(screen.getByTestId('theme-spartan-dark').props.accessibilityState).toEqual({ checked: true });
     expect(page.getByText('Dracula')).toBeTruthy();
+    // A theme is its name and its colours: the "Dark"/"Light" line under each is gone.
+    expect(screen.getByTestId('theme-dracula').props.accessibilityHint).toBeUndefined();
+    expect(screen.getByTestId('theme-system').props.accessibilityHint).toBeUndefined();
     // Picking one keeps it and restarts the app to wear it.
     await fireEvent.press(screen.getByTestId('theme-dracula'));
     expect(screen.getByText(t.restartTitle('Dracula'))).toBeTruthy();
@@ -239,16 +322,21 @@ describe('Settings’ pages', () => {
   it('shows the accounts on the phone, switches to one, adds one, and signs one out alone', async () => {
     await open();
     await fireEvent.press(screen.getByTestId('settings-row-accounts'));
-    // The open account is checked; another says who it is and where.
+    // The open account is marked "Active"; another says who it is and where.
     expect(screen.getByTestId('account-a1').props.accessibilityState).toEqual({ checked: true });
     expect(screen.getByTestId('account-a2').props.accessibilityState).toEqual({ checked: false });
+    expect(within(screen.getByTestId('account-a1')).getByText('Active')).toBeTruthy();
+    expect(within(screen.getByTestId('account-a2')).queryByText('Active')).toBeNull();
     expect(screen.getByText('bo@other.example · other.example')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('account-a2'));
     expect(mockSwitchTo).toHaveBeenCalledWith('a2');
     await fireEvent.press(screen.getByTestId('account-add'));
     expect(mockAddAnother).toHaveBeenCalled();
-    // Signing one out is that row's own button, and it asks first.
+    // Signing one out is in the row's "..." menu (no second icon on the row), and it asks first.
     await fireEvent.press(screen.getByTestId('account-remove-a2'));
+    expect(screen.getByTestId('account-menu')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('action-sign-out'));
+    expect(screen.getByText('Sign out of Bo?')).toBeTruthy();
     expect(mockRemove).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByTestId('dialog-confirm'));
     expect(mockRemove).toHaveBeenCalledWith('a2');
@@ -265,17 +353,15 @@ describe('Settings’ pages', () => {
     expect(screen.queryByTestId('widget-add')).toBeNull();
   });
 
-  it('says the version, the licence and where the source is', async () => {
+  it('says the version, the licence and where the source is, on one About page', async () => {
     await open();
-    await fireEvent.press(screen.getByTestId('settings-row-version'));
-    const page = within(screen.getByTestId('settings-version-page'));
-    expect(page.getByText(`Workbench mobile ${installedApp().version}`)).toBeTruthy();
-    await fireEvent.press(screen.getByTestId('settings-back'));
     await fireEvent.press(screen.getByTestId('settings-row-about'));
     const about = within(screen.getByTestId('settings-about-page'));
     expect(about.getByText(t.aboutText)).toBeTruthy();
-    expect(about.getByText(new RegExp(t.licence))).toBeTruthy();
+    expect(about.getByText(`Workbench mobile ${installedApp().version}`)).toBeTruthy();
+    expect(about.getByText(t.licence)).toBeTruthy();
     expect(about.getByText('github.com/x3beche/workbench-mobile')).toBeTruthy();
+    expect(about.getByTestId('settings-source')).toBeTruthy();
   });
 
   it('shows how much of an answer the Chat shows, and what the chosen one looks like', async () => {
