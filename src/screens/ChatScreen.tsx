@@ -29,6 +29,7 @@ import type { Chat, ChatEvent, ChatMessage } from '../api/types';
 import { Appear } from '../components/Appear';
 import { ChatHeader } from '../components/ChatHeader';
 import { Composer, type ComposerHandle } from '../components/Composer';
+import { refreshWidget } from '../widget/refresh';
 import { ArrowDown, ChevronDown, Copy, Ellipsis, SquarePen, TextSelect } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Mark } from '../components/Mark';
@@ -315,6 +316,7 @@ export function ChatScreen({
         return false;
       }
     }
+    void refreshWidget('chat');
     const ctl = new AbortController();
     streams.current.add(ctl);
     try {
@@ -335,6 +337,8 @@ export function ChatScreen({
       return false;
     } finally {
       streams.current.delete(ctl);
+      // The answer is in: the widget's month moved.
+      void refreshWidget('chat');
       if (mounted.current) {
         setPending(null);
         setTimeout(() => mounted.current && !streams.current.size && load(), 300);

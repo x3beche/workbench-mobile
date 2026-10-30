@@ -30,6 +30,7 @@ import { FlexWidget, SvgWidget, TextWidget, type ColorProp } from 'react-native-
 
 import { compact } from '../lib/numbers';
 import type { SettingsStrings } from '../lib/settingsStrings';
+import type { UiLang } from '../update/strings';
 import { colors, widgetGround } from '../theme/tokens';
 import type { WidgetSnapshot } from './data';
 
@@ -159,12 +160,49 @@ interface Room {
   small: number;
 }
 
-/** The widest of the halves' lines, line by line. */
-export function widest(halves: HalfText[]): Room {
+/**
+ * What the widget is doing when it is drawn: the refresh button was just pressed,
+ * or the last attempt to reach the server did not come back. Drawn in the corner
+ * beside the ↻, never over the figures.
+ */
+export interface WidgetState {
+  refreshing?: boolean;
+  failed?: boolean;
+}
+
+/** The ↻'s touch box: a finger needs 40 dp even when the mark is twelve. */
+export const REFRESH_TOUCH = 40;
+/** How old a reading may be before the card says so, in ms (2 h). */
+export const STALE_MS = 2 * 3600_000;
+
+const REFRESH_ICON = 'M20 12a8 8 0 1 1-2.3-5.6 M20 4v6h-6';
+const WARN_ICON = 'M12 3l9 17H3z M12 9v5 M12 17v.3';
+
+/** "14:32", "yesterday 22:10", "12 Aug 22:10" - the reading's own time, short. */
+export function whenText(at: number, t: SettingsStrings, lang: UiLang = 'en', now = Date.now()): string {
+  if (!at) return t.widgetNever;
+  const d = new Date(at);
+  const n = new Date(now);
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const sameDay = d.toDateString() === n.toDateString();
+  const yesterday = new Date(now - 86400_000);
+  const date = d.toLocaleDateString(lang === 'tr' ? 'tr-TR' : 'en-GB', { day: 'numeric', month: 'short' });
+  return t.widgetWhen(sameDay, d.toDateString() === yesterday.toDateString(), time, date);
+}
+
+/** Whether the reading is older than the card may quietly show. */
+export function isStale(at: number, now = Date.now(), after = STALE_MS): boolean {
+  return !at || now - at > after;
+}
+
+/** The widest of the halves' lines, line by line. `extra` is what the right half's head carries beyond its own
+ *  text: the refresh button's touch box and the state or the reading's time beside it. */
+export function widest(halves: HalfText[], extra?: { refresh?: boolean; state?: string }): Room {
   const most: Room = { head: 0, row: 0, big: 0, small: 0 };
   for (const x of halves) {
     const right = x.headRight ? ems(x.headRight.text, x.headRight.mono ? 'mono' : 'sans') * (x.headRight.mono ? WEB.aside : WEB.head) : 0;
-    const head = WEB.icon + ems(x.title, 'sans', 700) * WEB.head + right + WEB.chev + (x.headRight ? 4 : 3) * WEB.headGap;
+    const corner = extra?.refresh ? REFRESH_TOUCH + (extra.state ? ems(extra.state, 'sans') * WEB.aside + WEB.headGap : 0) : 0;
+    const head = WEB.icon + ems(x.title, 'sans', 700) * WEB.head + right + corner + WEB.chev + (x.headRight ? 4 : 3) * WEB.headGap;
     const big = ems(x.big, 'mono') * WEB.fig + ems(x.unit, 'sans') * WEB.aside + WEB.gap;
     const small = (ems(x.value, 'mono') + 0.6 + ems(x.word, 'mono')) * WEB.aside;
     most.head = Math.max(most.head, head);
@@ -491,6 +529,8 @@ function Half({
   icon,
   title,
   headRight,
+  headState,
+  refresh,
   big,
   unit,
   figRight,
@@ -511,6 +551,10 @@ function Half({
   palette: ColorProp[];
   m: Metrics;
   label: string;
+  /** The corner beside the ↻: the reading's time, or what the last attempt did. */
+  headState?: React.ReactNode;
+  /** The ↻ itself (the right half's): a box a finger can hit, drawn on the head's own line. */
+  refresh?: React.ReactNode;
   /** What this half's bars share. */
   width: number;
   /** The second card: the web's `border-left` between the two. */
@@ -541,10 +585,14 @@ function Half({
         />
         <FlexWidget style={{ flex: 1 }} />
         {headRight}
-        <SvgWidget
-          svg={glyph(CHEVRON_ICON, colors.inkDim)}
-          style={{ width: m.chev, height: m.chev }}
-        />
+        {headState}
+        {refresh}
+        {divider ? (
+          <SvgWidget
+            svg={glyph(CHEVRON_ICON, colors.inkDim)}
+            style={{ width: m.chev, height: m.chev }}
+          />
+        ) : null}
       </FlexWidget>
       {/* The figures: the web's one row, or - in a cell with the height for it -
           the small figure in a row of its own under the big one, so both can be
@@ -617,19 +665,38 @@ export function StatsWidget({
   w,
   h,
   t,
+  lang = 'en',
+  state = {},
+  staleAfter = STALE_MS,
+  now = Date.now(),
 }: {
   snap: WidgetSnapshot | null;
   /** The widget's own size, in dp: every measure here is worked out from it. */
   w: number;
   h: number;
   t: SettingsStrings;
+  /** The words' language: the reading's time is written in it. */
+  lang?: UiLang;
+  /** What it is doing: refreshing (the button was pressed) or failed (the last attempt did not come back). */
+  state?: WidgetState;
+  /** A reading older than this is drawn in the warning tone, in its corner. */
+  staleAfter?: number;
+  /** The clock its corner reads against (a picture of the widget in the app passes its own). */
+  now?: number;
 }) {
   // The text each half writes, worked out once: the drawing below writes it and
   // `widest` sizes the card to it.
   const texts = snap ? widgetTexts(snap, t) : null;
   const models: HalfText = texts?.models ?? { title: t.models, big: '', unit: '', value: '', word: '' };
   const tools: HalfText = texts?.tools ?? { title: t.tools, big: '', unit: '', value: '', word: '' };
-  const m = metrics(w, h, widest(snap ? [models, tools] : [{ ...models, big: '', unit: '', value: '', word: '' }]));
+  // The corner's own words: what the state says, or the reading's time. Measured with the rest, so a long one
+  // makes the head a step smaller rather than pushing the figures out.
+  // The corner is a few dp wide: the states are said in one word (their labels carry the long ones).
+  const corner = state.refreshing ? t.widgetRefreshingShort : state.failed ? t.widgetFailedShort
+    : snap ? whenText(snap.at, t, lang, now) : '';
+  const stale = !!snap && isStale(snap.at, now, staleAfter);
+  const m = metrics(w, h, widest(snap ? [models, tools] : [{ ...models, big: '', unit: '', value: '', word: '' }],
+    { refresh: true, state: corner }));
   // One sentence for a screen reader: the widget itself is a picture to it.
   const label = snap
     ? `${t.models}, ${t.period.month}: ${compact(snap.models.tokens)} tok, ${count(snap.models.calls)} ${t.calls}. ${t.tools}, ${t.period.week}: ${count(snap.tools.week)}, ${t.toolCount(snap.tools.kinds)}.`
@@ -700,9 +767,54 @@ export function StatsWidget({
           icon={glyph(WRENCH_ICON, softInk())}
           title={tools.title}
           headRight={
-            snap.tools.total ? (
+            // The head is a few dp wide: when it has something to say about the refresh, that is what it says -
+            // the tools' own 88/298 waits for the next drawing.
+            snap.tools.total && !state.refreshing && !state.failed ? (
               <Figure value={String(snap.tools.on)} word={`/${count(snap.tools.total)}`} m={m} font={m.headAside} tight />
             ) : null
+          }
+          headState={
+            corner ? (
+              <FlexWidget
+                style={{ flexDirection: 'row', alignItems: 'center', flexGap: 2 }}
+                accessibilityLabel={state.refreshing ? t.widgetRefreshing : state.failed ? t.widgetFailed : undefined}
+              >
+                {state.failed ? (
+                  <SvgWidget svg={glyph(WARN_ICON, colors.warn)} style={{ width: m.headAside, height: m.headAside }} />
+                ) : null}
+                <TextWidget
+                  text={corner}
+                  maxLines={1}
+                  style={{
+                    fontSize: m.headAside,
+                    ...FACE.aside,
+                    color: paint(state.failed || stale ? colors.warn : softInk()),
+                  }}
+                />
+              </FlexWidget>
+            ) : null
+          }
+          refresh={
+            // The button: its mark twelve dp, its box forty - and the box's own height pulled back into the head
+            // row's, so the corner costs the chart nothing.
+            <FlexWidget
+              clickAction="REFRESH"
+              accessibilityLabel={t.widgetRefresh}
+              style={{
+                width: REFRESH_TOUCH,
+                height: REFRESH_TOUCH,
+                marginTop: -Math.max(0, (REFRESH_TOUCH - m.headLine) / 2),
+                marginBottom: -Math.max(0, (REFRESH_TOUCH - m.headLine) / 2),
+                marginRight: -m.headGap,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <SvgWidget
+                svg={glyph(REFRESH_ICON, state.refreshing ? colors.inkDim : softInk())}
+                style={{ width: m.chev, height: m.chev }}
+              />
+            </FlexWidget>
           }
           big={tools.big}
           unit={tools.unit}

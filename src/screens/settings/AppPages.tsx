@@ -21,7 +21,7 @@ import { colors, fonts, gutter, space, type } from '../../theme/tokens';
 import type { UiLang, UpdateStrings } from '../../update/strings';
 import type { Update } from '../../update/useUpdate';
 import { addWidget } from '../../widget/home';
-import { WidgetPreview } from './WidgetPreview';
+import { WidgetPreview, WidgetRefreshes } from './WidgetPreview';
 
 /** Where the app's source is (Settings > About). */
 export const SOURCE = 'https://github.com/x3beche/workbench-mobile';
@@ -134,6 +134,9 @@ export function WidgetPage({
       ) : null}
       <View style={s.note}>
         <SettingsNote>{t.widgetHow}</SettingsNote>
+      </View>
+      <View style={s.preview}>
+        <WidgetRefreshes t={t} />
       </View>
       {android ? null : (
         <View style={s.note}>

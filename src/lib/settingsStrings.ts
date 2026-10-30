@@ -58,6 +58,32 @@ export interface SettingsStrings {
   widgetPreviewLabel: string;
   /** Whether the widget is on the home screen: a line under the picture, not a heading. */
   widgetStatus: (on: boolean) => string;
+  /** The widget's own corner: its refresh button, the time it was last drawn, and the state it is in. */
+  widgetRefresh: string;
+  widgetRefreshing: string;
+  widgetFailed: string;
+  /** The card's own corner is a few dp wide: the same two states, in one word (the long words are its label). */
+  widgetRefreshingShort: string;
+  widgetFailedShort: string;
+  widgetStale: string;
+  widgetNever: string;
+  /** "14:32", or "yesterday 22:10" / "12 Aug 22:10" - a reading's own time, short. */
+  widgetWhen: (today: boolean, yesterday: boolean, time: string, date: string) => string;
+  /** Settings > Home screen widget: the last twenty refresh attempts, and what to do about the battery. */
+  widgetLog: string;
+  widgetLogEmpty: string;
+  widgetLogMore: (n: number) => string;
+  widgetBattery: string;
+  widgetBatteryNote: string;
+  widgetBatteryExempt: string;
+  widgetBatteryRestricted: string;
+  widgetBatteryUnknown: string;
+  widgetBatteryOpen: string;
+  widgetStates: string;
+  widgetStateNormal: string;
+  widgetBackground: string;
+  /** What each trigger is called in the log: "the app opened", "the refresh button". */
+  widgetTrigger: Record<string, string>;
   signOutAbout: string;
   aboutSub: string;
   // Analytics
@@ -197,6 +223,37 @@ const en: SettingsStrings = {
   widgetPreview: 'On the home screen',
   widgetPreviewLabel: 'The widget as it looks: this month’s models and this week’s tools, each with its last 14 days.',
   widgetStatus: (on) => `Status: ${on ? 'added' : 'not added'}`,
+  widgetRefresh: 'Refresh',
+  widgetRefreshing: 'refreshing…',
+  widgetFailed: 'could not update',
+  widgetRefreshingShort: '…',
+  widgetFailedShort: 'failed',
+  widgetStale: 'stale',
+  widgetNever: 'never',
+  widgetWhen: (today, yesterday, time, date) =>
+    today ? time : yesterday ? `yesterday ${time}` : `${date} ${time}`,
+  widgetLog: 'Last refreshes',
+  widgetLogEmpty: 'No refresh yet. It is written here every time the widget tries to read the server.',
+  widgetLogMore: (n) => `and ${n} more`,
+  widgetBattery: 'Battery',
+  widgetBatteryNote:
+    'On Samsung, for the widget to refresh by itself: Settings > Apps > Workbench > Battery > Unrestricted. Android also holds background work back in Doze, so a long gap between refreshes is expected; the time on the widget always says how old its reading is.',
+  widgetBatteryExempt: 'Battery optimisation is off for Workbench: background refreshes are not held back.',
+  widgetBatteryRestricted: 'Battery optimisation is on: Android may hold the widget’s own refreshes back. Unrestricted keeps them.',
+  widgetBatteryUnknown: 'Battery optimisation cannot be read on this platform.',
+  widgetBatteryOpen: 'Open battery settings',
+  widgetStates: 'Preview a state',
+  widgetStateNormal: 'Normal',
+  widgetBackground: 'Background refresh',
+  widgetTrigger: {
+    added: 'added to the home screen',
+    update: 'its own 30 minutes',
+    resized: 'resized',
+    click: 'the refresh button',
+    app: 'the app opened',
+    background: 'background',
+    chat: 'chatting',
+  },
   signOutAbout: 'The conversations stay',
   aboutSub: 'Licence and source',
   models: 'Models',
@@ -325,6 +382,37 @@ const tr: SettingsStrings = {
   widgetPreview: 'Ana ekranda',
   widgetPreviewLabel: 'Widget’ın görünüşü: bu ayın modelleri ve bu haftanın araçları, her biri son 14 günüyle.',
   widgetStatus: (on) => `Durum: ${on ? 'eklendi' : 'eklenmedi'}`,
+  widgetRefresh: 'Yenile',
+  widgetRefreshing: 'yenileniyor…',
+  widgetFailed: 'güncellenemedi',
+  widgetRefreshingShort: '…',
+  widgetFailedShort: 'hata',
+  widgetStale: 'eski',
+  widgetNever: 'hiç',
+  widgetWhen: (today, yesterday, time, date) =>
+    today ? time : yesterday ? `dün ${time}` : `${date} ${time}`,
+  widgetLog: 'Son yenilemeler',
+  widgetLogEmpty: 'Henüz yenileme yok. Widget sunucuyu her okumayı denediğinde buraya yazılır.',
+  widgetLogMore: (n) => `ve ${n} tane daha`,
+  widgetBattery: 'Pil',
+  widgetBatteryNote:
+    'Samsung’da widget’ın kendi kendine yenilenmesi için: Ayarlar > Uygulamalar > Workbench > Pil > Kısıtlanmamış. Android ayrıca Doze’da arka plan işini bekletir; iki yenileme arasının uzun olması normaldir, widget’ın üstündeki saat okumanın ne kadar eski olduğunu her zaman söyler.',
+  widgetBatteryExempt: 'Workbench için pil optimizasyonu kapalı: arka plan yenilemeleri engellenmiyor.',
+  widgetBatteryRestricted: 'Pil optimizasyonu açık: Android widget’ın kendi yenilemelerini bekletebilir. Kısıtlanmamış bunları sürdürür.',
+  widgetBatteryUnknown: 'Pil optimizasyonu bu platformda okunamıyor.',
+  widgetBatteryOpen: 'Pil ayarlarını aç',
+  widgetStates: 'Bir durumu önizle',
+  widgetStateNormal: 'Normal',
+  widgetBackground: 'Arka plan yenilemesi',
+  widgetTrigger: {
+    added: 'ana ekrana eklendi',
+    update: 'kendi 30 dakikası',
+    resized: 'boyutu değişti',
+    click: 'yenile düğmesi',
+    app: 'uygulama açıldı',
+    background: 'arka plan',
+    chat: 'sohbet',
+  },
   signOutAbout: 'Konuşmalar telefonda kalır',
   aboutSub: 'Lisans ve kaynak',
   models: 'Modeller',

@@ -5,8 +5,11 @@
  */
 import { registerWidgetTaskHandler } from 'react-native-android-widget';
 
+import { defineWidgetBackgroundTask } from './background';
 import { widgetTaskHandler } from './task';
 
 export function registerWidgets(): void {
   registerWidgetTaskHandler(widgetTaskHandler);
+  // Defined before anything registers it: Android keeps a registered task's name, not its code.
+  defineWidgetBackgroundTask();
 }

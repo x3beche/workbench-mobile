@@ -1,32 +1,21 @@
 /**
  * Keeping the home screen widget current while the app is open: the Analytics
- * screen has these two readings anyway, so each time it loads them the widget
- * is redrawn from what it just read - no second request, and the widget follows
- * the conversation as the cards on the screen do. Android redraws it on its own
- * every thirty minutes afterwards (widget/task.tsx).
+ * screen has these two readings anyway, so it hands them to the widget instead of
+ * asking the server a second time. Everything else about the refresh - the lock,
+ * the throttle, the log, and the drawing - is `refresh.ts`'s, the one door every
+ * refresh goes through.
+ *
+ * Android redraws the widget on its own every thirty minutes afterwards, and
+ * `background.ts` asks for one every fifteen; a reading's own time is on the
+ * card's head, so a stale one says so.
  */
-import React from 'react';
-import { requestWidgetUpdate } from 'react-native-android-widget';
-
 import type { WorkbenchClient } from '../api/client';
 import type { LlmSummary, ToolsUsage } from '../api/types';
 import { snapshotOf, type WidgetSnapshot } from './data';
-import { saveSnapshot } from './source';
-import { StatsWidget } from './StatsWidget';
-import { WIDGET_NAME } from './task';
-import { widgetWords } from './words';
+import { refreshWidget } from './refresh';
 
 export async function pushWidget(client: WorkbenchClient, summary: LlmSummary, tools: ToolsUsage): Promise<void> {
   const catalogue = await client.ccTools().then((r) => r.tools).catch(() => null);
   const snap: WidgetSnapshot = snapshotOf(summary, tools, catalogue);
-  await saveSnapshot(snap);
-  const { t } = await widgetWords();
-  try {
-    await requestWidgetUpdate({
-      widgetName: WIDGET_NAME,
-      renderWidget: (info) => <StatsWidget snap={snap} w={info.width} h={info.height} t={t} />,
-    });
-  } catch {
-    // No widget on the home screen: nothing to draw, and nothing to say about it.
-  }
+  await refreshWidget('app', { snap });
 }

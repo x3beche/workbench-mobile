@@ -26,6 +26,8 @@ import { accountStrings } from './components/accountStrings';
 import { setAppLanguage, uiLang } from './update/strings';
 import * as prefs from './storage/prefs';
 import { installScrollbars } from './theme/scrollbars';
+import { registerWidgetBackground } from './widget/background';
+import { useWidgetOnForeground } from './widget/presence';
 import { colors, theme } from './theme/tokens';
 import type { VoiceMode } from './voice/voice';
 
@@ -52,6 +54,15 @@ function Screens() {
       setAppLanguage(l === 'auto' ? null : l);
       setAppLangState(l);
     });
+  }, []);
+
+  // Coming back to the app, the home screen widget is read again (its own two-minute rule keeps a phone left
+  // open from asking at all). Asked for here, not by a screen, so every room refreshes it alike.
+  useWidgetOnForeground();
+
+  // Android's own background refresh, once the app is up (the widget's thirty minutes is not enough in Doze).
+  useEffect(() => {
+    void registerWidgetBackground();
   }, []);
 
   // The splash goes once there is a screen to show (or after SPLASH_MAX_MS, on the spinner).

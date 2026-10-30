@@ -1,6 +1,6 @@
 {
   "name": "workbench-mobile",
-  "version": "1.9.18",
+  "version": "1.9.19",
   "main": "index.ts",
   "dependencies": {
     "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
@@ -11,6 +11,7 @@
     "expo": "~57.0.29",
     "expo-application": "~57.0.3",
     "expo-audio": "~57.0.5",
+    "expo-background-task": "~57.0.21",
     "expo-build-properties": "~57.0.22",
     "expo-clipboard": "~57.0.2",
     "expo-document-picker": "~57.0.3",
