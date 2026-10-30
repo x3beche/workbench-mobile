@@ -94,7 +94,7 @@ export function ServerHealthPage({
         <Text style={s.hint}>{err ? (tr ? 'Sunucu sağlığı okunamadı.' : 'The server health could not be read.') : tr ? 'Yükleniyor…' : 'Loading…'}</Text>
       ) : (
         <>
-          <View style={[s.verdict, { borderColor: toneColour(d.verdict.tone) }]}>
+          <View style={s.verdict}>
             <View style={[s.dot, { backgroundColor: toneColour(d.verdict.tone) }]} />
             <Text style={s.verdictText}>{tr ? d.verdict.tr : d.verdict.en}</Text>
           </View>
@@ -241,6 +241,7 @@ const s = StyleSheet.create({
     gap: space.sm,
     padding: space.md,
     borderWidth: 1,
+    borderColor: colors.line,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
   },
