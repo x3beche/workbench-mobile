@@ -52,6 +52,10 @@ export function gapsOf(spans: { start: number; end: number }[], from: number, to
  * the last quarter of an hour; once it has stopped, the stretch it worked, so the strip is the run and not the
  * thirteen hours it has been sitting still since.
  */
+/** The shortest window a strip is drawn for: one call in two minutes would fill the whole graph and say
+ *  nothing about a run. */
+export const MIN_WINDOW = 5 * 60_000;
+
 export function windowFor(range: RangeId, spans: { start: number; end: number }[], now: number,
                          working: boolean): Win {
   if (range === '15m') return { from: now - 15 * 60_000, to: now, gaps: [] };
@@ -65,7 +69,12 @@ export function windowFor(range: RangeId, spans: { start: number; end: number }[
   const block = lastBlock(spans, now);
   if (!block) return { from: now - 15 * 60_000, to: now, gaps: [], auto: 'recent' };
   const pad = Math.max(30_000, Math.round((block.to - block.from) * 0.02));
-  return { from: block.from - pad, to: block.to + pad, gaps: [], auto: 'block' };
+  const from = block.from - pad, to = block.to + pad;
+  // a short block is widened to five minutes rather than letting one call be the whole graph
+  return to - from >= MIN_WINDOW
+    ? { from, to, gaps: [], auto: 'block' }
+    : { from: Math.max(0, to - MIN_WINDOW), to: Math.max(to, Math.max(0, block.to - MIN_WINDOW) + MIN_WINDOW),
+        gaps: [], auto: 'block' };
 }
 
 /** The stretch a compressed gap takes on the axis, in viewBox units of a 300 wide chart. */
