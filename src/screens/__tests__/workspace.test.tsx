@@ -218,6 +218,36 @@ beforeEach(async () => {
   jest.spyOn(BackHandler, 'addEventListener');
 });
 
+describe('a bad network', () => {
+  it('says one calm line when the network is gone, keeps what it had, and reads again when asked', async () => {
+    await start();
+    await fireEvent.press(screen.getByTestId('open-drawer'));
+    expect(screen.getByTestId('chat-c1')).toBeTruthy();
+    const original = (mockClient.listChats as jest.Mock).getMockImplementation();
+    let fail = true;
+    (mockClient.listChats as jest.Mock).mockImplementation(async () => {
+      if (fail) throw new ApiError(0, 'The server could not be reached.');
+      return mockChats;
+    });
+    try {
+      // Pulled to refresh while the phone has no network.
+      await fireEvent(screen.getByTestId('drawer-list'), 'refresh');
+      await act(async () => undefined);
+      // One line and a Try again, not a red wall; the rows from before are still there.
+      expect(screen.getAllByText('The server could not be reached.')).toHaveLength(1);
+      expect(screen.getByTestId('chat-c1')).toBeTruthy();
+      expect(screen.getByTestId('chats-retry')).toBeTruthy();
+      fail = false;
+      await fireEvent.press(screen.getByTestId('chats-retry'));
+      await act(async () => undefined);
+      expect(screen.queryByText('The server could not be reached.')).toBeNull();
+      expect(screen.getByTestId('chat-c1')).toBeTruthy();
+    } finally {
+      (mockClient.listChats as jest.Mock).mockImplementation(original!);
+    }
+  });
+});
+
 describe('suggestionsFrom', () => {
   it("takes the server's own questions, with their area, and the hand-written ones otherwise", () => {
     expect(suggestionsFrom(IDEAS)).toEqual([
