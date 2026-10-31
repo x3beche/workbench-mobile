@@ -1,8 +1,8 @@
 /**
  * Mount it to open it. One OpenCode session's column, as the web app's right-hand column draws it
  * (rooms/session-panel.ts; backend/wb_panel.py): what it is waiting for, its todo list, the files it changed,
- * the model and its window, the computer it runs on and the tools it used - in that order, the things that
- * need a person first.
+ * the model and its window and the tools it used - in that order, the things that need a person first. Where
+ * the session runs is the title's own line under the session's name: the folder, mono and dim, tap to copy.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -17,7 +17,7 @@ import {
   ctxTone,
   dirName,
   estOf,
-  footDir,
+  titleDir,
   kfmt,
   panelSections,
   stallNote,
@@ -120,7 +120,8 @@ export function SessionPanelSheet({
       : stateWord(panel, t)
     : '';
   const sub = [panel?.session.title || t.session, state].filter(Boolean).join(' · ');
-  const dir = footDir(panel?.session.computer?.cwd || panel?.session.directory || '');
+  const cwd = panel?.session.computer?.cwd || panel?.session.directory || '';
+  const dir = titleDir(cwd);
   const sections = panelSections(panel, t);
   const mayAnswer = panel?.may_answer === true;
   const copy = (v: string) => {
@@ -137,7 +138,7 @@ export function SessionPanelSheet({
       subNode={
         dir ? (
           <Pressable
-            onPress={() => copy(panel?.session.computer?.cwd || panel?.session.directory || '')}
+            onPress={() => copy(cwd)}
             accessibilityRole="button"
             accessibilityHint={t.copy}
             style={s.headDir}

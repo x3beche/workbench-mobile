@@ -752,6 +752,9 @@ export interface WboBridge {
   models_supported?: boolean;
   /** The models available to OpenCode on that computer. */
   models?: WboModel[] | null;
+  /** OpenCode's MCP servers on that computer and where each stands ("connected", "failed"): the header's
+   *  "MCP 1/2" while one of them is down. */
+  mcp?: { name: string; status: string }[] | null;
 }
 
 /** One of one's own OpenCode sessions (GET /api/wbo/sessions). `updated` in milliseconds. */
