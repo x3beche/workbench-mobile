@@ -226,6 +226,9 @@ export function FlowStrip({
               onPress={() => onRange(r.id)}
               style={[s.rangeBtn, range === r.id && s.rangeOn]}
               accessibilityRole="button"
+              accessibilityState={{ selected: range === r.id }}
+              // 44 pt of touch: the word is 9.5 pt in a 14 pt pill, so the reach is the hit slop's.
+              hitSlop={{ top: 15, bottom: 15, left: 8, right: 8 }}
               testID={`wbo-range-${r.id}`}
             >
               <Text style={[s.rangeText, range === r.id && s.rangeTextOn]}>

@@ -173,7 +173,7 @@ export function TeamSheet({
       {error ? (
         <View style={s.err}>
           <ErrorText>{error}</ErrorText>
-          <Pressable onPress={reload} accessibilityRole="button" testID="team-retry">
+          <Pressable onPress={reload} accessibilityRole="button" hitSlop={12} testID="team-retry">
             <Text style={s.retry}>{t.retry}</Text>
           </Pressable>
         </View>
@@ -300,6 +300,7 @@ function AgentBlock({
         accessibilityRole="button"
         accessibilityHint={a.directory || a.computer || ''}
         style={s.agentRow}
+        hitSlop={{ top: 9, bottom: 9 }}
         testID={`team-agent-${a.agent}`}
       >
         <AgentDot state={a.state} testID={`team-dot-${a.agent}`} />
@@ -383,6 +384,7 @@ function TaskBlock({
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         style={s.taskRow}
+        hitSlop={{ top: 6, bottom: 6 }}
         testID={`team-task-row-${task.task}`}
       >
         <Text style={[s.taskMain, open && s.taskMainOpen]} numberOfLines={2} testID={`team-task-main-${task.task}`}>
@@ -398,6 +400,7 @@ function TaskBlock({
           accessibilityRole="button"
           accessibilityState={{ expanded: open }}
           accessibilityLabel={line}
+          hitSlop={{ top: 15, bottom: 15 }}
           testID={`team-note-${task.task}`}
         >
           <Text style={s.note} numberOfLines={1} testID={`team-note-text-${task.task}`}>
