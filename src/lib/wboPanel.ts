@@ -155,11 +155,37 @@ export function toolLine(r: PanelTool, t: WboStrings): string {
   return bits.join(' · ');
 }
 
+/** The window the numbers here are read against, as the web's column reads it: the one chosen for this
+ *  session, else the model's own as the run lists it, else what the step reported.
+ *
+ *  A run cannot keep more than its model's own window, so when both are known the smaller one is the truth: a
+ *  step's report can be a step behind a model capped on purpose (1M there, 512k in the config), and a window
+ *  chosen under the cap (128k of 512k) stays the one it keeps to. */
+export function windowOf(p: WboPanel): number | null {
+  const o = p.session.context_options;
+  const n = (v?: number | null) => (typeof v === 'number' && v > 0 ? v : null);
+  const chosen = n(o?.limit ?? p.session.context_limit ?? null);
+  const most = n(o?.max ?? null);
+  if (chosen && most) return Math.min(chosen, most);
+  return chosen ?? most ?? n(p.session.context?.limit ?? null);
+}
+
+/** What the window holds, in percent: worked out here rather than taken from the step's `pct`, so the bar, the
+ *  line and the tooltip all read the same window (`windowOf`). */
+export function shareOf(p: WboPanel): number | null {
+  const c = p.session.context;
+  const w = windowOf(p);
+  if (!c || !w) return null;
+  return Math.min(100, Math.round((c.used * 100) / w));
+}
+
 /** The window, one line: "453k / 1M · 45%" - short, as the web's head line is. */
 export function ctxLine(p: WboPanel): string {
   const c = p.session.context;
   if (!c) return '';
-  return `${shortK(c.used)} / ${c.limit ? shortK(c.limit) : '?'} · ${c.pct != null ? `${c.pct}%` : '–'}`;
+  const w = windowOf(p);
+  const pct = shareOf(p);
+  return `${shortK(c.used)} / ${w ? shortK(w) : '?'} · ${pct != null ? `${pct}%` : '–'}`;
 }
 
 /** 54_802 as "54.8k", 1_000_000 as "1M": the window's own line, read at a glance rather than to the token
@@ -174,7 +200,7 @@ export function shortK(n: number): string {
 
 /** The tone of the window's share: '', 'warn' over 80%, 'bad' over 95%. */
 export function ctxTone(p: WboPanel): '' | 'warn' | 'bad' {
-  const pct = p.session.context?.pct;
+  const pct = shareOf(p);
   if (pct == null) return '';
   return pct >= CTX_DANGER ? 'bad' : pct >= CTX_WARN ? 'warn' : '';
 }
@@ -184,10 +210,12 @@ export function ctxTone(p: WboPanel): '' | 'warn' | 'bad' {
 export function ctxTip(p: WboPanel, t: WboStrings): string {
   const c = p.session.context;
   if (!c) return '';
-  const rows = [`${c.used.toLocaleString('en-US')} / ${c.limit ? c.limit.toLocaleString('en-US') : '?'} ${t.ofItsWindow}`];
-  if (c.pct != null) rows.push(`${c.pct}%`);
-  if (c.limit) rows.push(`${(c.limit - c.used > 0 ? c.limit - c.used : 0).toLocaleString('en-US')} ${t.leftOfWindow}`);
-  if (c.pct != null && c.pct >= CTX_WARN) rows.push(t.compactsItself);
+  const w = windowOf(p);
+  const pct = shareOf(p);
+  const rows = [`${c.used.toLocaleString('en-US')} / ${w ? w.toLocaleString('en-US') : '?'} ${t.ofItsWindow}`];
+  if (pct != null) rows.push(`${pct}%`);
+  if (w) rows.push(`${(w - c.used > 0 ? w - c.used : 0).toLocaleString('en-US')} ${t.leftOfWindow}`);
+  if (pct != null && pct >= CTX_WARN) rows.push(t.compactsItself);
   if (c.model) rows.push(c.model);
   return rows.join('\n');
 }

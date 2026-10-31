@@ -21,11 +21,13 @@ import {
   kfmt,
   panelSections,
   recentTitle,
+  shareOf,
   stallNote,
   stateWord,
   toolLine,
   tookFor,
   waitingLine,
+  windowOf,
   workedFor,
   type PanelSectionId,
 } from '../lib/wboPanel';
@@ -274,7 +276,7 @@ function ModelBody({
   const [spendOpen, setSpendOpen] = useState(false);
   const m = panel.session.model;
   const c = panel.session.context;
-  const pct = c?.pct ?? null;
+  const pct = shareOf(panel);
   const sub = [m?.providerName || m?.providerID || '', m?.variant ? t.thinkingLevel(m.variant) : '']
     .filter(Boolean)
     .join(' · ');
@@ -319,9 +321,22 @@ function ModelBody({
             onChange={(v) => onContext(v ? Number(v) : null)}
           />
         </View>
+      ) : panel.session.context_options ? (
+        /* the run on that computer cannot be given one (older than 0.3.5, or not there): the size it keeps to
+           is still the truth, and the reason is where the picker would be rather than nothing at all */
+        <View style={s.ctxPick} testID="wbo-panel-ctxwhy">
+          <Text style={s.dim}>{t.context}</Text>
+          <Text
+            style={s.dim}
+            numberOfLines={2}
+            accessibilityLabel={`${t.context}: ${sizeWord(windowOf(panel) ?? 0)} · ${t.ctxRestart}`}
+          >
+            {`${sizeWord(windowOf(panel) ?? 0)} · ${t.ctxRestart}`}
+          </Text>
+        </View>
       ) : null}
       {/* the window over the turns: the line says when this session is to be left */}
-      <ContextChart points={panel.series?.context ?? []} limit={c?.limit ?? 0} tone={tone} testID="wbo-panel-ctxchart" />
+      <ContextChart points={panel.series?.context ?? []} limit={windowOf(panel) ?? 0} tone={tone} testID="wbo-panel-ctxchart" />
       {estimate(panel, t) ? <Text style={s.estimate}>{estimate(panel, t)}</Text> : null}
       {/* one line of spending: what it cost and what it moved, the caches under it when it is opened */}
       <Pressable

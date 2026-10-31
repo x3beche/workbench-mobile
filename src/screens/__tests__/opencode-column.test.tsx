@@ -388,4 +388,27 @@ describe('the window a session keeps to', () => {
     await act(async () => undefined);
     expect(client.wboContext).toHaveBeenCalledWith(SID, 128_000);
   });
+
+  it('says the size it keeps to, and why it cannot be chosen, when the run there is too old', async () => {
+    // a model capped at 512k on purpose, on a run older than 0.3.5: no picker, and the step before the cap
+    // still carries 1M - the line and the bar read the model's own window, not the step's number
+    const p = panel({
+      session: {
+        ...panel().session,
+        context: { used: 331_000, limit: 1_000_000, model: 'qwen', pct: 33 },
+        context_options: { limit: null, max: 512_000, steps: [64_000, 128_000, 256_000], min: 16_000, can: false },
+      },
+    });
+    await render(
+      <LiveContext.Provider value={hub}>
+        <OpencodeSessionScreen sid={SID} client={fakeClient(p)} t={t} lang="en" />
+      </LiveContext.Provider>,
+    );
+    await act(async () => undefined);
+    await fireEvent.press(screen.getByTestId('wbo-column'));
+    await act(async () => undefined);
+    expect(screen.queryByTestId('wbo-panel-ctxpick')).toBeNull();
+    expect(screen.getByTestId('wbo-panel-ctxwhy')).toHaveTextContent(/512k · restart to change/);
+    expect(screen.getByTestId('wbo-panel-context')).toHaveTextContent('331k / 512k · 65%');
+  });
 });

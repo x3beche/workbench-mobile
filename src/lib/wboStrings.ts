@@ -147,6 +147,8 @@ export interface WboStrings extends WbcStrings {
   context: string;
   contextOwn: string;
   contextTip: string;
+  /** Beside the size a session keeps to when the run on that computer is too old to be given a window. */
+  ctxRestart: string;
   /** The model picker's own word for the list's grouping. */
   provider: string;
   /** The column's "Show all N" link, next to the inherited `showAll` (a plain word). */
@@ -257,6 +259,7 @@ const en: WboStrings = {
   context: 'Context',
   contextOwn: 'the model\'s own',
   contextTip: 'Smaller windows make OpenCode compact sooner: a long session stays cheaper and quicker.',
+  ctxRestart: 'restart to change',
   idle: 'idle',
   errorWord: 'error',
   doneOf: (done, total) => `${done}/${total} done`,
@@ -424,6 +427,7 @@ const tr: WboStrings = {
   context: 'Bağlam',
   contextOwn: 'modelin kendisi',
   contextTip: 'Küçük pencere OpenCode\'un daha erken sıkıştırmasını sağlar: uzun oturum daha ucuza ve daha hızlı çalışır.',
+  ctxRestart: 'değiştirmek için yeniden başlat',
   idle: 'boşta',
   errorWord: 'hata',
   doneOf: (done, total) => `${done}/${total} tamam`,
