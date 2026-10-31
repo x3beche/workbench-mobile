@@ -16,7 +16,7 @@ types can be checked against it on every `npm test` (`src/api/__tests__/contract
 | `wbo-models.json` | `GET /api/wbo/sessions/{sid}/models` | `WboModels` |
 | `wbo-context.json` | `PUT /api/wbo/sessions/{sid}/context` | `WboContext` |
 | `agents-links.json` | `GET /api/agents/links` | `AgentLinks` |
-| `agents-team.json` | `GET /api/agents/team/{manager}` (its `progress` block is the planned Jev field, hand-added) | `TeamAnswer` |
+| `agents-team.json` | `GET /api/agents/team/{manager}` (its `progress` block is a real Jev measurement from the live server, ids scrubbed) | `TeamAnswer` |
 | `side.json` | `GET /api/me/side` | `SidePrefs` |
 | `release.json` | `GET /api/public/m/app.json`, as `parseRelease` reads it | `Release` |
 | `bus.json` | one record of the account's bus stream (`acct/<id>/bus`, S2) | `BusEvent` |
@@ -30,6 +30,12 @@ it was never printed, kept in a `0600` file, and ended afterwards). The account 
 no team of its own, so mock data was written **only** under that account - an OpenCode session and its computer,
 a Claude Code bridge with a few messages, a link between them and one task - and read back through the real API,
 so every field is the server's own serializer's. That mock data was deleted afterwards.
+
+The team answer's `progress` block is real too: it is what the live server's own
+`task_progress` loop wrote on a task (`percent` 17, `spread` 15.4, `eta` "15-60m",
+`at` an epoch in seconds, `model` "typesafe/jev"), read back through the Team
+endpoint - the shape `TaskProgress` has read since 6d21ce5, now checked against a
+real answer rather than a hand-added one.
 
 The Claude Code turns are the one exception: they live in the Claude pool gateway, which holds the person's own
 runs, and writing a fake session there would put it in the pool's real accounting. `wbc-turns.json` is what

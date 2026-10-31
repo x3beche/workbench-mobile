@@ -103,6 +103,9 @@ export function team() {
         status: 'working',
         created: secs() - 480,
         updated: secs() - 15,
+        // A real measurement: the live server's task_progress loop wrote this on one of today's tasks
+        // (percent 17, spread 15.4, eta "15-60m", model typesafe/jev), read back through the Team endpoint.
+        progress: { percent: 17, spread: 15.4, eta: '15-60m', at: secs() - 180, model: 'typesafe/jev' },
         reports: [
           {
             status: 'progress',
@@ -121,6 +124,8 @@ export function team() {
         status: 'answered',
         created: secs() - 600,
         updated: secs() - 120,
+        // Another real one: an answered task near the end (percent 93, spread 8.9, eta "<5m").
+        progress: { percent: 93, spread: 8.9, eta: '<5m', at: secs() - 120, model: 'typesafe/jev' },
         answer:
           'The map is right: the two app slots are 1.5 MB each and the rollback slot holds the factory image. ' +
           'A failed digest marks the slot unbootable in nvs and the bootloader falls back to the other one, ' +

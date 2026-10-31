@@ -46,10 +46,10 @@
    "agent_name": "wbc_cont",
    "agent_last": 1793472990.949,
    "progress": {
-    "percent": 60,
-    "spread": 8,
-    "eta": "5-15m",
-    "at": 1793472605.517,
+    "percent": 17,
+    "spread": 15.4,
+    "eta": "15-60m",
+    "at": 1793489933.168,
     "model": "typesafe/jev"
    }
   }

@@ -57,7 +57,7 @@
   "file": "agents-team.json",
   "at": "",
   "type": "TeamAnswer",
-  "from": "GET /api/agents/team/{manager} (the progress block is the planned Jev field: the server does not send it yet)"
+  "from": "GET /api/agents/team/{manager} (the progress block is a real Jev measurement: percent, spread, eta, at, model)"
  },
  {
   "file": "side.json",
