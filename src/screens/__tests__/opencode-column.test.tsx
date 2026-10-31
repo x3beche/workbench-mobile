@@ -401,7 +401,7 @@ describe('the window a session keeps to', () => {
     });
     await render(
       <LiveContext.Provider value={hub}>
-        <OpencodeSessionScreen sid={SID} client={fakeClient(p)} t={t} lang="en" />
+        <OpencodeSessionScreen sid={SID} client={fakeClient(p) as unknown as WorkbenchClient} t={t} lang="en" />
       </LiveContext.Provider>,
     );
     await act(async () => undefined);
