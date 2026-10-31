@@ -247,12 +247,16 @@ async function draw(client: WorkbenchClient, onOpenAgent = jest.fn(), hub: LiveH
     expect(screen.queryByTestId('team-ctx-numbers-wbo:work1')).toBeNull();
   });
 
-  it('keeps the dot for the state: green working, amber waiting, a hollow ring idle', async () => {
+  it('keeps the dot for the state: green working, amber waiting, a hollow ring idle - and says the word', async () => {
     await draw(fake());
-    const dot = (agent: string) => screen.getByTestId(`team-dot-${agent}`, { includeHiddenElements: true });
+    const dot = (agent: string) => screen.getByTestId(`team-dot-${agent}`);
     expect(dot('wbo:work1')).toHaveStyle({ backgroundColor: colors.ok });
     expect(dot('wbo:wait1')).toHaveStyle({ backgroundColor: colors.warn });
     expect(dot('wbo:idle1')).toHaveStyle({ borderColor: colors.line });
+    // Nothing beside the dot says the state, so the colour carries a word for a reader that cannot see it.
+    expect(dot('wbo:work1').props.accessibilityLabel).toBe('working');
+    expect(dot('wbo:wait1').props.accessibilityLabel).toBe('waiting');
+    expect(dot('wbo:idle1').props.accessibilityLabel).toBe('idle');
   });
 
   it('puts the agent\'s tasks under it: the number, a title, the state and the time at the right', async () => {

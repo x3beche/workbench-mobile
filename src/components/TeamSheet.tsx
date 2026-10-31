@@ -303,7 +303,7 @@ function AgentBlock({
         hitSlop={{ top: 9, bottom: 9 }}
         testID={`team-agent-${a.agent}`}
       >
-        <AgentDot state={a.state} testID={`team-dot-${a.agent}`} />
+        <AgentDot state={a.state} t={t} testID={`team-dot-${a.agent}`} />
         <Text style={s.name} numberOfLines={1}>
           {a.name}
         </Text>
@@ -422,12 +422,14 @@ function TaskBlock({
 
 /** The state dot: working in the good green and breathing, waiting amber, interrupted/failed the error, idle a
  *  hollow ring. */
-function AgentDot({ state, testID }: { state: string; testID: string }) {
+function AgentDot({ state, t, testID }: { state: string; t: TeamStrings; testID: string }) {
   const tone = dotTone(state);
-  if (tone === 'ok') return <StateDot s="done" pulse testID={testID} />;
-  if (tone === 'warn') return <View style={[s.dot, s.dotWarn]} testID={testID} aria-hidden />;
-  if (tone === 'bad') return <View style={[s.dot, s.dotBad]} testID={testID} aria-hidden />;
-  return <View style={[s.dot, s.dotIdle]} testID={testID} aria-hidden />;
+  // The colour is the state here (nothing beside it says the word), so the dot itself carries it.
+  const word = tone === 'ok' ? t.status('working') : tone === 'warn' ? t.status('waiting') : tone === 'bad' ? t.status('failed') : t.idle;
+  if (tone === 'ok') return <StateDot s="done" pulse testID={testID} label={word} />;
+  if (tone === 'warn') return <View style={[s.dot, s.dotWarn]} testID={testID} accessible accessibilityRole="text" accessibilityLabel={word} />;
+  if (tone === 'bad') return <View style={[s.dot, s.dotBad]} testID={testID} accessible accessibilityRole="text" accessibilityLabel={word} />;
+  return <View style={[s.dot, s.dotIdle]} testID={testID} accessible accessibilityRole="text" accessibilityLabel={word} />;
 }
 
 const s = StyleSheet.create({

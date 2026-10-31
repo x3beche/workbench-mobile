@@ -65,7 +65,20 @@ function release(): void {
   breath.setValue(1);
 }
 
-export function StateDot({ s, size = 7, testID, pulse: breathe }: { s: Dot; size?: number; testID?: string; pulse?: boolean }) {
+export function StateDot({
+  s,
+  size = 7,
+  testID,
+  pulse: breathe,
+  label,
+}: {
+  s: Dot;
+  size?: number;
+  testID?: string;
+  pulse?: boolean;
+  /** What the colour says, for a reader that cannot see it: "working", "idle", "failed". */
+  label?: string;
+}) {
   const reduce = useReduceMotion();
   const pulse = (s === 'running' || breathe) && !reduce;
   useEffect(() => {
@@ -76,7 +89,10 @@ export function StateDot({ s, size = 7, testID, pulse: breathe }: { s: Dot; size
 
   return (
     <Animated.View
-      aria-hidden
+      accessible={!!label}
+      accessibilityRole={label ? 'text' : undefined}
+      accessibilityLabel={label}
+      aria-hidden={!label}
       testID={testID}
       style={[
         s_.dot,

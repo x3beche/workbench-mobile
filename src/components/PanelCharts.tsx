@@ -66,7 +66,7 @@ export function ContextChart({
   return (
     <View style={s.ctx} testID={testID}>
       <View style={s.ctxBox}>
-        <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+        <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
           <Path d={area} fill={fill} fillOpacity={0.16} />
           <Path d={line} stroke={stroke} strokeWidth={1.3} fill="none" />
           {limit ? (
@@ -240,7 +240,7 @@ export function FlowStrip({
       </View>
 
       <View style={s.stripBox}>
-        <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+        <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
           {/* Flat writing ground behind everything */}
           {bandsIn.map((b, i) => (
             <Rect
