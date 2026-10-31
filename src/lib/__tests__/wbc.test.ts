@@ -2,6 +2,7 @@
 import type { WbcMessage, WbcSession, WbcTurn } from '../../api/types';
 import {
   admit,
+  keepSame,
   layTurns,
   liveDot,
   MARK,
@@ -225,6 +226,50 @@ describe('lines sent from here', () => {
     expect(statusTone(msg({ status: 'refused' }))).toBe('danger');
   });
 });
+
+describe('a page that says the same thing again', () => {
+  it('keeps the turn objects a poll did not change, and the whole array when nothing changed', () => {
+    const held = [
+      turn('t1', 'user', NOW - 30, { text: 'run the tests' }),
+      turn('t2', 'assistant', NOW - 20, { text: 'done' }),
+    ];
+    // the same conversation again, as the server sends it: new objects, same words
+    const again = held.map((t) => ({ ...t }));
+    expect(keepSame(held, again)).toBe(held);
+    // one answer growing: that object is the new one, the others are the ones already held
+    const grew = [{ ...held[0] }, { ...held[1], text: 'done, and the linter' }];
+    const kept = keepSame(held, grew);
+    expect(kept).not.toBe(held);
+    expect(kept[0]).toBe(held[0]);
+    expect(kept[1]).not.toBe(held[1]);
+    expect(kept[1].text).toBe('done, and the linter');
+  });
+
+  it('sees a change in anything a row draws - pictures, a cut, the message it came from', () => {
+    const a = turn('t1', 'user', NOW - 30, { text: 'look', images: [{ req: 'p', n: 0, type: 'image/png' }] });
+    expect(keepSame([a], [{ ...a }])[0]).toBe(a);
+    expect(keepSame([a], [{ ...a, images: [{ req: 'p', n: 0, type: 'image/jpeg' }] }])[0]).not.toBe(a);
+    expect(keepSame([a], [{ ...a, message: 'm9' }])[0]).not.toBe(a);
+    expect(keepSame([a], [{ ...a, truncated: true, full_len: 9000 }])[0]).not.toBe(a);
+  });
+});
+
+
+  it('keeps a turn that did not change, and hands the list back when nothing changed', () => {
+    const held = [turn('a', 'user', NOW - 20), turn('b', 'assistant', NOW - 10, { text: 'growing' })];
+    // one answer longer: that turn is new work, the one before it is the object it was
+    const grew = keepSame(held, [
+      { ...held[0] },
+      { ...held[1], text: 'growing more' },
+    ]);
+    expect(grew[0]).toBe(held[0]);
+    expect(grew[1]).not.toBe(held[1]);
+    expect(grew[1].text).toBe('growing more');
+    // the same conversation again: the same array, so no row is asked to draw
+    expect(keepSame(held, held.map((t) => ({ ...t })))).toBe(held);
+    // and a message that was only marked differently is a new turn
+    expect(keepSame(held, [held[0], { ...held[1], kind: 'notify' }])[1].kind).toBe('notify');
+  });
 
 describe('why the composer is a note', () => {
   it("says it in the server's terms", () => {

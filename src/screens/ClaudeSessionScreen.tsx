@@ -23,7 +23,7 @@
  *   net while the bus is up; nothing is read while the app is in the background.
  */
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -59,6 +59,7 @@ import { teamStrings } from '../lib/teamStrings';
 import {
   admit,
   IMAGE_RULES,
+  keepSame,
   layTurns,
   liveDot,
   MARK,
@@ -182,7 +183,8 @@ export function ClaudeSessionScreen({
       (page) => {
         if (!mounted.current) return;
         const held = turnsRef.current;
-        const { turns: next, gap } = layTurns(held, page);
+        const { turns: laid, gap } = layTurns(held, page);
+        const next = keepSame(held, laid);
         if (held === null || gap) {
           setMore(page.more);
           before.current = page.before;
@@ -190,7 +192,7 @@ export function ClaudeSessionScreen({
         const newest = next[next.length - 1];
         const was = held?.[held.length - 1];
         if (held?.length && newest && (!was || turnKey(newest) !== turnKey(was)) && !reader.atBottom()) setBelow(true);
-        setTurns((now) => (sameTurns(now, next) ? now : next));
+        setTurns((now) => (now === next ? now : next));
         setSuggestion(page.suggestion || null);
       },
       (e) => {
@@ -229,7 +231,8 @@ export function ClaudeSessionScreen({
     client.wbcTurns(sid, TURNS_PAGE, before.current).then(
       (page) => {
         if (!mounted.current) return;
-        const { turns: next, added } = putOlderTurns(turnsRef.current ?? [], page.turns ?? []);
+        const { turns: laid, added } = putOlderTurns(turnsRef.current ?? [], page.turns ?? []);
+        const next = keepSame(turnsRef.current, laid);
         before.current = page.before;
         setMore(page.more && !!page.before && added > 0);
         if (added) setTurns(next);
@@ -396,8 +399,13 @@ export function ClaudeSessionScreen({
     [s?.messages],
   );
   const sub = [t.claudeCode, s?.computer, s?.bridge?.connected ? s.bridge.cwd : ''].filter(Boolean).join(' · ');
+  // A number in a notification row opens the task itself: the Team sheet, on that row (the web's openTask).
+  const openTask = useCallback((id: string) => {
+    setTeamFocus(id);
+    setTeam(true);
+  }, []);
 
-  const renderItem = ({ item }: { item: Item }) =>
+  const renderItem = useCallback(({ item }: { item: Item }) =>
     item.kind === 'turn' ? (
       <TurnRow
         turn={item.turn}
@@ -410,17 +418,14 @@ export function ClaudeSessionScreen({
             ? 'notify'
             : undefined
         }
-        // A number opens the task itself: the Team sheet, on that row (the web's openTask).
-        onOpenTask={(id) => {
-          setTeamFocus(id);
-          setTeam(true);
-        }}
+        onOpenTask={openTask}
         t={t}
         onZoom={setZoom}
       />
     ) : (
       <PendingRow m={item.m} sid={sid} client={client} t={t} onZoom={setZoom} />
-    );
+    ),
+    [mark, sid, client, notifyIds, openTask, t]);
 
   return (
     <SafeAreaView style={st.safe} edges={['top', 'left', 'right', 'bottom']} testID="wbc-screen">
@@ -497,8 +502,12 @@ export function ClaudeSessionScreen({
             indicatorStyle={indicatorStyle}
             testID="wbc-list"
             data={items}
-            keyExtractor={(it) => (it.kind === 'turn' ? `t:${turnKey(it.turn)}` : `m:${it.m.id}`)}
+            keyExtractor={keyOf}
             renderItem={renderItem}
+            initialNumToRender={TURNS_PAGE}
+            maxToRenderPerBatch={TURNS_PAGE}
+            windowSize={7}
+            removeClippedSubviews={Platform.OS === 'android'}
             onScroll={scrolled}
             onScrollBeginDrag={reader.begin}
             onScrollEndDrag={reader.end}
@@ -633,10 +642,8 @@ export function ClaudeSessionScreen({
 }
 
 /** The same turns as they were: reading them again should not redraw them. */
-function sameTurns(now: WbcTurn[] | null, got: WbcTurn[]): boolean {
-  if (!now || now.length !== got.length) return false;
-  return now.every((x, i) => turnKey(x) === turnKey(got[i]) && x.text === got[i].text);
-}
+/** A row's key: the turn's own, or the message's. Made once, not per draw. */
+const keyOf = (it: Item) => (it.kind === 'turn' ? `t:${turnKey(it.turn)}` : `m:${it.m.id}`);
 
 function Pics({
   paths,
@@ -676,7 +683,7 @@ function Pics({
   );
 }
 
-function TurnRow({
+const TurnRow = memo(function TurnRow({
   turn,
   same,
   sid,
@@ -783,7 +790,7 @@ function TurnRow({
       {paths.length ? <Pics paths={paths} client={client} small t={t} onZoom={onZoom} note={t.readByTool} /> : null}
     </View>
   );
-}
+});
 
 function PendingRow({
   m,

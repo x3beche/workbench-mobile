@@ -100,6 +100,16 @@ type Item =
   | { kind: 'send'; m: WboSend }
   | { kind: 'cut' };
 
+/** A row's key: the turn's, the question's, the line's. Made once, not per draw. */
+const keyOf = (it: Item) =>
+  it.kind === 'turn'
+    ? `t:${it.turn.id}`
+    : it.kind === 'ask'
+      ? `a:${it.a.id}`
+      : it.kind === 'send'
+        ? `s:${it.m.id}`
+        : 'cut';
+
 /** OpenCode's answer as one row: the stats under it are its steps together. */
 type AnswerTurn = Extract<Turn, { kind: 'assistant' }>;
 
@@ -742,16 +752,12 @@ export function OpencodeSessionScreen({
             indicatorStyle={indicatorStyle}
             testID="wbo-list"
             data={items}
-            keyExtractor={(it) =>
-              it.kind === 'turn'
-                ? `t:${it.turn.id}`
-                : it.kind === 'ask'
-                  ? `a:${it.a.id}`
-                  : it.kind === 'send'
-                    ? `s:${it.m.id}`
-                    : 'cut'
-            }
+            keyExtractor={keyOf}
             renderItem={renderItem}
+            initialNumToRender={TURNS_PAGE}
+            maxToRenderPerBatch={TURNS_PAGE}
+            windowSize={7}
+            removeClippedSubviews={Platform.OS === 'android'}
             onScroll={scrolled}
             onScrollBeginDrag={reader.begin}
             onScrollEndDrag={reader.end}

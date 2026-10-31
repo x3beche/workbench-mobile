@@ -6,7 +6,7 @@
  * the lines sent from here until the conversation shows them, and the
  * pictures a message may carry.
  */
-import type { UploadPart, WbcBridge, WbcImageRules, WbcMessage, WbcSession, WbcTurn, WbcTurnsPage } from '../api/types';
+import type { UploadPart, WbcBridge, WbcImageRules, WbcMessage, WbcPic, WbcSession, WbcTurn, WbcTurnsPage } from '../api/types';
 import type { Dot } from './orchestrator';
 import type { WbcStrings } from './wbcStrings';
 
@@ -117,6 +117,49 @@ export function unmark(text: string, mark = MARK): string {
  *  line typed while a turn was running has no prompt of its own: the id is what tells them apart. */
 export function inFlowIds(turns: { message?: string }[]): Set<string> {
   return new Set(turns.map((t) => t.message).filter((id): id is string => !!id));
+}
+
+/** The pictures of a turn, as one string: what a row draws of them. */
+const picsKey = (pics?: WbcPic[]) => (pics ?? []).map((p) => `${p.req}:${p.n}:${p.type}`).join(',');
+
+/** Whether two readings of a turn say the same thing: every field the row draws, and nothing else. */
+export function sameTurn(a: WbcTurn, b: WbcTurn): boolean {
+  return (
+    a === b ||
+    (a.id === b.id &&
+      a.role === b.role &&
+      a.text === b.text &&
+      a.at === b.at &&
+      a.remote === b.remote &&
+      a.model === b.model &&
+      a.cut === b.cut &&
+      a.message === b.message &&
+      a.kind === b.kind &&
+      a.truncated === b.truncated &&
+      a.full_len === b.full_len &&
+      a.cut_at === b.cut_at &&
+      a.maybe === b.maybe &&
+      picsKey(a.images) === picsKey(b.images))
+  );
+}
+
+/**
+ * A page's turns, with the held objects kept wherever the server said the same thing: a poll that brings a
+ * long conversation back must not hand every row a new object - the rows are memoised on their turn, and only
+ * the one that changed (the answer still being written) is new work. The held array itself comes back when
+ * nothing at all changed, so the list is not asked to draw again.
+ */
+export function keepSame(held: WbcTurn[] | null, got: WbcTurn[]): WbcTurn[] {
+  if (!held?.length || !got.length) return got;
+  const seen = new Map(held.map((t) => [key(t), t]));
+  let same = held.length === got.length;
+  const out = got.map((t, i) => {
+    const old = seen.get(key(t));
+    const use = old && sameTurn(old, t) ? old : t;
+    if (use !== held[i]) same = false;
+    return use;
+  });
+  return same ? held : out;
 }
 
 /**
