@@ -20,9 +20,12 @@ import {
   pctOf,
   reportLine,
   shortTask,
+  contextNumbers,
+  overPct,
   tasksOf,
   took,
   when,
+  windowOf,
 } from '../team';
 
 const t = teamStrings('en');
@@ -85,10 +88,34 @@ describe('the share of a window', () => {
     expect(pctOf(agent({ context: { used: 50_000, limit: 200_000 } }))).toBe(25);
     // the server's pct is capped at 100 and lags a window that changed: the pair is the truth
     expect(pctOf(agent({ context: { used: 950_000, limit: 1_000_000, pct: 3 } }))).toBe(95);
-    expect(pctOf(agent({ context: { used: 1_120_000, limit: 1_000_000 } }))).toBe(112);
     expect(pctOf(agent({ context: 41.4 }))).toBe(41);
     expect(pctOf(agent({ context: { pct: 40 } }))).toBe(40);
     expect(pctOf(agent({ context: null }))).toBeNull();
+  });
+
+  it('reads the window from the right field: the effective limit, else the model\'s own ceiling', () => {
+    expect(windowOf({ used: 10, limit: 512_000, max: 1_048_576 })).toBe(512_000);
+    expect(windowOf({ used: 10, limit: 0, max: 1_048_576 })).toBe(1_048_576);
+    expect(windowOf({ used: 10, window: 200_000 })).toBe(200_000);
+    expect(windowOf({ used: 10 })).toBeNull();
+    expect(windowOf(null)).toBeNull();
+    // a payload with no effective limit still says its share against the model's window
+    expect(pctOf(agent({ context: { used: 262_144, max: 1_048_576 } }))).toBe(25);
+  });
+
+  it('caps a step past its window at 100 and says full, keeping the numbers behind it', () => {
+    const over = agent({ context: { used: 590_874, limit: 512_000 } });
+    expect(pctOf(over)).toBe(100);
+    expect(overPct(over)).toBe(true);
+    expect(contextNumbers(over)).toBe('591k / 512k · 115%');
+    const under = agent({ context: { used: 413_212, limit: 512_000 } });
+    expect(pctOf(under)).toBe(81);
+    expect(overPct(under)).toBe(false);
+    expect(contextNumbers(under)).toBe('413k / 512k · 81%');
+    expect(overPct(agent({ context: null }))).toBe(false);
+    expect(contextNumbers(agent({ context: null }))).toBe('');
+    // the window comes from the model's ceiling when the run keeps to no smaller one
+    expect(contextNumbers(agent({ context: { used: 262_144, max: 1_048_576 } }))).toBe('262k / 1M · 25%');
   });
 
   it('turns amber past 80 and red past 95', () => {

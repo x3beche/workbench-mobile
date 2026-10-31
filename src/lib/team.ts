@@ -35,20 +35,52 @@ export function agentsInOrder(agents: TeamAgent[]): TeamAgent[] {
     .map((x) => x.a);
 }
 
-/** How much of its window an agent is using, as a whole percent, and possibly past 100: the server's `pct` is
- *  capped at 100 and can lag a window that changed, so the share is worked out from the used/limit pair first
- *  and `pct` is only the fallback when the pair is missing. */
-export function pctOf(a: TeamAgent): number | null {
-  const c = a.context as unknown;
-  if (typeof c === 'number') return Math.round(c);
-  if (c && typeof c === 'object') {
-    const o = c as { pct?: number; used?: number; limit?: number };
-    if (typeof o.used === 'number' && typeof o.limit === 'number' && o.limit > 0) {
-      return Math.round((o.used * 100) / o.limit);
-    }
+/** The window the share is read against: the effective one the run keeps to (`limit`), else the model's own
+ *  ceiling (`max`), else the older `window` - never 0, which is "the run does not know it" and not a window. */
+export function windowOf(context: unknown): number | null {
+  if (!context || typeof context !== 'object') return null;
+  const o = context as { limit?: number; max?: number; window?: number };
+  for (const v of [o.limit, o.max, o.window]) if (typeof v === 'number' && v > 0) return v;
+  return null;
+}
+
+/** The share before the cap, from the shapes the server sends: a number, the API's own {used, limit} pair (what
+ *  GET /api/agents/team sends, with a `pct` that is capped and can lag a window that changed), or a lone {pct}. */
+function rawShare(context: unknown): number | null {
+  if (typeof context === 'number') return Math.round(context);
+  if (context && typeof context === 'object') {
+    const o = context as { pct?: number; used?: number };
+    const limit = windowOf(context);
+    if (typeof o.used === 'number' && limit) return Math.round((o.used * 100) / limit);
     if (typeof o.pct === 'number') return Math.round(o.pct);
   }
   return null;
+}
+
+/** The share as the bar and the rest of the app say it: a step bigger than its window is a full window, not
+ *  "115 %" of a bar that cannot hold it. */
+export function pctOf(a: TeamAgent): number | null {
+  const raw = rawShare(a.context);
+  return raw == null ? null : Math.min(100, Math.max(0, raw));
+}
+
+/** A step bigger than the window it was sent to: the row says "full" rather than a number past 100 %. */
+export function overPct(a: TeamAgent): boolean {
+  const raw = rawShare(a.context);
+  return raw != null && raw > 100;
+}
+
+/** "591k / 512k · 115%": the numbers behind the bar, so the share is never a guess about its window. */
+export function contextNumbers(a: TeamAgent): string {
+  const c = (a.context && typeof a.context === 'object' ? a.context : {}) as { used?: number };
+  const k = (n: number) =>
+    n >= 1_000_000 ? `${Math.round(n / 1_000_000)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`;
+  const raw = rawShare(a.context);
+  const limit = windowOf(a.context);
+  const bits: string[] = [];
+  if (typeof c.used === 'number') bits.push(`${k(c.used)} / ${limit ? k(limit) : '?'}`);
+  if (raw != null) bits.push(`· ${raw}%`);
+  return bits.join(' ');
 }
 
 /** The bar's tone: the quiet ink until it is nearly full, amber past 80 %, the error past 95 %. */

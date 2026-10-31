@@ -1,7 +1,8 @@
 /**
  * The manager's Team after the web's rebuild (1.9.28): one list, one block an agent - its state dot, name and
- * window share (95% from used/limit, not the stale pct the made-up server also sends), its tasks with state and
- * time at the right, and its own last word as one dim line. Run by scripts/shots.sh with SHOTS=team.
+ * window share (95% from used/limit, not the stale pct the made-up server also sends; past the window it says
+ * "full" and a tap gives the numbers), its tasks with state and time at the right, and its own last word as one
+ * dim line. Run by scripts/shots.sh with SHOTS=team.
  */
 const puppeteer = require('puppeteer');
 
@@ -47,12 +48,22 @@ async function shot(page, name) {
   const list = await text(page);
   console.log(
     'counts', /4 agents · 1 working/.test(list),
-    '| 95% from used/limit', list.includes('95%') && !/(^|\\s)3%/.test(list),
+    '| full past the window', list.includes('full') && !list.includes('115%'),
+    '| 73% from used/limit', list.includes('73%') && !/(^|\\s)3%/.test(list),
     '| waiting first', list.indexOf('Sensor board rail sag') < list.indexOf('OTA rollback watchdog'),
     '| idle line', /idle · last task #d4e5f6 closed \d+m/.test(list),
     '| closed at the foot', /\d+ closed/.test(list),
   );
   await shot(page, '120-team-list');
+
+  // A step past its window says "full"; a tap under it gives the numbers the bar cannot hold.
+  await page.click(tid('team-ctx-wbo:ses_rail0000a1'));
+  await sleep(500);
+  const full = await text(page);
+  console.log('full numbers', full.includes('591k / 512k · 115%'));
+  await shot(page, '123-team-full');
+  await page.click(tid('team-ctx-wbo:ses_rail0000a1'));
+  await sleep(300);
 
   // One agent's word opened: the same small dim type, wrapping, not the big answer paragraph.
   await page.click(tid('team-note-f6a7b8'));

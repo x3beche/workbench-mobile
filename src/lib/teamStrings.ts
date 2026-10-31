@@ -28,6 +28,10 @@ export interface TeamStrings {
   close: string;
   /** A task's status in the reader's words (the server's own word otherwise). */
   status: (s: string) => string;
+  /** The share's word where a step is bigger than its window: "full" (the numbers behind it on a tap). */
+  full: string;
+  /** The numbers' own label, for a reader that cannot see the tap. */
+  context: string;
 }
 
 const en: TeamStrings = {
@@ -45,6 +49,8 @@ const en: TeamStrings = {
   reading: 'Reading its team',
   retry: 'Try again',
   close: 'Close',
+  full: 'full',
+  context: 'Context',
   status: (s) =>
     ({
       queued: 'queued',
@@ -73,6 +79,8 @@ const tr: TeamStrings = {
   reading: 'Ekip okunuyor',
   retry: 'Yeniden dene',
   close: 'Kapat',
+  full: 'dolu',
+  context: 'Bağlam',
   status: (s) =>
     ({
       queued: 'sırada',

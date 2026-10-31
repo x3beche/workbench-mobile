@@ -1,9 +1,10 @@
 /**
  * The made-up server's agents (backend/agents.py's links, agents_mcp.py's team): Ada's Claude Code session
  * "Sensor board rail sag" manages four of her OpenCode sessions. One list, one block an agent - the rail one
- * waiting on her (its window nearly full, and the ctx `pct` deliberately stale so a screenshot shows the app
- * works it out from used/limit), the OTA one working, the bring-up one away, the lid one idle with only a
- * closed task to its name - with tasks under them, their agents' last words, and the closed ones at the foot.
+ * waiting on her (its step is past the window it keeps to, and the ctx `pct` is deliberately stale so the app's
+ * own used/limit reading - "full", with the numbers on a tap - is what a screenshot shows), the OTA one
+ * working, the bring-up one away, the lid one idle with only a closed task to its name - with tasks under
+ * them, their agents' last words, and the closed ones at the foot.
  */
 const secs = () => Date.now() / 1000;
 
@@ -30,8 +31,8 @@ export function team() {
         directory: '~/projects/sensor-board',
         state: 'waiting for the person',
         last: secs() - 40,
-        // used/limit is 95 %; the stale pct (3) is what the web falls for
-        context: { used: 950_000, limit: 1_000_000, model: 'deepseek/deepseek-v4.1-flash', pct: 3 },
+        // 115 % of the 512k window it keeps to; the stale pct (3) is what the old web fell for
+        context: { used: 590_874, limit: 512_000, model: 'deepseek/deepseek-v4.1-flash', pct: 3 },
         level: 1,
         open_tasks: [{ task: 'a0f239', title: 'Route the 3.3 V rail and run DRC', status: 'waiting' }],
       },

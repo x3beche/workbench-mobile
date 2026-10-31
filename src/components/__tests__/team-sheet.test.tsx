@@ -27,9 +27,8 @@ const t = teamStrings('en');
 const NOW = Date.now();
 
 /**
- * Three agents under the manager: one waiting on the person, one working (its window nearly full), one idle
- * with only a closed task to its name. The working agent's server pct is a lie (3) - the share is 95 from
- * used/limit.
+ * Four agents under the manager: one waiting on the person, two working (one past its window - its server pct
+ * is a lie, 3, while used/limit is 115 % - and one nearly full), one idle with only a closed task to its name.
  */
 const DATA: TeamAnswer = {
   manager: 'wbc:boss',
@@ -42,9 +41,21 @@ const DATA: TeamAnswer = {
       directory: '~/sensor',
       state: 'working',
       last: NOW / 1000 - 30,
-      context: { used: 950_000, limit: 1_000_000, pct: 3 },
+      context: { used: 590_874, limit: 512_000, pct: 3 },
       level: 1,
       open_tasks: [{ task: 'a0f239', title: 'Route the rail', status: 'working' }, { task: 'e5f6a7' }],
+    },
+    {
+      agent: 'wbo:work2',
+      kind: 'OpenCode',
+      name: 'Worker four',
+      computer: 'x33-workstation',
+      directory: '~/fw/ota',
+      state: 'working',
+      last: NOW / 1000 - 25,
+      context: { used: 950_000, limit: 1_000_000 },
+      level: 1,
+      open_tasks: [{ task: 'f7a8b9', title: 'Compile the firmware', status: 'working' }],
     },
     {
       agent: 'wbo:idle1',
@@ -89,6 +100,15 @@ const DATA: TeamAnswer = {
           by_name: 'Worker one',
         },
       ],
+    },
+    {
+      task: 'f7a8b9',
+      agent: 'wbo:work2',
+      agent_name: 'Worker four',
+      title: 'Compile the firmware',
+      status: 'working',
+      created: NOW / 1000 - 120,
+      updated: NOW / 1000 - 25,
     },
     {
       task: 'b1c2d3',
@@ -171,19 +191,37 @@ async function draw(client: WorkbenchClient, onOpenAgent = jest.fn(), hub: LiveH
     const c = fake();
     await draw(c);
     expect(c.agentTeam).toHaveBeenCalledWith('wbc:boss');
-    expect(screen.getByTestId('team-counts')).toHaveTextContent('3 agents · 1 working');
+    expect(screen.getByTestId('team-counts')).toHaveTextContent('4 agents · 2 working');
     const order = screen.getAllByTestId(/^team-agent-block-/).map((n) => String(n.props.testID));
-    expect(order).toEqual(['team-agent-block-wbo:wait1', 'team-agent-block-wbo:work1', 'team-agent-block-wbo:idle1']);
+    expect(order).toEqual([
+      'team-agent-block-wbo:wait1',
+      'team-agent-block-wbo:work1',
+      'team-agent-block-wbo:work2',
+      'team-agent-block-wbo:idle1',
+    ]);
     // the old two sections are gone: no AGENTS or TASKS heads, one row an agent
     expect(screen.queryByText('Agents')).toBeNull();
     expect(screen.queryByText('Tasks')).toBeNull();
   });
 
-  it('says each agent its share of the window from used/limit, the bar turning amber with it', async () => {
+  it('says each agent its share from used/limit, amber near the top and "full" past the window', async () => {
     await draw(fake());
     expect(screen.getByText('95%')).toBeTruthy();
     expect(screen.getByText('20%')).toBeTruthy();
-    expect(screen.getByTestId('team-bar-wbo:work1')).toHaveStyle({ backgroundColor: colors.warn });
+    expect(screen.getByTestId('team-bar-wbo:work2')).toHaveStyle({ backgroundColor: colors.warn });
+    // 115 % of 512k: the bar cannot hold it, so the row says "full" in the error tone
+    expect(screen.getByTestId('team-ctx-wbo:work1')).toHaveTextContent('full');
+    expect(screen.getByTestId('team-ctx-wbo:work1')).not.toHaveTextContent('115');
+    expect(screen.getByTestId('team-bar-wbo:work1')).toHaveStyle({ backgroundColor: colors.danger });
+  });
+
+  it('keeps the real numbers behind a tap on the share', async () => {
+    await draw(fake());
+    expect(screen.queryByTestId('team-ctx-numbers-wbo:work1')).toBeNull();
+    await fireEvent.press(screen.getByTestId('team-ctx-wbo:work1'));
+    expect(screen.getByTestId('team-ctx-numbers-wbo:work1')).toHaveTextContent('591k / 512k · 115%');
+    await fireEvent.press(screen.getByTestId('team-ctx-wbo:work1'));
+    expect(screen.queryByTestId('team-ctx-numbers-wbo:work1')).toBeNull();
   });
 
   it('keeps the dot for the state: green working, amber waiting, a hollow ring idle', async () => {

@@ -33,10 +33,12 @@ import {
   closedTasks,
   dotTone,
   groupClosed,
+  contextNumbers,
   idleLine,
   lastClosed,
   oneLine,
   openTasks,
+  overPct,
   pctOf,
   reportLine,
   shortTask,
@@ -76,6 +78,8 @@ export function TeamSheet({
   const [error, setError] = useState<string | null>(null);
   /** The tasks whose own word is open, and whether the closed ones are shown. */
   const [shown, setShown] = useState<ReadonlySet<string>>(() => new Set());
+  /** The agents whose context numbers are shown (a tap on the share, where the bar cannot say it all). */
+  const [ctxShown, setCtxShown] = useState<ReadonlySet<string>>(() => new Set());
   const [closedOpen, setClosedOpen] = useState(false);
   /** When the answer was read: a row's age is said against it (set with every read). */
   const [now, setNow] = useState(0);
@@ -137,6 +141,13 @@ export function TeamSheet({
       else next.add(id);
       return next;
     });
+  const flipCtx = (agent: string) =>
+    setCtxShown((held) => {
+      const next = new Set(held);
+      if (next.has(agent)) next.delete(agent);
+      else next.add(agent);
+      return next;
+    });
 
   const open = data ? openTasks(data.tasks) : [];
   const closed = data ? closedTasks(data.tasks) : [];
@@ -187,8 +198,10 @@ export function TeamSheet({
                   t={t}
                   now={now}
                   shown={shown}
+                  ctxShown={ctxShown.has(a.agent)}
                   onOpenAgent={onOpenAgent}
                   onFlip={flip}
+                  onCtx={() => flipCtx(a.agent)}
                 />
               ))
             ) : (
@@ -244,8 +257,10 @@ function AgentBlock({
   t,
   now,
   shown,
+  ctxShown,
   onOpenAgent,
   onFlip,
+  onCtx,
 }: {
   a: TeamAgent;
   tasks: TeamTask[];
@@ -253,11 +268,16 @@ function AgentBlock({
   t: TeamStrings;
   now: number;
   shown: ReadonlySet<string>;
+  /** The share's numbers are open under the row. */
+  ctxShown: boolean;
   onOpenAgent: (key: string) => void;
   onFlip: (id: string) => void;
+  onCtx: () => void;
 }) {
   const pct = pctOf(a);
   const tone = barTone(pct);
+  const over = overPct(a);
+  const numbers = contextNumbers(a);
   return (
     <View style={[s.agent, a.level > 1 && s.indent]} testID={`team-agent-block-${a.agent}`}>
       <Pressable
@@ -272,21 +292,35 @@ function AgentBlock({
           {a.name}
         </Text>
         {pct != null ? (
-          <View style={s.ctx} testID={`team-ctx-${a.agent}`}>
+          <Pressable
+            onPress={onCtx}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: ctxShown }}
+            accessibilityLabel={`${t.context}: ${numbers}`}
+            style={s.ctx}
+            testID={`team-ctx-${a.agent}`}
+          >
             <View style={s.bar}>
               <View
                 style={[
                   s.barFill,
-                  { width: `${Math.max(0, Math.min(100, pct))}%` },
+                  { width: `${pct}%` },
                   tone === 'warn' ? s.barWarn : tone === 'bad' ? s.barBad : null,
                 ]}
                 testID={`team-bar-${a.agent}`}
               />
             </View>
-            <Text style={[s.pct, tone === 'warn' ? s.warnText : tone === 'bad' ? s.badText : null]}>{pct}%</Text>
-          </View>
+            <Text style={[s.pct, tone === 'warn' ? s.warnText : tone === 'bad' ? s.badText : null]}>
+              {over ? t.full : `${pct}%`}
+            </Text>
+          </Pressable>
         ) : null}
       </Pressable>
+      {ctxShown ? (
+        <Text style={s.ctxNumbers} numberOfLines={1} testID={`team-ctx-numbers-${a.agent}`}>
+          {numbers}
+        </Text>
+      ) : null}
       {tasks.map((task) => (
         <TaskBlock
           key={task.task}
@@ -403,6 +437,13 @@ const s = StyleSheet.create({
   barWarn: { backgroundColor: colors.warn },
   barBad: { backgroundColor: colors.danger },
   pct: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
+  ctxNumbers: {
+    paddingLeft: 12,
+    paddingTop: 1,
+    fontFamily: fonts.mono,
+    fontSize: 10.5,
+    color: colors.inkDim,
+  },
   warnText: { color: colors.warn },
   badText: { color: colors.danger },
   task: { paddingBottom: 1 },
