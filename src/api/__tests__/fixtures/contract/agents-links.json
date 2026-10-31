@@ -1,0 +1,10 @@
+{
+ "links": [
+  {
+   "worker": "wbc:wbc_fixture0000000001",
+   "manager": "wbo:ses_fixture0000000001",
+   "at": 1793472536.644
+  }
+ ],
+ "max_depth": 3
+}

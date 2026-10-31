@@ -1,0 +1,52 @@
+{
+ "sessions": [
+  {
+   "session_id": "wbc_fixture0000000001",
+   "name": "wbc_cont",
+   "title": "",
+   "status": "active",
+   "computer": "workstation",
+   "first_ts": 1793471816.639,
+   "last_ts": 1793472990.949,
+   "prompts": null,
+   "requests": null,
+   "known": false,
+   "mine": true,
+   "owner": {
+    "id": "0aa1b2c3d4e5f607",
+    "name": "Contract computer"
+   },
+   "bridge": {
+    "id": "wbcbridge-fixture01",
+    "connected": true,
+    "state": "idle",
+    "detail": "",
+    "remote": true,
+    "host": "workstation",
+    "platform": "linux",
+    "version": "0.3.6",
+    "cwd": "/home/user/project",
+    "queue": 0,
+    "seen": 1793472990.949,
+    "started": 1793471816.639,
+    "images": true,
+    "self_updates": true,
+    "context": {
+     "used": 210000,
+     "limit": 200000,
+     "model": "claude-sonnet-4-5",
+     "pct": 100
+    },
+    "mcp": [
+     {
+      "name": "workbench",
+      "status": "connected"
+     }
+    ],
+    "outdated": false
+   },
+   "may_send": true,
+   "why": ""
+  }
+ ]
+}

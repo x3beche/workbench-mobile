@@ -1,0 +1,458 @@
+{
+ "session_id": "ses_fixture0000000001",
+ "title": "Contract check",
+ "name": "Contract check",
+ "status": "waiting",
+ "asking": true,
+ "directory": "/home/user/project",
+ "computer": "",
+ "updated": 1793472991496,
+ "seen": 1793472536.64,
+ "created": 1793471816.639,
+ "parent": null,
+ "tokens": {
+  "input": 98000,
+  "output": 12000
+ },
+ "context": {
+  "used": 144000,
+  "limit": 512000,
+  "model": "commandcode/claude-sonnet-4-5",
+  "pct": 28
+ },
+ "selected_model": {
+  "providerID": "workbench",
+  "providerName": "Workbench",
+  "modelID": "commandcode/claude-sonnet-4-5",
+  "name": "claude-sonnet-4-5 · Command Code",
+  "variant": "high"
+ },
+ "model": {
+  "providerID": "workbench",
+  "providerName": "Workbench",
+  "modelID": "commandcode/claude-sonnet-4-5",
+  "name": "claude-sonnet-4-5 · Command Code",
+  "variant": "high"
+ },
+ "context_limit": null,
+ "context_options": {
+  "limit": null,
+  "max": 512000,
+  "steps": [
+   64000,
+   128000,
+   256000
+  ],
+  "min": 16000,
+  "can": true
+ },
+ "mine": true,
+ "owner": {
+  "id": "0aa1b2c3d4e5f607",
+  "name": "Contract computer"
+ },
+ "bridge": {
+  "id": "obridge-fixture00001",
+  "connected": true,
+  "remote": true,
+  "host": "workstation",
+  "platform": "linux-x64",
+  "version": "0.3.6",
+  "opencode": "2.1.2",
+  "cwd": "/home/user/project",
+  "model": "",
+  "seen": 1793472990.949,
+  "started": 1793471816.639,
+  "latest": "0.3.6",
+  "outdated": false,
+  "answers": true,
+  "self_updates": true,
+  "models_supported": true,
+  "mcp": [
+   {
+    "name": "workbench",
+    "status": "connected"
+   },
+   {
+    "name": "schematic",
+    "status": "failed"
+   }
+  ],
+  "models": [
+   {
+    "providerID": "workbench",
+    "providerName": "Workbench",
+    "modelID": "commandcode/claude-sonnet-4-5",
+    "name": "claude-sonnet-4-5 · Command Code",
+    "context": 512000,
+    "output": 384000,
+    "vision": true,
+    "variants": [
+     "high",
+     "low"
+    ]
+   },
+   {
+    "providerID": "opencode",
+    "providerName": "OpenCode",
+    "modelID": "qwen3-coder",
+    "name": "Qwen3 Coder",
+    "context": 256000,
+    "output": 65536,
+    "vision": false,
+    "variants": []
+   }
+  ]
+ },
+ "may_send": true,
+ "why": "",
+ "messages": [
+  {
+   "id": "m1",
+   "role": "user",
+   "agent": null,
+   "model": null,
+   "provider": null,
+   "time": 1793471816639,
+   "first": null,
+   "done": 1793471817639,
+   "tok": null,
+   "parts": [
+    {
+     "id": "p1",
+     "type": "text",
+     "text": "Add the rail to the BOM and run the DRC."
+    },
+    {
+     "id": "p2",
+     "type": "file",
+     "text": "rail.step"
+    }
+   ]
+  },
+  {
+   "id": "m2",
+   "role": "assistant",
+   "agent": "build",
+   "model": "commandcode/claude-sonnet-4-5",
+   "provider": "workbench",
+   "time": 1793471818639,
+   "first": 1793471819239,
+   "done": 1793471996639,
+   "tok": [
+    18000,
+    900,
+    12000,
+    2000
+   ],
+   "parts": [
+    {
+     "id": "p3",
+     "type": "reasoning",
+     "text": "The BOM is generated from the parts folder.",
+     "start": 1793471818639,
+     "end": 1793471821639
+    },
+    {
+     "id": "p4",
+     "type": "tool",
+     "tool": "bash",
+     "title": "npm test",
+     "status": "completed",
+     "input": "{\"command\":\"npm test\"}",
+     "output": "ok 42 tests",
+     "start": 1793471821639,
+     "end": 1793471996639
+    },
+    {
+     "id": "p5",
+     "type": "text",
+     "text": "Added the rail; the DRC is clean."
+    }
+   ]
+  },
+  {
+   "id": "m3",
+   "role": "assistant",
+   "agent": "build",
+   "model": "commandcode/claude-sonnet-4-5",
+   "provider": "workbench",
+   "time": 1793471997639,
+   "first": 1793471998139,
+   "done": 1793472176639,
+   "tok": [
+    21000,
+    700,
+    15000,
+    1500
+   ],
+   "parts": [
+    {
+     "id": "p6",
+     "type": "tool",
+     "tool": "edit",
+     "title": "parts/rail.py",
+     "status": "completed",
+     "input": "{\"path\":\"parts/rail.py\"}",
+     "start": 1793471997639,
+     "end": 1793471999639
+    },
+    {
+     "id": "p7",
+     "type": "file",
+     "text": "parts/rail.py"
+    },
+    {
+     "id": "p8",
+     "type": "tool",
+     "tool": "todowrite",
+     "title": "todos",
+     "status": "completed",
+     "input": "{\"todos\": [{\"content\": \"Add the rail to the BOM\", \"status\": \"completed\"}, {\"content\": \"Run the DRC\", \"status\": \"in_progress\"}, {\"content\": \"Send the drawing\", \"status\": \"pending\"}]}",
+     "start": 1793471999639,
+     "end": 1793471999839
+    }
+   ]
+  },
+  {
+   "id": "m4",
+   "role": "system",
+   "agent": null,
+   "model": {
+    "providerID": "workbench",
+    "providerName": "Workbench",
+    "modelID": "commandcode/claude-sonnet-4-5",
+    "name": "claude-sonnet-4-5 · Command Code",
+    "variant": "high"
+   },
+   "provider": null,
+   "time": 1793472176639,
+   "first": null,
+   "done": 1793472176639,
+   "tok": null,
+   "type": "model-switched",
+   "previous": "opencode/qwen3-coder",
+   "by": "chat",
+   "parts": []
+  },
+  {
+   "id": "m5",
+   "role": "user",
+   "agent": null,
+   "model": null,
+   "provider": null,
+   "time": 1793472178639,
+   "first": null,
+   "done": 1793472179639,
+   "tok": null,
+   "parts": [
+    {
+     "id": "p9",
+     "type": "text",
+     "text": "And the fastener clearance?"
+    }
+   ]
+  },
+  {
+   "id": "m6",
+   "role": "assistant",
+   "agent": "build",
+   "model": "commandcode/claude-sonnet-4-5",
+   "provider": "workbench",
+   "time": 1793472416639,
+   "first": 1793472417039,
+   "done": null,
+   "tok": [
+    30000,
+    300,
+    20000,
+    0
+   ],
+   "parts": [
+    {
+     "id": "p10",
+     "type": "text",
+     "text": "Checking the section first…"
+    },
+    {
+     "id": "p11",
+     "type": "tool",
+     "tool": "read",
+     "title": "parts/rail.py",
+     "status": "running",
+     "input": "{\"path\":\"parts/rail.py\"}",
+     "start": 1793472417639
+    }
+   ]
+  }
+ ],
+ "truncated": false,
+ "sends": [
+  {
+   "id": "send_fixture00000001",
+   "text": "And the fastener clearance?",
+   "by": {
+    "id": "0aa1b2c3d4e5f607",
+    "name": "Test account"
+   },
+   "status": "delivered",
+   "error": "",
+   "at": 1793472178.639,
+   "updated": 1793472180.639,
+   "delivered_at": 1793472179.639,
+   "inbox": "m5",
+   "images": [
+    {
+     "n": 2,
+     "type": "image/png",
+     "bytes": 18432
+    }
+   ],
+   "images_gone": false
+  },
+  {
+   "id": "send_fixture00000002",
+   "text": "Also save the drawing.",
+   "by": {
+    "id": "0aa1b2c3d4e5f607",
+    "name": "Test account"
+   },
+   "status": "queued",
+   "error": "",
+   "at": 1793472536.642,
+   "updated": 1793472536.642,
+   "delivered_at": null,
+   "inbox": null,
+   "images": [],
+   "images_gone": false
+  },
+  {
+   "id": "901ced1f26329fe5",
+   "text": "[Workbench] #c0ffee Contract check - reported progress: The DRC is clean so far.\n(task_status <id> for the whole answer; task_close when it is done)\n\n[Workbench] You are wbo:ses_fixture0000000001. If this person put agents under you, pass manager=\"wbo:ses_fixture0000000001\" to the workbench tools (agents_list, task_create, task_status, ...) so the server knows which session asks.",
+   "by": {
+    "id": "0aa1b2c3d4e5f607",
+    "name": "Test account"
+   },
+   "status": "queued",
+   "error": "",
+   "at": 1793472543.256,
+   "updated": 1793472543.256,
+   "delivered_at": null,
+   "inbox": null,
+   "model": {
+    "providerID": "workbench",
+    "providerName": "Workbench",
+    "modelID": "commandcode/claude-sonnet-4-5",
+    "name": "claude-sonnet-4-5 · Command Code",
+    "variant": "high"
+   },
+   "images": [],
+   "images_gone": false
+  }
+ ],
+ "asks": [
+  {
+   "id": "ask_fixture00000002",
+   "kind": "permission",
+   "title": "Run the DRC?",
+   "part": "p4",
+   "message": "m2",
+   "action": "bash",
+   "resources": [
+    "npm test"
+   ],
+   "save": [
+    "npm *"
+   ],
+   "message_text": "Allow npm test?",
+   "cut": false,
+   "status": "answered",
+   "decision": "always",
+   "via": "chat",
+   "chosen": {
+    "decision": "always"
+   },
+   "at": 1793471856.639,
+   "settled_at": 1793471996.639
+  },
+  {
+   "id": "ask_fixture00000001",
+   "kind": "form",
+   "form_kind": "question",
+   "title": "Which fastener?",
+   "fields": [
+    {
+     "key": "fastener",
+     "type": "string",
+     "title": "Fastener",
+     "description": "The one to use",
+     "options": [
+      {
+       "value": "m3",
+       "label": "M3",
+       "description": "Small"
+      },
+      {
+       "value": "m4",
+       "label": "M4",
+       "description": "Larger"
+      }
+     ],
+     "custom": true,
+     "required": true
+    },
+    {
+     "key": "count",
+     "type": "integer",
+     "title": "How many",
+     "description": "",
+     "options": [],
+     "custom": false,
+     "required": false,
+     "min": 1,
+     "max": 8
+    }
+   ],
+   "part": "p11",
+   "message": "m6",
+   "status": "pending",
+   "at": 1793472446.639,
+   "settled_at": null
+  }
+ ],
+ "models": [
+  {
+   "providerID": "workbench",
+   "providerName": "Workbench",
+   "modelID": "commandcode/claude-sonnet-4-5",
+   "name": "claude-sonnet-4-5 · Command Code",
+   "context": 512000,
+   "output": 384000,
+   "vision": true,
+   "variants": [
+    "high",
+    "low"
+   ]
+  },
+  {
+   "providerID": "opencode",
+   "providerName": "OpenCode",
+   "modelID": "qwen3-coder",
+   "name": "Qwen3 Coder",
+   "context": 256000,
+   "output": 65536,
+   "vision": false,
+   "variants": []
+  }
+ ],
+ "images": {
+  "max": 4,
+  "bytes": 5242880,
+  "types": [
+   "image/png",
+   "image/jpeg",
+   "image/gif",
+   "image/webp"
+  ]
+ }
+}

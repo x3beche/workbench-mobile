@@ -120,7 +120,7 @@ export function inFlowIds(turns: { message?: string }[]): Set<string> {
 }
 
 /** The pictures of a turn, as one string: what a row draws of them. */
-const picsKey = (pics?: WbcPic[]) => (pics ?? []).map((p) => `${p.req}:${p.n}:${p.type}`).join(',');
+const picsKey = (pics?: WbcPic[]) => (pics ?? []).map((p) => `${p.req ?? ''}:${p.n}:${p.type}`).join(',');
 
 /** Whether two readings of a turn say the same thing: every field the row draws, and nothing else. */
 export function sameTurn(a: WbcTurn, b: WbcTurn): boolean {

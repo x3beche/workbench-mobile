@@ -1,0 +1,396 @@
+{
+ "sessions": [
+  {
+   "session_id": "ses_fixture0000000001",
+   "title": "Contract check",
+   "name": "Contract check",
+   "status": "waiting",
+   "asking": true,
+   "directory": "/home/user/project",
+   "computer": "",
+   "updated": 1793472991496,
+   "seen": 1793472536.64,
+   "created": 1793471816.639,
+   "parent": null,
+   "tokens": {
+    "input": 98000,
+    "output": 12000
+   },
+   "context": {
+    "used": 144000,
+    "limit": 512000,
+    "model": "commandcode/claude-sonnet-4-5",
+    "pct": 28
+   },
+   "selected_model": {
+    "providerID": "workbench",
+    "providerName": "Workbench",
+    "modelID": "commandcode/claude-sonnet-4-5",
+    "name": "claude-sonnet-4-5 · Command Code",
+    "variant": "high"
+   },
+   "model": {
+    "providerID": "workbench",
+    "providerName": "Workbench",
+    "modelID": "commandcode/claude-sonnet-4-5",
+    "name": "claude-sonnet-4-5 · Command Code",
+    "variant": "high"
+   },
+   "context_limit": null,
+   "context_options": {
+    "limit": null,
+    "max": 512000,
+    "steps": [
+     64000,
+     128000,
+     256000
+    ],
+    "min": 16000,
+    "can": true
+   },
+   "mine": true,
+   "owner": {
+    "id": "0aa1b2c3d4e5f607",
+    "name": "Contract computer"
+   },
+   "bridge": {
+    "id": "obridge-fixture00001",
+    "connected": true,
+    "remote": true,
+    "host": "workstation",
+    "platform": "linux-x64",
+    "version": "0.3.6",
+    "opencode": "2.1.2",
+    "cwd": "/home/user/project",
+    "model": "",
+    "seen": 1793472990.949,
+    "started": 1793471816.639,
+    "latest": "0.3.6",
+    "outdated": false,
+    "answers": true,
+    "self_updates": true,
+    "models_supported": true,
+    "mcp": [
+     {
+      "name": "workbench",
+      "status": "connected"
+     },
+     {
+      "name": "schematic",
+      "status": "failed"
+     }
+    ],
+    "models": [
+     {
+      "providerID": "workbench",
+      "providerName": "Workbench",
+      "modelID": "commandcode/claude-sonnet-4-5",
+      "name": "claude-sonnet-4-5 · Command Code",
+      "context": 512000,
+      "output": 384000,
+      "vision": true,
+      "variants": [
+       "high",
+       "low"
+      ]
+     },
+     {
+      "providerID": "opencode",
+      "providerName": "OpenCode",
+      "modelID": "qwen3-coder",
+      "name": "Qwen3 Coder",
+      "context": 256000,
+      "output": 65536,
+      "vision": false,
+      "variants": []
+     }
+    ]
+   },
+   "may_send": true,
+   "why": ""
+  },
+  {
+   "session_id": "ses_panelmock0000000001",
+   "title": "MOBIL-TEAM-SHEET",
+   "name": "MOBIL-TEAM-SHEET",
+   "status": "ended",
+   "asking": false,
+   "directory": "/home/user/project",
+   "computer": "",
+   "updated": 1793471708886,
+   "seen": 1793471708.886,
+   "created": 1793460908.886,
+   "parent": null,
+   "tokens": {
+    "input": 2100000,
+    "output": 90000
+   },
+   "context": {
+    "used": 331000,
+    "limit": 512000,
+    "model": "commandcode/deepseek/deepseek-v4.1-flash",
+    "pct": 65
+   },
+   "selected_model": {
+    "providerID": "workbench",
+    "providerName": "Workbench",
+    "modelID": "commandcode/deepseek/deepseek-v4.1-flash",
+    "name": "deepseek/deepseek-v4.1-flash · Command Code"
+   },
+   "model": {
+    "providerID": "workbench",
+    "providerName": "Workbench",
+    "modelID": "commandcode/deepseek/deepseek-v4.1-flash",
+    "name": "deepseek/deepseek-v4.1-flash · Command Code"
+   },
+   "context_limit": null,
+   "context_options": {
+    "limit": null,
+    "max": 512000,
+    "steps": [
+     64000,
+     128000,
+     256000
+    ],
+    "min": 16000,
+    "can": true
+   },
+   "mine": true,
+   "owner": {
+    "id": "0aa1b2c3d4e5f607",
+    "name": ""
+   },
+   "bridge": {
+    "id": "obridge-panelmock01",
+    "connected": false,
+    "remote": true,
+    "host": "workstation",
+    "platform": "linux-x64",
+    "version": "0.3.6",
+    "opencode": "2.1.2",
+    "cwd": "/home/user/project",
+    "model": "",
+    "seen": 1793471708.886,
+    "started": 1793460908.886,
+    "latest": "0.3.6",
+    "outdated": false,
+    "answers": true,
+    "self_updates": true,
+    "models_supported": true,
+    "mcp": [
+     {
+      "name": "workbench",
+      "status": "connected"
+     }
+    ],
+    "models": [
+     {
+      "providerID": "workbench",
+      "providerName": "Workbench",
+      "modelID": "commandcode/deepseek/deepseek-v4.1-flash",
+      "name": "deepseek/deepseek-v4.1-flash · Command Code",
+      "context": 512000,
+      "output": 384000,
+      "vision": false,
+      "variants": []
+     },
+     {
+      "providerID": "workbench",
+      "providerName": "Workbench",
+      "modelID": "commandcode/Qwen/Qwen3.8-Flash",
+      "name": "Qwen/Qwen3.8-Flash · Command Code",
+      "context": 1000000,
+      "output": 131072,
+      "vision": false,
+      "variants": []
+     }
+    ]
+   },
+   "may_send": false,
+   "why": "no-bridge"
+  },
+  {
+   "session_id": "ses_e88cc5594ffeissuHYgkFkxhRs",
+   "title": "Hello from the fake model.",
+   "name": "Hello from the fake model.",
+   "status": "ended",
+   "asking": false,
+   "directory": "/tmp/claude-oc/e2e/h/proj",
+   "computer": "e2e test pc 2",
+   "updated": 1793001330158.0,
+   "seen": 1793001341.741,
+   "created": 1793001237.268,
+   "parent": null,
+   "tokens": {
+    "input": 73,
+    "output": 39
+   },
+   "context": null,
+   "selected_model": null,
+   "model": null,
+   "context_limit": null,
+   "context_options": {
+    "limit": null,
+    "max": null,
+    "steps": [
+     64000,
+     128000,
+     256000,
+     512000,
+     1000000
+    ],
+    "min": 16000,
+    "can": false
+   },
+   "mine": true,
+   "owner": {
+    "id": "0aa1b2c3d4e5f607",
+    "name": "Test account"
+   },
+   "bridge": {
+    "id": "o14ea44f80b14170592240dac",
+    "connected": false,
+    "remote": true,
+    "host": "workstation",
+    "platform": "linux-x64",
+    "version": "0.2.0",
+    "opencode": "2.1.2",
+    "cwd": "proj",
+    "model": "",
+    "seen": 1793001366.434,
+    "started": 1793001235.721,
+    "latest": "0.3.6",
+    "outdated": true,
+    "answers": true,
+    "self_updates": false,
+    "models_supported": false,
+    "mcp": null,
+    "models": null
+   },
+   "may_send": false,
+   "why": "no-bridge"
+  },
+  {
+   "session_id": "ses_e88e4ae96ffep9RBRRJjafA747",
+   "title": "Hello from the fake model.",
+   "name": "Hello from the fake model.",
+   "status": "ended",
+   "asking": false,
+   "directory": "/tmp/claude-oc/e2e/h/proj",
+   "computer": "e2e test pc 2",
+   "updated": 1793000029503.0,
+   "seen": 1793001341.741,
+   "created": 1792999641.611,
+   "parent": null,
+   "tokens": {
+    "input": 64,
+    "output": 37
+   },
+   "context": null,
+   "selected_model": null,
+   "model": null,
+   "context_limit": null,
+   "context_options": {
+    "limit": null,
+    "max": null,
+    "steps": [
+     64000,
+     128000,
+     256000,
+     512000,
+     1000000
+    ],
+    "min": 16000,
+    "can": false
+   },
+   "mine": true,
+   "owner": {
+    "id": "0aa1b2c3d4e5f607",
+    "name": "Test account"
+   },
+   "bridge": {
+    "id": "o14ea44f80b14170592240dac",
+    "connected": false,
+    "remote": true,
+    "host": "workstation",
+    "platform": "linux-x64",
+    "version": "0.2.0",
+    "opencode": "2.1.2",
+    "cwd": "proj",
+    "model": "",
+    "seen": 1793001366.434,
+    "started": 1793001235.721,
+    "latest": "0.3.6",
+    "outdated": true,
+    "answers": true,
+    "self_updates": false,
+    "models_supported": false,
+    "mcp": null,
+    "models": null
+   },
+   "may_send": false,
+   "why": "no-bridge"
+  },
+  {
+   "session_id": "ses_e88e5b646ffepYOgIfY94P0UyN",
+   "title": "Hi reply request",
+   "name": "Hi reply request",
+   "status": "ended",
+   "asking": false,
+   "directory": "/tmp/claude-oc/e2e/h/proj",
+   "computer": "e2e test pc 2",
+   "updated": 1792999581508.0,
+   "seen": 1793001341.741,
+   "created": 1792999574.109,
+   "parent": null,
+   "tokens": {
+    "input": 2956,
+    "output": 10
+   },
+   "context": null,
+   "selected_model": null,
+   "model": null,
+   "context_limit": null,
+   "context_options": {
+    "limit": null,
+    "max": null,
+    "steps": [
+     64000,
+     128000,
+     256000,
+     512000,
+     1000000
+    ],
+    "min": 16000,
+    "can": false
+   },
+   "mine": true,
+   "owner": {
+    "id": "0aa1b2c3d4e5f607",
+    "name": "Test account"
+   },
+   "bridge": {
+    "id": "o14ea44f80b14170592240dac",
+    "connected": false,
+    "remote": true,
+    "host": "workstation",
+    "platform": "linux-x64",
+    "version": "0.2.0",
+    "opencode": "2.1.2",
+    "cwd": "proj",
+    "model": "",
+    "seen": 1793001366.434,
+    "started": 1793001235.721,
+    "latest": "0.3.6",
+    "outdated": true,
+    "answers": true,
+    "self_updates": false,
+    "models_supported": false,
+    "mcp": null,
+    "models": null
+   },
+   "may_send": false,
+   "why": "no-bridge"
+  }
+ ]
+}

@@ -1,0 +1,380 @@
+{
+ "session": {
+  "id": "ses_fixture0000000001",
+  "title": "Contract check",
+  "status": "waiting",
+  "asking": true,
+  "since": null,
+  "model": {
+   "providerID": "workbench",
+   "providerName": "Workbench",
+   "modelID": "commandcode/claude-sonnet-4-5",
+   "name": "claude-sonnet-4-5 · Command Code",
+   "variant": "high"
+  },
+  "context": {
+   "used": 144000,
+   "limit": 512000,
+   "model": "commandcode/claude-sonnet-4-5",
+   "pct": 28
+  },
+  "computer": {
+   "name": "workstation",
+   "id": "obridge-fixture00001",
+   "connected": true,
+   "remote": true,
+   "host": "workstation",
+   "platform": "linux-x64",
+   "version": "0.3.6",
+   "opencode": "2.1.2",
+   "cwd": "/home/user/project",
+   "model": "",
+   "seen": 1793472990.949,
+   "started": 1793471816.639,
+   "latest": "0.3.6",
+   "outdated": false,
+   "answers": true,
+   "self_updates": true,
+   "models_supported": true,
+   "mcp": [
+    {
+     "name": "workbench",
+     "status": "connected"
+    },
+    {
+     "name": "schematic",
+     "status": "failed"
+    }
+   ],
+   "models": [
+    {
+     "providerID": "workbench",
+     "providerName": "Workbench",
+     "modelID": "commandcode/claude-sonnet-4-5",
+     "name": "claude-sonnet-4-5 · Command Code",
+     "context": 512000,
+     "output": 384000,
+     "vision": true,
+     "variants": [
+      "high",
+      "low"
+     ]
+    },
+    {
+     "providerID": "opencode",
+     "providerName": "OpenCode",
+     "modelID": "qwen3-coder",
+     "name": "Qwen3 Coder",
+     "context": 256000,
+     "output": 65536,
+     "vision": false,
+     "variants": []
+    }
+   ]
+  },
+  "directory": "~/projects/example",
+  "context_limit": null,
+  "context_options": {
+   "limit": null,
+   "max": 512000,
+   "steps": [
+    64000,
+    128000,
+    256000
+   ],
+   "min": 16000,
+   "can": true
+  }
+ },
+ "series": {
+  "context": [
+   {
+    "turn": 1,
+    "at": 1793471818639,
+    "used": 32000,
+    "limit": 512000
+   },
+   {
+    "turn": 2,
+    "at": 1793471997639,
+    "used": 37500,
+    "limit": 512000
+   },
+   {
+    "turn": 3,
+    "at": 1793472416639,
+    "used": 50000,
+    "limit": 512000
+   }
+  ],
+  "spans": [
+   {
+    "start": 1793471821639,
+    "end": 1793471996639,
+    "cat": "shell",
+    "tool": "shell",
+    "title": "npm test",
+    "more": 0,
+    "status": "completed",
+    "part": "m2"
+   },
+   {
+    "start": 1793471997639,
+    "end": 1793471999639,
+    "cat": "edit",
+    "tool": "edit",
+    "title": "rail.py",
+    "more": 0,
+    "status": "completed",
+    "part": "m3"
+   },
+   {
+    "start": 1793471999639,
+    "end": 1793471999839,
+    "cat": "other",
+    "tool": "todowrite",
+    "title": "",
+    "more": 0,
+    "status": "completed",
+    "part": "m3"
+   },
+   {
+    "start": 1793472417639,
+    "end": 1793472417639,
+    "cat": "read",
+    "tool": "read",
+    "title": "rail.py",
+    "more": 0,
+    "status": "running",
+    "part": "m6"
+   }
+  ],
+  "bands": [
+   {
+    "start": 1793471999839,
+    "end": 1793472176639,
+    "cat": "text",
+    "tool": "",
+    "title": "",
+    "status": "completed",
+    "part": "m3"
+   }
+  ],
+  "recent": [
+   {
+    "tool": "shell",
+    "cat": "shell",
+    "title": "npm test",
+    "more": 0,
+    "full": "npm test",
+    "status": "completed",
+    "start": 1793471821639,
+    "end": 1793471996639,
+    "part": "m2",
+    "add": null,
+    "del": null,
+    "error_head": ""
+   },
+   {
+    "tool": "edit",
+    "cat": "edit",
+    "title": "rail.py",
+    "more": 0,
+    "full": "",
+    "status": "completed",
+    "start": 1793471997639,
+    "end": 1793471999639,
+    "part": "m3",
+    "add": null,
+    "del": null,
+    "error_head": ""
+   },
+   {
+    "tool": "todowrite",
+    "cat": "other",
+    "title": "",
+    "more": 0,
+    "full": "",
+    "status": "completed",
+    "start": 1793471999639,
+    "end": 1793471999839,
+    "part": "m3",
+    "add": null,
+    "del": null,
+    "error_head": ""
+   },
+   {
+    "tool": "read",
+    "cat": "read",
+    "title": "rail.py",
+    "more": 0,
+    "full": "",
+    "status": "running",
+    "start": 1793472417639,
+    "end": null,
+    "part": "m6",
+    "add": null,
+    "del": null,
+    "error_head": ""
+   }
+  ],
+  "rate": {
+   "step": 60000,
+   "items": [
+    {
+     "at": 1793471760000,
+     "n": 900
+    },
+    {
+     "at": 1793471940000,
+     "n": 700
+    },
+    {
+     "at": 1793472360000,
+     "n": 300
+    }
+   ]
+  },
+  "diff_series": null
+ },
+ "todos": {
+  "items": [
+   {
+    "content": "Add the rail to the BOM",
+    "status": "completed"
+   },
+   {
+    "content": "Run the DRC",
+    "status": "in_progress"
+   },
+   {
+    "content": "Send the drawing",
+    "status": "pending"
+   }
+  ],
+  "done": 1,
+  "total": 3,
+  "at": 1793471999839
+ },
+ "files": {
+  "items": [
+   {
+    "path": "parts/rail.py",
+    "count": 1,
+    "at": 1793471999639,
+    "status": "completed",
+    "tools": [
+     "edit"
+    ],
+    "error": false,
+    "message": "m3",
+    "temp": false,
+    "outside": false,
+    "est_add": null,
+    "est_del": null
+   }
+  ],
+  "more": 0,
+  "temp": {
+   "items": [],
+   "more": 0
+  }
+ },
+ "tools": {
+  "items": [
+   {
+    "name": "bash",
+    "server": "",
+    "count": 1,
+    "errors": 0,
+    "tool": "shell",
+    "message": "m2"
+   },
+   {
+    "name": "edit",
+    "server": "",
+    "count": 1,
+    "errors": 0,
+    "tool": "edit",
+    "message": "m3"
+   },
+   {
+    "name": "read",
+    "server": "",
+    "count": 1,
+    "errors": 0,
+    "tool": "read",
+    "message": "m6"
+   },
+   {
+    "name": "todowrite",
+    "server": "",
+    "count": 1,
+    "errors": 0,
+    "tool": "todowrite",
+    "message": "m3"
+   }
+  ],
+  "more": 0
+ },
+ "tokens": {
+  "input": 98000,
+  "output": 12000,
+  "cost": 0.42,
+  "source": "session",
+  "messages": 0,
+  "cache_read": 41000,
+  "cache_write": 0
+ },
+ "at": 1793472991.6711621,
+ "messages": 6,
+ "complete": true,
+ "pending": [
+  {
+   "id": "ask_fixture00000001",
+   "kind": "form",
+   "form_kind": "question",
+   "title": "Which fastener?",
+   "fields": [
+    {
+     "key": "fastener",
+     "type": "string",
+     "title": "Fastener",
+     "description": "The one to use",
+     "options": [
+      {
+       "value": "m3",
+       "label": "M3",
+       "description": "Small"
+      },
+      {
+       "value": "m4",
+       "label": "M4",
+       "description": "Larger"
+      }
+     ],
+     "custom": true,
+     "required": true
+    },
+    {
+     "key": "count",
+     "type": "integer",
+     "title": "How many",
+     "description": "",
+     "options": [],
+     "custom": false,
+     "required": false,
+     "min": 1,
+     "max": 8
+    }
+   ],
+   "part": "p11",
+   "message": "m6",
+   "status": "pending",
+   "at": 1793472446.639,
+   "settled_at": null
+  }
+ ],
+ "may_answer": true,
+ "why": ""
+}

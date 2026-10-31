@@ -605,7 +605,13 @@ export interface WbcBridge {
   started: number | null;
   /** It takes pictures (wb-claude 0.2.0 on); a newer wb-claude is out. */
   images?: boolean;
+  /** It keeps itself current (0.3.2 on): only an older one is told how to update. */
+  self_updates?: boolean;
   outdated?: boolean;
+  /** What Claude's last turn was sent of its window (the Chat's "Context ... used"), when it reports it. */
+  context?: { used: number; limit: number; model: string; pct: number | null } | null;
+  /** The MCP servers on that computer and where each stands ("connected", "failed"), when it reports them. */
+  mcp?: { name: string; status: string }[];
 }
 
 /** One of one's own Claude Code sessions from the Claude pool (GET /api/wbc/sessions). Times in seconds. */
@@ -660,9 +666,13 @@ export interface WbcDetail extends WbcSession {
   images?: WbcImageRules;
 }
 
-/** A picture of one of the gateway's requests: pasted or mentioned with a prompt, or read by a tool. */
+/**
+ * A picture of one of the gateway's requests: pasted or mentioned with a prompt, or read by a tool. A picture
+ * that came with a line sent from the Chat has no request of its own - it is read by the turn's `message`
+ * (backend/wbclaude.py, turns: the delivered message's images) - so `req` is not there.
+ */
 export interface WbcPic {
-  req: string;
+  req?: string;
   n: number;
   type: string;
 }
@@ -691,6 +701,8 @@ export interface WbcTurn {
   cut_at?: number;
   /** An older gateway that says nothing about a text of exactly its old bound may have cut it. */
   maybe?: boolean;
+  /** A prompt whose turn never closed (stopped, or the stream broke): it asked and got no answer. */
+  interrupted?: boolean;
 }
 
 /** GET /api/wbc/sessions/{sid}/turns/{rid}/text: the whole of one turn; `available` false when only the
@@ -725,6 +737,22 @@ export interface WboModel {
   output: number | null;
   vision: boolean;
   variants: string[];
+}
+
+/** GET /api/wbo/sessions/{sid}/models: the models available on that computer, and the one the session runs. */
+export interface WboModels {
+  models: WboModel[];
+  selected_model?: WboSelectedModel | null;
+}
+
+/** PUT /api/wbo/sessions/{sid}/context: the window the session keeps to now (null: the model's own), and the
+ *  sizes it may pick. `send` is the line asking the run to switch, when one was needed. */
+export interface WboContext {
+  ok: boolean;
+  limit: number | null;
+  scope: string;
+  send?: string | null;
+  context_options?: { limit: number | null; max: number | null; steps: number[]; min: number; can: boolean };
 }
 
 export interface WboSelectedModel {
@@ -789,6 +817,9 @@ export interface WboSession {
   selected_model?: WboSelectedModel | null;
   model?: WboSelectedModel | string | null;
   models?: WboModel[];
+  /** The window this session keeps to (null: the model's own) and the sizes it may pick (the column's). */
+  context_limit?: number | null;
+  context_options?: { limit: number | null; max: number | null; steps: number[]; min: number; can: boolean };
   may_send: boolean;
   why: string;
 }
@@ -843,6 +874,8 @@ export interface WboSend {
   delivered_at: number | null;
   /** OpenCode's id of the message it became. */
   inbox: string | null;
+  /** On the line that asks the run to switch OpenCode's own model (never a line of the conversation). */
+  model?: WboSelectedModel;
   images?: { n: number; type: string; bytes: number }[];
   images_gone?: boolean;
 }
@@ -973,7 +1006,7 @@ export interface SidePrefs {
   pins: Record<SideGroup, string[]>;
   folds: Record<FoldGroup, boolean | null>;
   /** How much of an answer's work the Chat shows: the same on every device, as the server keeps it. */
-  chat: { detail: ChatDetail };
+  chat: { detail: ChatDetail; files?: boolean };
   /** The sections of a session's column (the OpenCode screen's sheet; the web's right-hand column), folded or
    *  open as the person left them: <section id> -> open. A section never touched is open. */
   panel: Record<string, boolean>;
@@ -1006,6 +1039,8 @@ export interface PanelFile {
   deletions?: number;
   est_add?: number | null;
   est_del?: number | null;
+  /** The tools whose calls touched it. */
+  tools?: string[];
 }
 
 export interface PanelRecentCall {
@@ -1042,9 +1077,9 @@ export interface PanelTool {
 export interface PanelSeries {
   context: { turn: number; at: number | null; used: number; limit: number; drop?: boolean }[];
   spans: { start: number; end: number; cat: string; tool: string; title: string; status: string; part: string;
-           n?: number; server?: string }[];
+           n?: number; server?: string; more?: number }[];
   bands?: { start: number; end: number; cat: string; tool: string; title: string; status: string; part: string;
-            n?: number; server?: string }[];
+            n?: number; server?: string; more?: number }[];
   recent?: PanelRecentCall[];
   rate: { step: number; items: { at: number; n: number }[] } | null;
   diff_series: { at: number; add: number; del: number }[] | null;

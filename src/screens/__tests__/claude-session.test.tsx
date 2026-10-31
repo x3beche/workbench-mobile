@@ -619,7 +619,8 @@ describe('a long answer on the phone', () => {
           at: NOW - 60,
           remote: true,
           message: 'm_p',
-          images: [{ req: 'p1', n: 0, type: 'image/png' }],
+          // a line sent from the Chat has no gateway request of its own: the picture is the message's
+          images: [{ n: 0, type: 'image/png' }],
         },
       ],
       more: false,
@@ -629,5 +630,9 @@ describe('a long answer on the phone', () => {
     // in the conversation, as the picture it was - and not again as a line "on its way"
     expect(screen.getByTestId('wbc-pic')).toBeTruthy();
     expect(screen.queryByTestId('wbc-pending-m_p')).toBeNull();
+    // read from the message it came with, not from a request the turn does not have
+    expect((c as unknown as { wbcImage: jest.Mock }).wbcImage.mock.calls.map((x) => x[0])).toContain(
+      '/api/wbc/sessions/s1/messages/m_p/images/0',
+    );
   });
 });

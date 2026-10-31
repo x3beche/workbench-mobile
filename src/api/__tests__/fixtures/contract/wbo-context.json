@@ -1,0 +1,17 @@
+{
+ "ok": true,
+ "limit": null,
+ "scope": "session",
+ "send": null,
+ "context_options": {
+  "limit": null,
+  "max": 512000,
+  "steps": [
+   64000,
+   128000,
+   256000
+  ],
+  "min": 16000,
+  "can": true
+ }
+}

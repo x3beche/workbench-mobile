@@ -58,7 +58,7 @@ import type {
   WboAnswer,
   WboAsk,
   WboDetail,
-  WboModel,
+  WboModels,
   WboPanel,
   WboSelectedModel,
   WboSend,
@@ -827,11 +827,8 @@ export class WorkbenchClient {
   }
 
   /** The models available to OpenCode on that computer. */
-  async wboModels(sid: string): Promise<{ models: WboModel[]; selected_model?: WboSelectedModel | null }> {
-    return this.request<{ models: WboModel[]; selected_model?: WboSelectedModel | null }>(
-      'GET',
-      `/api/wbo/sessions/${encodeURIComponent(sid)}/models`,
-    );
+  async wboModels(sid: string): Promise<WboModels> {
+    return this.request<WboModels>('GET', `/api/wbo/sessions/${encodeURIComponent(sid)}/models`);
   }
 
   /** Where a picture sent with a line is (read with wbcImage). */

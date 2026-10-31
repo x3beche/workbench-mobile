@@ -1,0 +1,116 @@
+{
+ "session_id": "wbc_fixture0000000001",
+ "name": "wbc_cont",
+ "title": "",
+ "status": "active",
+ "computer": "workstation",
+ "first_ts": 1793471816.639,
+ "last_ts": 1793472990.949,
+ "prompts": null,
+ "requests": null,
+ "known": false,
+ "mine": true,
+ "owner": {
+  "id": "0aa1b2c3d4e5f607",
+  "name": "Contract computer"
+ },
+ "bridge": {
+  "id": "wbcbridge-fixture01",
+  "connected": true,
+  "state": "idle",
+  "detail": "",
+  "remote": true,
+  "host": "workstation",
+  "platform": "linux",
+  "version": "0.3.6",
+  "cwd": "/home/user/project",
+  "queue": 0,
+  "seen": 1793472990.949,
+  "started": 1793471816.639,
+  "images": true,
+  "self_updates": true,
+  "context": {
+   "used": 210000,
+   "limit": 200000,
+   "model": "claude-sonnet-4-5",
+   "pct": 100
+  },
+  "mcp": [
+   {
+    "name": "workbench",
+    "status": "connected"
+   }
+  ],
+  "outdated": false
+ },
+ "may_send": true,
+ "why": "",
+ "messages": [
+  {
+   "id": "a1b2c3d4e5f60718",
+   "text": "Run the checks on the rail.",
+   "by": {
+    "id": "0aa1b2c3d4e5f607",
+    "name": "Test account"
+   },
+   "status": "delivered",
+   "detail": "",
+   "error": "",
+   "at": 1793471816.639,
+   "updated": 1793471818.639,
+   "delivered_at": 1793471817.639,
+   "images": [
+    {
+     "n": 1,
+     "type": "image/png",
+     "bytes": 20480
+    }
+   ],
+   "images_gone": false
+  },
+  {
+   "id": "a1b2c3d4e5f60719",
+   "text": "Workbench: the work under this session changed.",
+   "by": {
+    "id": "0aa1b2c3d4e5f607",
+    "name": "Test account"
+   },
+   "status": "delivered",
+   "detail": "",
+   "error": "",
+   "at": 1793471996.639,
+   "updated": 1793471998.639,
+   "delivered_at": 1793471997.639,
+   "images": [],
+   "images_gone": false,
+   "kind": "notify"
+  },
+  {
+   "id": "a1b2c3d4e5f6071a",
+   "text": "Stop after the DRC.",
+   "by": {
+    "id": "0aa1b2c3d4e5f607",
+    "name": "Test account"
+   },
+   "status": "queued",
+   "detail": "",
+   "error": "",
+   "at": 1793472536.643,
+   "updated": 1793472536.643,
+   "delivered_at": null,
+   "images": [],
+   "images_gone": false
+  }
+ ],
+ "mark": "[remote message from Workbench]",
+ "images": {
+  "max": 4,
+  "bytes": 5242880,
+  "types": [
+   "image/png",
+   "image/jpeg",
+   "image/gif",
+   "image/webp"
+  ]
+ }
+}

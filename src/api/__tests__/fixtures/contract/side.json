@@ -1,0 +1,17 @@
+{
+ "pins": {
+  "claude": [],
+  "opencode": []
+ },
+ "folds": {
+  "claude": null,
+  "opencode": null,
+  "rooms": null,
+  "agents": true
+ },
+ "chat": {
+  "detail": "normal",
+  "files": true
+ },
+ "panel": {}
+}

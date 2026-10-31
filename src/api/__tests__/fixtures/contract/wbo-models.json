@@ -1,0 +1,34 @@
+{
+ "models": [
+  {
+   "providerID": "workbench",
+   "providerName": "Workbench",
+   "modelID": "commandcode/claude-sonnet-4-5",
+   "name": "claude-sonnet-4-5 · Command Code",
+   "context": 512000,
+   "output": 384000,
+   "vision": true,
+   "variants": [
+    "high",
+    "low"
+   ]
+  },
+  {
+   "providerID": "opencode",
+   "providerName": "OpenCode",
+   "modelID": "qwen3-coder",
+   "name": "Qwen3 Coder",
+   "context": 256000,
+   "output": 65536,
+   "vision": false,
+   "variants": []
+  }
+ ],
+ "selected_model": {
+  "providerID": "workbench",
+  "providerName": "Workbench",
+  "modelID": "commandcode/claude-sonnet-4-5",
+  "name": "claude-sonnet-4-5 · Command Code",
+  "variant": "high"
+ }
+}

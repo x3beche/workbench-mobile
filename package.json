@@ -61,7 +61,8 @@
     "typecheck": "tsc --noEmit",
     "pretest": "npm run typecheck",
     "test": "jest",
-    "check": "npm run lint && npm test -- --ci"
+    "check": "npm run lint && npm test -- --ci",
+    "contract": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/contract-check.ts"
   },
   "private": true,
   "jest": {

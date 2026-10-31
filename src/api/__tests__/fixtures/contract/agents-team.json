@@ -1,0 +1,50 @@
+{
+ "manager": "wbo:ses_fixture0000000001",
+ "agents": [
+  {
+   "agent": "wbc:wbc_fixture0000000001",
+   "kind": "Claude Code",
+   "name": "wbc_cont",
+   "computer": "workstation",
+   "directory": "/home/user/project",
+   "state": "idle",
+   "last": 1793472990.949,
+   "context": {
+    "used": 210000,
+    "limit": 200000,
+    "model": "claude-sonnet-4-5"
+   },
+   "level": 1,
+   "open_tasks": [
+    {
+     "task": "c0ffee",
+     "title": "Check the rail section",
+     "status": "interrupted"
+    }
+   ]
+  }
+ ],
+ "tasks": [
+  {
+   "task": "c0ffee",
+   "agent": "wbc:wbc_fixture0000000001",
+   "title": "Check the rail section",
+   "status": "working",
+   "created": 1793471816.639,
+   "updated": 1793472605.517,
+   "reports": [
+    {
+     "status": "progress",
+     "summary": "The DRC is clean so far.",
+     "at": 1793471996.639,
+     "by": "wbc:wbc_fixture0000000001",
+     "by_name": "Contract check",
+     "key": "workstation"
+    }
+   ],
+   "agent_state": "idle",
+   "agent_name": "wbc_cont",
+   "agent_last": 1793472990.949
+  }
+ ]
+}

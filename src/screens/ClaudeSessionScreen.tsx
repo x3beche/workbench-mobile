@@ -706,7 +706,18 @@ const TurnRow = memo(function TurnRow({
   t: WbcStrings;
   onZoom: (uri: string) => void;
 }) {
-  const paths = (turn.images ?? []).map((p) => client?.wbcTurnImagePath(sid, p.req, p.n) ?? '');
+  // A picture with a request of its own, or one that came with a line sent from the Chat: that one is the
+  // message's (backend/wbclaude.py; a turn with no `req` and no `message` has nowhere to read it from).
+  const paths = (turn.images ?? []).map(
+    (p) =>
+      client
+        ? p.req
+          ? client.wbcTurnImagePath(sid, p.req, p.n)
+          : turn.message
+            ? client.wbcMessageImagePath(sid, turn.message, p.n)
+            : ''
+        : '',
+  );
   // The whole of it, once somebody asked: a page of turns carries the first part of a long one and says how
   // much more there is (backend/wbclaude.py) - the answer is never cut in silence. What was read is kept with
   // the turn it was read for, so another turn arriving in this row (or the same one, longer) starts empty

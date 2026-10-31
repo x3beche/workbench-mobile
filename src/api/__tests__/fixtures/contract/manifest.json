@@ -1,0 +1,80 @@
+[
+ {
+  "file": "wbc-sessions.json",
+  "at": "sessions",
+  "type": "WbcSession[]",
+  "from": "GET /api/wbc/sessions"
+ },
+ {
+  "file": "wbc-detail.json",
+  "at": "",
+  "type": "WbcDetail",
+  "from": "GET /api/wbc/sessions/{sid}"
+ },
+ {
+  "file": "wbc-turns.json",
+  "at": "",
+  "type": "WbcTurnsPage",
+  "from": "GET /api/wbc/sessions/{sid}/turns (the endpoint on a synthetic request log: the pool holds no turns of the test account)"
+ },
+ {
+  "file": "wbo-sessions.json",
+  "at": "sessions",
+  "type": "WboSession[]",
+  "from": "GET /api/wbo/sessions"
+ },
+ {
+  "file": "wbo-detail.json",
+  "at": "",
+  "type": "WboDetail",
+  "from": "GET /api/wbo/sessions/{sid}"
+ },
+ {
+  "file": "wbo-panel.json",
+  "at": "",
+  "type": "WboPanel",
+  "from": "GET /api/wbo/sessions/{sid}/panel"
+ },
+ {
+  "file": "wbo-models.json",
+  "at": "",
+  "type": "WboModels",
+  "from": "GET /api/wbo/sessions/{sid}/models"
+ },
+ {
+  "file": "wbo-context.json",
+  "at": "",
+  "type": "WboContext",
+  "from": "PUT /api/wbo/sessions/{sid}/context (the same window it had: no switch was asked)"
+ },
+ {
+  "file": "agents-links.json",
+  "at": "",
+  "type": "AgentLinks",
+  "from": "GET /api/agents/links"
+ },
+ {
+  "file": "agents-team.json",
+  "at": "",
+  "type": "TeamAnswer",
+  "from": "GET /api/agents/team/{manager}"
+ },
+ {
+  "file": "side.json",
+  "at": "",
+  "type": "SidePrefs",
+  "from": "GET /api/me/side"
+ },
+ {
+  "file": "release.json",
+  "at": "",
+  "type": "Release",
+  "from": "GET /api/public/m/app.json, as src/update/release.ts parseRelease reads it"
+ },
+ {
+  "file": "bus.json",
+  "at": "",
+  "type": "BusEvent",
+  "from": "the account bus stream (S2 acct/<id>/bus)"
+ }
+]

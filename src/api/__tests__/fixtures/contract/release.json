@@ -1,0 +1,13 @@
+{
+ "version": "1.9.29",
+ "versionCode": 64,
+ "size": 41430272,
+ "sha256": "94df0f729a28ecd2fb99a7579bba0baabaeeac873611d1a5dd0066ad76335aee",
+ "url": "/api/public/m/app.apk",
+ "notes": {
+  "en": "Team: one list now - an agent is a block, its tasks under it, and the window says \"full\" when it is over.\nThe computer is in the session's title line; the COMPUTER section is gone and the folder sits under the sheet's title, one tap to copy.\nWorkbench's notifications are read by the marker the server keeps, and a task's number opens that task in the Team sheet.\nA line says \"delivered\" only until the conversation has it; a picture sent alone and a line typed mid-turn sit in the flow.\nOpenCode sessions can be renamed from the drawer's row menu.",
+  "tr": "Ekip: tek liste - bir ajan bir blok, görevleri altında; pencere dolduğunda \"dolu\" diyor.\nBilgisayar artık oturumun başlık satırında; COMPUTER bölümü kalktı, klasör sheet başlığının altında ve dokununca kopyalanıyor.\nWorkbench bildirimleri sunucunun tuttuğu işaretten okunuyor; görev numarası o görevi Team sheet'inde açıyor.\n\"delivered\" etiketi mesaj konuşmaya girene kadar görünüyor; tek başına gönderilen resim ve tur ortasında yazılan satır akışta duruyor.\nOpenCode oturumları çekmecedeki satır menüsünden yeniden adlandırılabiliyor."
+ },
+ "minSdk": 24,
+ "publishedAt": "2026-10-31T17:56:33+00:00"
+}
