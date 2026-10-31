@@ -109,11 +109,11 @@ export function SessionPanelSheet({
   }, [client, sid, t]);
 
   const flip = (id: PanelSectionId) => {
-    const open = folds[id] !== false;
+    const open = isOpen(id);
     setFolds((f) => ({ ...f, [id]: !open }));
     client?.sidePanel(id, !open).catch(() => undefined);
   };
-  const isOpen = (id: PanelSectionId) => folds[id] !== false;
+  const isOpen = (id: PanelSectionId) => (id === 'computer' ? folds[id] === true : folds[id] !== false);
 
   const state = panel
     ? panel.session.status === 'busy'
@@ -177,7 +177,21 @@ export function SessionPanelSheet({
                   {sec.label}
                 </Text>
                 {sec.id === 'files' ? <DiffSpark points={panel?.series?.diff_series ?? []} /> : null}
-                {sec.count ? (
+                {sec.id === 'computer' && panel.session.computer ? (
+                  <View style={s.compHeaderRight} testID="wbo-count-computer">
+                    {footFlag(panel.session.computer) ? (
+                      <View style={s.warnBadge}>
+                        <Text style={s.warnBadgeText}>{footFlag(panel.session.computer)!.text}</Text>
+                      </View>
+                    ) : null}
+                    <View style={s.compNameRow}>
+                      <Text style={[s.count, sec.warn && !panel.session.computer.connected ? s.warn : null]} numberOfLines={1}>
+                        {panel.session.computer.host || panel.session.computer.name || t.opencode}
+                      </Text>
+                      <View style={[s.compDot, { backgroundColor: panel.session.computer.connected ? colors.ok : colors.inkDim }]} />
+                    </View>
+                  </View>
+                ) : sec.count ? (
                   <Text style={[s.count, sec.warn ? s.warn : null]} numberOfLines={1} testID={`wbo-count-${sec.id}`}>
                     {sec.count}
                   </Text>
@@ -211,11 +225,18 @@ export function SessionPanelSheet({
                       onJump={onJump}
                     />
                   ) : null}
+                  {sec.id === 'computer' ? (
+                    <ComputerBody
+                      panel={panel}
+                      t={t}
+                      onCopy={copy}
+                      copied={copied}
+                    />
+                  ) : null}
                 </View>
               ) : null}
             </View>
           ))}
-          {panel?.session ? <FootLine panel={panel} t={t} onCopy={copy} copied={copied} /> : null}
         </SafeAreaView>
       </ScrollView>
     </TallSheet>
@@ -483,7 +504,7 @@ function estimate(panel: WboPanel, t: WboStrings): string {
   return turns > 0 && turns < 10_000 ? t.compactionTurns(turns) : '';
 }
 
-function FootLine({
+function ComputerBody({
   panel,
   t,
   onCopy,
@@ -495,46 +516,69 @@ function FootLine({
   copied: boolean;
 }) {
   const c = panel.session.computer;
-  const [open, setOpen] = useState(false);
   if (!c) return null;
-  const flag = footFlag(c);
   const dir = footDir(c.cwd || panel.session.directory || '');
+  const mcp = c.mcp ?? [];
+  const ok = mcp.filter((m) => m.status === 'connected').length;
+  const mcpText = mcp.length
+    ? (mcp.length === 1
+        ? `${mcp[0].name} ${mcp[0].status === 'connected' ? '✓' : '✕'}`
+        : `${ok}/${mcp.length}`)
+    : (c.connected ? 'none' : '—');
+  const mcpWarn = mcp.length > 0 && ok < mcp.length;
+
   return (
-    <View style={s.footBox}>
-      <Pressable onPress={() => setOpen(!open)} accessibilityRole="button" accessibilityState={{ expanded: open }}
-                 style={s.footRow} testID="wbo-panel-foot">
-        <View style={[s.footDot, { backgroundColor: c.connected ? colors.ok : colors.inkDim }]} />
-        <Text style={s.footComp} numberOfLines={1}>
-          {`${c.host || c.name || 'OpenCode'} · ${c.connected ? t.connectedShort : t.notConnectedShort}`}
-        </Text>
-        {flag ? (
-          <View style={s.footBadge}>
-            <Text style={s.footBadgeText}>{flag.text}</Text>
-          </View>
-        ) : null}
-      </Pressable>
-      {dir ? (
-        <Pressable onPress={() => onCopy(c.cwd || panel.session.directory || '')} accessibilityRole="button"
-                   style={s.dirRow} testID="wbo-panel-cwd">
-          <Text style={s.footDir} numberOfLines={1}>
-            {dir}
+    <View style={s.compBody} testID="wbo-panel-computer">
+      {/* Computer: name ● */}
+      <View style={s.compRow}>
+        <Text style={s.compLabel}>{t.computer}</Text>
+        <View style={s.compValRow}>
+          <Text style={s.compValText} numberOfLines={1}>
+            {c.host || c.name || t.opencode}
           </Text>
-          {copied ? <Text style={s.copiedTag}>{t.copied}</Text> : null}
+          <View style={[s.compDot, { backgroundColor: c.connected ? colors.ok : colors.inkDim }]} />
+        </View>
+      </View>
+
+      {/* Folder: path shortened from start; tap to copy */}
+      {dir ? (
+        <Pressable
+          onPress={() => onCopy(c.cwd || panel.session.directory || '')}
+          accessibilityRole="button"
+          accessibilityHint={t.copy}
+          style={s.compRow}
+          testID="wbo-panel-cwd"
+        >
+          <Text style={s.compLabel}>{t.folder}</Text>
+          <View style={s.compValRow}>
+            <Text style={[s.compValText, s.mono]} numberOfLines={1}>
+              {dir}
+            </Text>
+            {copied ? <Text style={s.copiedTag}>{t.copied}</Text> : null}
+          </View>
         </Pressable>
       ) : null}
-      {open ? (
-        <View style={s.footMore} testID="wbo-panel-footmore">
-          <Text style={s.dim} numberOfLines={1}>{`${c.platform || ''} · OpenCode ${c.opencode || '?'}`}</Text>
-          {c.outdated && !c.self_updates ? <Text style={s.warn}>{t.updateWboLong}</Text> : null}
-          {(c.mcp ?? []).length
-            ? c.mcp!.map((srv) => (
-                <Text key={srv.name} style={s.dim} numberOfLines={1}>
-                  {`MCP · ${srv.name} · ${srv.status || '?'}`}
-                </Text>
-              ))
-            : null}
+
+      {/* wb-opencode: version (with update note if out of date) */}
+      <View style={s.compRow}>
+        <Text style={s.compLabel}>wb-opencode</Text>
+        <View style={s.compValCol}>
+          <Text style={[s.compValText, s.mono]}>
+            {c.version || '?'}
+          </Text>
+          {c.outdated && !c.self_updates ? (
+            <Text style={s.updateNote}>{t.updateWboLong}</Text>
+          ) : null}
         </View>
-      ) : null}
+      </View>
+
+      {/* MCP: state (e.g. workbench ✓, or 1/2 warn) */}
+      <View style={s.compRow}>
+        <Text style={s.compLabel}>MCP</Text>
+        <Text style={[s.compValText, s.mono, mcpWarn ? s.warn : null]}>
+          {mcpText}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -718,15 +762,31 @@ const s = StyleSheet.create({
   todosLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.xs, minHeight: 28 },
   todoBar: { width: 64, height: 3, borderRadius: 2, backgroundColor: colors.line, overflow: 'hidden' },
   todoBarFill: { height: 3, borderRadius: 2, backgroundColor: colors.accent },
-  footBox: { borderTopWidth: 1, borderTopColor: colors.line, marginTop: space.sm, paddingTop: 6, gap: 2 },
-  footRow: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 24 },
-  footDot: { width: 6, height: 6, borderRadius: 3 },
-  footComp: { flex: 1, fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
-  footBadge: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 8, borderWidth: 1, borderColor: colors.line },
-  footBadgeText: { fontFamily: fonts.mono, fontSize: 9.5, color: colors.warn },
-  dirRow: { paddingLeft: 12 },
-  footDir: { fontFamily: fonts.mono, fontSize: 10, color: colors.inkDim },
+  compHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' },
+  compNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  compDot: { width: 5, height: 5, borderRadius: 2.5 },
+  warnBadge: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  warnBadgeText: { fontFamily: fonts.mono, fontSize: 9.5, color: colors.warn },
+  compBody: { paddingVertical: 4, gap: 6 },
+  compRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+    gap: 12,
+  },
+  compLabel: { fontFamily: fonts.sans, fontSize: 11, color: colors.inkDim },
+  compValRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
+  compValCol: { alignItems: 'flex-end', flexShrink: 1 },
+  compValText: { fontFamily: fonts.sans, fontSize: 11, color: colors.ink, textAlign: 'right' },
+  mono: { fontFamily: fonts.mono },
   copiedTag: { fontFamily: fonts.sans, fontSize: 9.5, color: colors.ok, marginLeft: 4 },
-  footMore: { paddingLeft: 12, paddingTop: 2, gap: 2 },
+  updateNote: { fontFamily: fonts.sans, fontSize: 10, color: colors.warn, marginTop: 1 },
   tempRow: { opacity: 0.8 },
 });

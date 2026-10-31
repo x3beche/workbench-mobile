@@ -70,6 +70,16 @@ export function panelSections(p: WboPanel | null, t: WboStrings): PanelSection[]
       warn: false,
     });
   }
+  if (p.session.computer) {
+    const c = p.session.computer;
+    const flag = footFlag(c);
+    out.push({
+      id: 'computer',
+      label: t.computer,
+      count: c.host || c.name || t.opencode,
+      warn: !c.connected || !!flag,
+    });
+  }
   return out;
 }
 
