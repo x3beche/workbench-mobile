@@ -112,6 +112,13 @@ export function unmark(text: string, mark = MARK): string {
   return text.startsWith(mark) ? text.slice(mark.length).trimStart() : text;
 }
 
+/** The messages already in the flow: a turn that came from a Chat message names it, so that message is no
+ *  longer "on its way" - its delivered label goes with it. A picture alone has no words to know it by, and a
+ *  line typed while a turn was running has no prompt of its own: the id is what tells them apart. */
+export function inFlowIds(turns: { message?: string }[]): Set<string> {
+  return new Set(turns.map((t) => t.message).filter((id): id is string => !!id));
+}
+
 /**
  * The lines sent from here still on their way, and the ones just delivered
  * that the conversation does not show yet (the gateway records the prompt a
@@ -126,12 +133,15 @@ export function pendingOf(
   const flat = (x: string) => x.replace(/\s+/g, ' ').trim();
   const remote = turns.filter((x) => x.remote);
   const shown = remote.map((x) => flat(unmark(x.text, mark)));
+  const inFlow = inFlowIds(turns);
   const recent = now - 600;
-  // A picture alone has no words to know it by: the remote prompt with pictures that came after it was delivered.
+  // A turn naming the message is the one that came from it, whatever its words were; older servers name none,
+  // so the words (and, for a picture alone, the prompt with pictures after it) still say it.
   const there = (m: WbcMessage) =>
-    m.text.trim()
+    inFlow.has(m.id) ||
+    (m.text.trim()
       ? shown.some((x) => x.startsWith(flat(m.text).slice(0, 60)))
-      : remote.some((x) => x.at >= (m.delivered_at ?? 0) - 60 && !!x.images?.length);
+      : remote.some((x) => x.at >= (m.delivered_at ?? 0) - 60 && !!x.images?.length));
   return messages.filter((m) =>
     m.status !== 'delivered'
       ? (m.at ?? 0) > recent || m.status === 'queued' || m.status === 'waiting'

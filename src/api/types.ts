@@ -673,6 +673,9 @@ export interface WbcTurn {
   remote?: boolean;
   model?: string;
   cut?: boolean;
+  /** The Chat message this turn came from - a prompt the gateway did not mark, so the page can tell which of
+   *  its own messages are in the conversation (backend/wbclaude.py: `turns`). */
+  message?: string;
   images?: WbcPic[];
   /** The text here is the first part of a longer one (`full_len` characters): the rest is asked for on its own
    *  (backend/wbclaude.py, GET .../turns/{id}/text) - never cut in silence. */

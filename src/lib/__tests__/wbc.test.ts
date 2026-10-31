@@ -188,6 +188,24 @@ describe('lines sent from here', () => {
     expect(pendingOf([pic], [], MARK, NOW)).toHaveLength(1);
   });
 
+  it('knows a message by the turn that came from it, whatever its words were', () => {
+    // A line typed while a turn was running opens its own turn there, and a picture alone has no words at all:
+    // the turn names the message it came from, so it is in the conversation and its label goes (wbclaude.py).
+    const mid = msg({ id: 'd2', status: 'delivered', delivered_at: NOW - 30, text: 'and the linter' });
+    const pic = msg({ id: 'p', text: '', status: 'delivered', delivered_at: NOW - 30,
+      images: [{ n: 0, type: 'image/png', bytes: 9 }] });
+    const turns = [
+      turn('t1', 'user', NOW - 40, { remote: true, text: `${MARK} run the tests` }),
+      turn('t2', 'user', NOW - 20, { remote: true, text: `${MARK} the linter takes a flag`, message: 'd2' }),
+      turn('t3', 'user', NOW - 10, { remote: true, text: MARK, message: 'p',
+        images: [{ req: 't3', n: 0, type: 'image/png' }] }),
+    ];
+    expect(pendingOf([mid, pic], turns, MARK, NOW)).toEqual([]);
+    // one the turns do not name is still on its way
+    const aside = msg({ id: 'd9', status: 'delivered', delivered_at: NOW - 30, text: 'ship it' });
+    expect(pendingOf([aside], turns, MARK, NOW).map((m) => m.id)).toEqual(['d9']);
+  });
+
   it('says what became of each, in both languages', () => {
     expect(statusWord(msg({ status: 'queued' }), en)).toBe('sent — waiting for the computer');
     expect(statusWord(msg({ status: 'waiting' }), en)).toBe('queued — Claude is working');

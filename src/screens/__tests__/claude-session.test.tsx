@@ -471,4 +471,80 @@ describe('a long answer on the phone', () => {
     expect(screen.queryByTestId('wbc-turn-user')).toBeNull();
     expect(screen.getByText('MOBIL-PANEL-YAMA-1.9.27')).toBeTruthy();
   });
+
+  it('does not say "delivered" again once the turn names the message it came from', async () => {
+    const sent = (over: Partial<WbcMessage>): WbcMessage => ({
+      id: 'm',
+      text: 'and the linter',
+      by: { id: 'u1', name: 'Ada' },
+      status: 'delivered',
+      detail: '',
+      error: '',
+      at: NOW - 310,
+      updated: NOW - 300,
+      delivered_at: NOW - 300,
+      ...over,
+    });
+    const answered = sent({ id: 'm_a', text: 'Run the DRC' });
+    const waiting = sent({ id: 'm_w', at: NOW - 30, updated: NOW - 20, delivered_at: NOW - 20 });
+    const c = client({ messages: [answered, waiting] });
+    c.wbcTurns.mockImplementation(async (_sid: string, _limit: number, before?: number | null) =>
+      before
+        ? { turns: [], more: false, before: null }
+        : {
+            turns: [
+              { id: 'r1', role: 'user', text: 'Why does the rail sag?', at: NOW - 600 },
+              { id: 'r2', role: 'assistant', text: 'Because of FB2.', at: NOW - 590 },
+              // the turn the sent line opened, and the answer after it - its words are not the line's, only its id is
+              { id: 'r3', role: 'user', text: `${MARK} go ahead and run the DRC`, at: NOW - 300, remote: true, message: 'm_a' },
+              { id: 'r4', role: 'assistant', text: 'Cleared.', at: NOW - 250 },
+            ],
+            more: false,
+            before: null,
+          },
+    );
+    await open(c);
+    // the answered one is the conversation's, drawn once, with no label under it
+    expect(screen.queryByTestId('wbc-pending-m_a')).toBeNull();
+    expect(screen.queryByText('Run the DRC')).toBeNull();
+    expect(screen.getByText('go ahead and run the DRC')).toBeTruthy();
+    // the one no turn names yet is still on its way, with its label
+    expect(screen.getByTestId('wbc-pending-m_w')).toBeTruthy();
+    expect(screen.getByTestId('wbc-status')).toHaveTextContent('delivered');
+  });
+
+  it('draws a picture sent alone as the question it was, in the flow', async () => {
+    const pic: WbcMessage = {
+      id: 'm_p',
+      text: '',
+      by: { id: 'u1', name: 'Ada' },
+      status: 'delivered',
+      detail: '',
+      error: '',
+      at: NOW - 70,
+      updated: NOW - 60,
+      delivered_at: NOW - 60,
+      images: [{ n: 0, type: 'image/png', bytes: 9 }],
+    };
+    const c = client({ messages: [pic] });
+    c.wbcTurns.mockImplementation(async () => ({
+      turns: [
+        {
+          id: 'r9',
+          role: 'user',
+          text: MARK,
+          at: NOW - 60,
+          remote: true,
+          message: 'm_p',
+          images: [{ req: 'p1', n: 0, type: 'image/png' }],
+        },
+      ],
+      more: false,
+      before: null,
+    }));
+    await open(c);
+    // in the conversation, as the picture it was - and not again as a line "on its way"
+    expect(screen.getByTestId('wbc-pic')).toBeTruthy();
+    expect(screen.queryByTestId('wbc-pending-m_p')).toBeNull();
+  });
 });
