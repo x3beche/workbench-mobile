@@ -43,7 +43,7 @@ import { Appear } from '../components/Appear';
 import { ChatHeader } from '../components/ChatHeader';
 import { AskCard } from '../components/AskCard';
 import { Composer } from '../components/Composer';
-import { ArrowUpToLine, Camera, Images, Info, Paperclip, SquareCode, X } from '../components/icons';
+import { Camera, Images, Info, Paperclip, SquareCode, X } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Markdown } from '../components/Markdown';
 import { CompactWork, Steps, Thinking, TypingDots } from '../components/MessageItem';
@@ -57,7 +57,7 @@ import { SessionPanelSheet } from '../components/SessionPanelSheet';
 import { modelName } from '../components/MessageItem';
 import { chatDetailStrings } from '../lib/chatDetail';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
-import { shortK } from '../lib/wboPanel';
+import { footFlag, shortK } from '../lib/wboPanel';
 import { ago } from '../lib/time';
 import { admit, IMAGE_RULES, pickedOf, serverWords, type Picked } from '../lib/wbc';
 import { readPictureHead } from '../lib/pictureFile';
@@ -433,7 +433,13 @@ export function OpencodeSessionScreen({
   /** The detail setting's words, in the app's language. */
   const dw = chatDetailStrings(uiLang(lang));
   const dot = wboDot(s);
-  const sub = [t.opencode, s?.computer, s?.directory].filter(Boolean).join(' · ');
+  // Where it runs is the header's business now (the sheet keeps the folder): "OpenCode · x33-workstation".
+  const computerName = s?.bridge?.host || s?.computer || '';
+  const sub = [t.opencode, computerName].filter(Boolean).join(' · ');
+  /** A newer wb-opencode (connected or not), or an MCP server that fell off: one small warn word in the line. */
+  const subFlag = s?.bridge?.outdated
+    ? { text: t.updateShort, tip: t.updateWboLong }
+    : s?.bridge ? footFlag(s.bridge) : null;
   const canAnswer = (a: WboAsk) => a.status === 'pending' && !a.local && !!s?.may_send;
   const why = s && !s.may_send ? wboWhy(s, t) : null;
 
@@ -671,38 +677,44 @@ export function OpencodeSessionScreen({
           </>
         }
         sub={
-          /* The column (the sheet) says the state, the model, the window and the computer; while it is open
-             the header says the session's name and nothing that is written there - one thing, one place. */
+          /* The cell says the state and where it runs ("ready · OpenCode · x33-workstation"); the sheet says
+             the folder, the model and the window while it is open - one fact, one place. */
           column ? null : (
             <>
               {dot ? <StateDot s={dot} /> : null}
-              <Text style={st.sub} numberOfLines={1} testID="wbo-state">
-                {s && head ? <Text style={st.state}>{head}</Text> : null}
-                {s && head ? ` · ${sub}` : sub}
-              </Text>
+              {/* The state gives way first: where it runs is the fact this line is for. */}
+              <View style={st.stateLine} testID="wbo-state">
+                {s && head ? (
+                  <Text style={st.state} numberOfLines={1}>
+                    {head}
+                  </Text>
+                ) : null}
+                <Text style={st.sub} numberOfLines={1}>
+                  {s && head ? ` · ${sub}` : sub}
+                </Text>
+              </View>
+              {subFlag ? (
+                // The one thing wrong with that computer: an old wb-opencode, an MCP server that fell off.
+                <Pressable
+                  onPress={() => setNotice(subFlag.tip)}
+                  accessibilityRole="button"
+                  accessibilityLabel={subFlag.tip}
+                  accessibilityHint={subFlag.tip}
+                  hitSlop={6}
+                  testID="wbo-flag"
+                >
+                  <Text style={st.subFlag} numberOfLines={1}>
+                    {subFlag.text}
+                  </Text>
+                </Pressable>
+              ) : null}
             </>
           )
         }
         below={
-          (s?.bridge?.connected && !s.bridge.remote) || update ? (
+          s?.bridge?.connected && !s.bridge.remote ? (
             <View style={st.tags}>
-              {s?.bridge?.connected && !s.bridge.remote ? <Text style={st.tag}>{t.remoteOff}</Text> : null}
-              {update ? (
-                // An older wb-opencode on that computer (before 0.2.0 it cannot hand answers to OpenCode), connected or not.
-                <Pressable
-                  onPress={() => setNotice(t.updateWboLong)}
-                  accessibilityRole="button"
-                  accessibilityLabel={update}
-                  accessibilityHint={t.updateWboLong}
-                  style={st.update}
-                  testID="wbo-outdated"
-                >
-                  <Glyph icon={ArrowUpToLine} size={13} color={colors.warn} />
-                  <Text style={st.updateText} numberOfLines={1}>
-                    {update}
-                  </Text>
-                </Pressable>
-              ) : null}
+              <Text style={st.tag}>{t.remoteOff}</Text>
             </View>
           ) : null
         }
@@ -1002,8 +1014,10 @@ function SendRow({
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
-  state: { fontFamily: fonts.sansMedium, color: colors.ink },
-  sub: { flexShrink: 1, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  state: { flexShrink: 1, fontFamily: fonts.sansMedium, color: colors.ink },
+  stateLine: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, minWidth: 0 },
+  sub: { flexShrink: 0, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  subFlag: { flexShrink: 0, fontFamily: fonts.mono, fontSize: type.micro, color: colors.warn },
   tags: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -1025,18 +1039,6 @@ const st = StyleSheet.create({
     fontSize: type.tiny,
     color: colors.inkDim,
   },
-  update: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    maxWidth: '100%',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.warn,
-  },
-  updateText: { flexShrink: 1, fontFamily: fonts.sansSemi, fontSize: type.tiny, color: colors.warn },
   mono: { fontFamily: fonts.mono },
   column: { width: '100%', maxWidth: 780, alignSelf: 'center' },
   pad: { paddingTop: space.xl, paddingBottom: space.md, flexGrow: 1 },

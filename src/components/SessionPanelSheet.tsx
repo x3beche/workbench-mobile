@@ -18,7 +18,6 @@ import {
   dirName,
   estOf,
   footDir,
-  footFlag,
   kfmt,
   panelSections,
   stallNote,
@@ -109,11 +108,11 @@ export function SessionPanelSheet({
   }, [client, sid, t]);
 
   const flip = (id: PanelSectionId) => {
-    const open = isOpen(id);
+    const open = folds[id] !== false;
     setFolds((f) => ({ ...f, [id]: !open }));
     client?.sidePanel(id, !open).catch(() => undefined);
   };
-  const isOpen = (id: PanelSectionId) => (id === 'computer' ? folds[id] === true : folds[id] !== false);
+  const isOpen = (id: PanelSectionId) => folds[id] !== false;
 
   const state = panel
     ? panel.session.status === 'busy'
@@ -121,6 +120,7 @@ export function SessionPanelSheet({
       : stateWord(panel, t)
     : '';
   const sub = [panel?.session.title || t.session, state].filter(Boolean).join(' · ');
+  const dir = footDir(panel?.session.computer?.cwd || panel?.session.directory || '');
   const sections = panelSections(panel, t);
   const mayAnswer = panel?.may_answer === true;
   const copy = (v: string) => {
@@ -134,6 +134,22 @@ export function SessionPanelSheet({
     <TallSheet
       title={t.columnTitle}
       sub={sub}
+      subNode={
+        dir ? (
+          <Pressable
+            onPress={() => copy(panel?.session.computer?.cwd || panel?.session.directory || '')}
+            accessibilityRole="button"
+            accessibilityHint={t.copy}
+            style={s.headDir}
+            testID="wbo-panel-cwd"
+          >
+            <Text style={s.headDirText} numberOfLines={1}>
+              {dir}
+            </Text>
+            {copied ? <Text style={s.copiedTag}>{t.copied}</Text> : null}
+          </Pressable>
+        ) : null
+      }
       closeLabel={t.close}
       onClose={onClose}
       testID="wbo-panel"
@@ -177,21 +193,7 @@ export function SessionPanelSheet({
                   {sec.label}
                 </Text>
                 {sec.id === 'files' ? <DiffSpark points={panel?.series?.diff_series ?? []} /> : null}
-                {sec.id === 'computer' && panel.session.computer ? (
-                  <View style={s.compHeaderRight} testID="wbo-count-computer">
-                    {footFlag(panel.session.computer) ? (
-                      <View style={s.warnBadge}>
-                        <Text style={s.warnBadgeText}>{footFlag(panel.session.computer)!.text}</Text>
-                      </View>
-                    ) : null}
-                    <View style={s.compNameRow}>
-                      <Text style={[s.count, sec.warn && !panel.session.computer.connected ? s.warn : null]} numberOfLines={1}>
-                        {panel.session.computer.host || panel.session.computer.name || t.opencode}
-                      </Text>
-                      <View style={[s.compDot, { backgroundColor: panel.session.computer.connected ? colors.ok : colors.inkDim }]} />
-                    </View>
-                  </View>
-                ) : sec.count ? (
+                {sec.count ? (
                   <Text style={[s.count, sec.warn ? s.warn : null]} numberOfLines={1} testID={`wbo-count-${sec.id}`}>
                     {sec.count}
                   </Text>
@@ -223,14 +225,6 @@ export function SessionPanelSheet({
                       all={allFiles}
                       onAll={() => setAllFiles(true)}
                       onJump={onJump}
-                    />
-                  ) : null}
-                  {sec.id === 'computer' ? (
-                    <ComputerBody
-                      panel={panel}
-                      t={t}
-                      onCopy={copy}
-                      copied={copied}
                     />
                   ) : null}
                 </View>
@@ -504,85 +498,6 @@ function estimate(panel: WboPanel, t: WboStrings): string {
   return turns > 0 && turns < 10_000 ? t.compactionTurns(turns) : '';
 }
 
-function ComputerBody({
-  panel,
-  t,
-  onCopy,
-  copied,
-}: {
-  panel: WboPanel;
-  t: WboStrings;
-  onCopy: (v: string) => string;
-  copied: boolean;
-}) {
-  const c = panel.session.computer;
-  if (!c) return null;
-  const dir = footDir(c.cwd || panel.session.directory || '');
-  const mcp = c.mcp ?? [];
-  const ok = mcp.filter((m) => m.status === 'connected').length;
-  const mcpText = mcp.length
-    ? (mcp.length === 1
-        ? `${mcp[0].name} ${mcp[0].status === 'connected' ? '✓' : '✕'}`
-        : `${ok}/${mcp.length}`)
-    : (c.connected ? 'none' : '—');
-  const mcpWarn = mcp.length > 0 && ok < mcp.length;
-
-  return (
-    <View style={s.compBody} testID="wbo-panel-computer">
-      {/* Computer: name ● */}
-      <View style={s.compRow}>
-        <Text style={s.compLabel}>{t.computer}</Text>
-        <View style={s.compValRow}>
-          <Text style={s.compValText} numberOfLines={1}>
-            {c.host || c.name || t.opencode}
-          </Text>
-          <View style={[s.compDot, { backgroundColor: c.connected ? colors.ok : colors.inkDim }]} />
-        </View>
-      </View>
-
-      {/* Folder: path shortened from start; tap to copy */}
-      {dir ? (
-        <Pressable
-          onPress={() => onCopy(c.cwd || panel.session.directory || '')}
-          accessibilityRole="button"
-          accessibilityHint={t.copy}
-          style={s.compRow}
-          testID="wbo-panel-cwd"
-        >
-          <Text style={s.compLabel}>{t.folder}</Text>
-          <View style={s.compValRow}>
-            <Text style={[s.compValText, s.mono]} numberOfLines={1}>
-              {dir}
-            </Text>
-            {copied ? <Text style={s.copiedTag}>{t.copied}</Text> : null}
-          </View>
-        </Pressable>
-      ) : null}
-
-      {/* wb-opencode: version (with update note if out of date) */}
-      <View style={s.compRow}>
-        <Text style={s.compLabel}>wb-opencode</Text>
-        <View style={s.compValCol}>
-          <Text style={[s.compValText, s.mono]}>
-            {c.version || '?'}
-          </Text>
-          {c.outdated && !c.self_updates ? (
-            <Text style={s.updateNote}>{t.updateWboLong}</Text>
-          ) : null}
-        </View>
-      </View>
-
-      {/* MCP: state (e.g. workbench ✓, or 1/2 warn) */}
-      <View style={s.compRow}>
-        <Text style={s.compLabel}>MCP</Text>
-        <Text style={[s.compValText, s.mono, mcpWarn ? s.warn : null]}>
-          {mcpText}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 const TODO_ICON = { pending: Square, in_progress: Activity, completed: Check, cancelled: X } as const;
 
 function TodosBody({ panel }: { panel: WboPanel }) {
@@ -762,31 +677,8 @@ const s = StyleSheet.create({
   todosLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.xs, minHeight: 28 },
   todoBar: { width: 64, height: 3, borderRadius: 2, backgroundColor: colors.line, overflow: 'hidden' },
   todoBarFill: { height: 3, borderRadius: 2, backgroundColor: colors.accent },
-  compHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 'auto' },
-  compNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  compDot: { width: 5, height: 5, borderRadius: 2.5 },
-  warnBadge: {
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  warnBadgeText: { fontFamily: fonts.mono, fontSize: 9.5, color: colors.warn },
-  compBody: { paddingVertical: 4, gap: 6 },
-  compRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    paddingVertical: 2,
-    gap: 12,
-  },
-  compLabel: { fontFamily: fonts.sans, fontSize: 11, color: colors.inkDim },
-  compValRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
-  compValCol: { alignItems: 'flex-end', flexShrink: 1 },
-  compValText: { fontFamily: fonts.sans, fontSize: 11, color: colors.ink, textAlign: 'right' },
-  mono: { fontFamily: fonts.mono },
+  headDir: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
+  headDirText: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
   copiedTag: { fontFamily: fonts.sans, fontSize: 9.5, color: colors.ok, marginLeft: 4 },
-  updateNote: { fontFamily: fonts.sans, fontSize: 10, color: colors.warn, marginTop: 1 },
   tempRow: { opacity: 0.8 },
 });

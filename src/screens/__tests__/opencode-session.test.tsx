@@ -328,6 +328,19 @@ async function show(d: WboDetail, t = en) {
     expect(screen.getByTestId('wbo-state')).toHaveTextContent(/OpenCode · ada-laptop/);
   });
 
+  it('says the state and where it runs in the header, and keeps the folder out of it', async () => {
+    await show(detail());
+    // "<state> · OpenCode · <computer>" - the same shape a Claude session's line has
+    expect(screen.getByTestId('wbo-state')).toHaveTextContent(/^ready · OpenCode · ada-laptop$/);
+    expect(screen.getByTestId('wbo-state')).not.toHaveTextContent('sensor');
+  });
+
+  it('says an old wb-opencode, or an MCP server that fell off, as a small warn badge', async () => {
+    await show(detail({ bridge: { ...row().bridge!, outdated: true, latest: '0.3.0' } }));
+    expect(screen.getByTestId('wbo-flag')).toHaveTextContent(/update/i);
+    expect(screen.getByTestId('wbo-state')).toHaveTextContent(/OpenCode · ada-laptop/);
+  });
+
   it('answers what OpenCode asks from the phone', async () => {
     const { client } = await show(detail());
     expect(screen.getByText('Which fix?')).toBeTruthy();
@@ -407,7 +420,7 @@ async function show(d: WboDetail, t = en) {
     expect(screen.queryByTestId('wbo-composer')).toBeNull();
     expect(screen.getByTestId('wbo-why')).toHaveTextContent('Only Bo can write to this session; you can read it.');
     expect(screen.queryByTestId('ask-answer')).toBeNull();
-    expect(screen.getByText('Update wb-opencode')).toBeTruthy();
+    expect(screen.getByTestId('wbo-flag')).toHaveTextContent('update');
   });
 
   it('draws a question an old wb-opencode did not forward as its card, not answerable, and asks for the update', async () => {
@@ -432,7 +445,9 @@ async function show(d: WboDetail, t = en) {
       }),
     };
     await show(d);
-    expect(screen.getByTestId('wbo-outdated')).toHaveTextContent('Update wb-opencode 0.1.0 → 0.2.0');
+    // The warning is one small word in the header's own line now, not a box under it.
+    expect(screen.getByTestId('wbo-flag')).toHaveTextContent('update');
+    expect(screen.getByTestId('wbo-state')).toHaveTextContent(/OpenCode · ada-laptop/);
     expect(screen.getByText('Which fix?')).toBeTruthy();
     expect(screen.getByTestId('ask-ro-q0-LDO')).toHaveTextContent('LDOswap the regulator');
     expect(screen.queryByTestId('ask-opt-q0-LDO')).toBeNull();

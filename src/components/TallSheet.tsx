@@ -16,6 +16,7 @@ import { IconButton } from './ui';
 export function TallSheet({
   title,
   sub,
+  subNode,
   closeLabel = 'Close',
   onClose,
   children,
@@ -24,6 +25,7 @@ export function TallSheet({
 }: {
   title: string;
   sub?: string;
+  subNode?: ReactNode;
   closeLabel?: string;
   onClose: () => void;
   children: ReactNode;
@@ -52,6 +54,7 @@ export function TallSheet({
                   {sub}
                 </Text>
               ) : null}
+              {subNode}
             </View>
             <IconButton icon={X} label={closeLabel} onPress={onClose} color={colors.inkDim} testID={`${testID}-close`} />
           </View>

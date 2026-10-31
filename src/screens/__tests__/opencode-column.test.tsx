@@ -182,9 +182,9 @@ async function open(p: WboPanel) {
   it('opens from the "i" beside the title, with every section it has something to say in', async () => {
     const client = await open(panel());
     expect(client.wboPanel).toHaveBeenCalledWith(SID);
-    // the order the column draws them in: what a session is, what it is doing, what it changed, and the computer
+    // the order the column draws them in: what a session is, what it is doing, what it changed
     const seen = screen.getAllByTestId(/^wbo-sec-/).map((n) => String(n.props.testID).replace('wbo-sec-', ''));
-    expect(seen).toEqual(['model', 'flow', 'files', 'computer']);
+    expect(seen).toEqual(['model', 'flow', 'files']);
     // the waiting question is a line above them, not a section: its card is the conversation's
     expect(screen.getByTestId('wbo-panel-waiting')).toHaveTextContent(/Waiting: 1 permission/);
     // the head's own numbers: the changed lines, and nothing of the tools (they are in the flow)
@@ -193,15 +193,9 @@ async function open(p: WboPanel) {
     expect(screen.getByTestId('wbo-panel-ctxchart')).toBeTruthy();
     expect(screen.getByTestId('wbo-panel-strip')).toBeTruthy();
     expect(screen.getByTestId('wbo-diff-spark')).toBeTruthy();
-    // the computer is the last section, closed by default, with its name and dot in the closed header
-    expect(screen.getByTestId('wbo-sec-computer')).toBeTruthy();
-    expect(screen.getByTestId('wbo-count-computer')).toHaveTextContent(/ada-laptop/);
-    expect(screen.queryByTestId('wbo-panel-computer')).toBeNull();
-    // tap to open the computer section
-    await fireEvent.press(screen.getByTestId('wbo-sec-computer'));
-    expect(screen.getByTestId('wbo-panel-computer')).toBeTruthy();
+    // the computer is not a section of its own any more: its folder is the line under the sheet's title
+    expect(screen.queryByTestId('wbo-sec-computer')).toBeNull();
     expect(screen.getByTestId('wbo-panel-cwd')).toHaveTextContent(/~\/sensor/);
-    expect(screen.getByText('0.3.0')).toBeTruthy();
     expect(screen.getByTestId('wbo-panel-model')).toHaveTextContent('Qwen3.8 Flash');
     expect(screen.getByText('Command Code · thinking: low')).toBeTruthy();
     expect(screen.getByTestId('wbo-panel-context')).toHaveTextContent('500k / 1M · 50%');
@@ -216,7 +210,6 @@ async function open(p: WboPanel) {
   it('draws no section that has nothing in it', async () => {
     await open(
       panel({
-        session: { ...panel().session, computer: null },
         todos: null,
         files: null,
         tools: null,

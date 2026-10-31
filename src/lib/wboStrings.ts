@@ -112,7 +112,6 @@ export interface WboStrings extends WbcStrings {
   estimated: string;
   textParts: (n: number) => string;
   updateShort: string;
-  folder: string;
 }
 
 const wen = wbcStrings('en');
@@ -256,7 +255,6 @@ const en: WboStrings = {
   estimated: 'estimated from the last call',
   textParts: (n) => `text and thinking: ${n} parts`,
   updateShort: 'update',
-  folder: 'Folder',
   run: {
     details: 'Details',
     sent: 'Sent',
@@ -421,7 +419,6 @@ const tr: WboStrings = {
   estimated: 'son çağrıdan tahmin edildi',
   textParts: (n) => `metin/düşünme: ${n} parça`,
   updateShort: 'güncelle',
-  folder: 'Klasör',
   // The web app's i18n.ts, in Turkish, for the stats under an answer.
   run: {
     details: 'Ayrıntılar',
