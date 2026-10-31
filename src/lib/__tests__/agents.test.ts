@@ -50,6 +50,24 @@ describe('agents: who manages whom', () => {
     ]);
   });
 
+  it('tracks whether an item is the last child and ancestor rails passing past it', () => {
+    const rows = [
+      { k: 'wbo:b', t: 5 },
+      { k: 'wbc:a', t: 1 },
+      { k: 'wbo:c', t: 9 },
+      { k: 'wbo:d', t: 2 },
+      { k: 'wbo:x', t: 7 },
+    ];
+    const got = treeOf(rows, (r) => r.k, (r) => r.t, map, (a, b) => b.t - a.t, 3);
+    expect(got.map((x) => `${x.row.k}:last=${x.last}:rails=[${x.rails.join(',')}]`)).toEqual([
+      'wbo:x:last=true:rails=[]',
+      'wbc:a:last=true:rails=[]',
+      'wbo:c:last=false:rails=[]',
+      'wbo:d:last=true:rails=[1]',
+      'wbo:b:last=true:rails=[]',
+    ]);
+  });
+
   it('puts a worker whose manager is not shown at the top', () => {
     const got = treeOf([{ k: 'wbo:d', t: 1 }], (r) => r.k, (r) => r.t, map, () => 0, 3);
     expect(got.map((x) => x.depth)).toEqual([0]);

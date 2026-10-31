@@ -52,13 +52,17 @@ export interface TreeItem<T> {
   kids: number;
   /** The top of its tree. */
   top: T;
+  /** Whether it is the last child under its manager. */
+  last: boolean;
+  /** Ancestor depth levels where a vertical rail still runs past this row. */
+  rails: number[];
 }
 
 /**
  * The rows as a tree, flattened in drawing order: the tops as `order` sorts them, each followed by the ones under
  * it (newest first). A row whose manager is not among the rows stands at the top.
  */
-export function treeOf<T>(rows: T[], key: (r: T) => string, last: (r: T) => number, map: LinkMap,
+export function treeOf<T>(rows: T[], key: (r: T) => string, time: (r: T) => number, map: LinkMap,
                           order: (a: T, b: T) => number, maxDepth: number): TreeItem<T>[] {
   const byKey = new Map(rows.map((r) => [key(r), r]));
   const kids = new Map<string, T[]>();
@@ -71,13 +75,14 @@ export function treeOf<T>(rows: T[], key: (r: T) => string, last: (r: T) => numb
   tops.sort(order);
   const out: TreeItem<T>[] = [];
   const seen = new Set<string>();
-  const walk = (r: T, depth: number, top: T) => {
+  const walk = (r: T, depth: number, top: T, lastChild: boolean, rails: number[]) => {
     if (seen.has(key(r)) || depth > maxDepth) return;
     seen.add(key(r));
-    const under = [...(kids.get(key(r)) ?? [])].sort((a, b) => last(b) - last(a));
-    out.push({ row: r, depth, kids: under.length, top });
-    for (const k of under) walk(k, depth + 1, top);
+    const under = [...(kids.get(key(r)) ?? [])].sort((a, b) => time(b) - time(a));
+    out.push({ row: r, depth, kids: under.length, top, last: lastChild, rails });
+    const next = depth >= 1 && !lastChild ? [...rails, depth] : rails;
+    under.forEach((k, i) => walk(k, depth + 1, top, i === under.length - 1, next));
   };
-  for (const r of tops) walk(r, 0, r);
+  for (const r of tops) walk(r, 0, r, true, []);
   return out;
 }

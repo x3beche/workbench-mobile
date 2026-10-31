@@ -8,11 +8,12 @@
  * weight as the rest, a step gray - and pressed, it dims. Selecting several,
  * a checkbox leads the row.
  */
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, fonts, gutter, touch, type } from '../theme/tokens';
 import type { Dot } from '../lib/orchestrator';
-import { Check, Ellipsis, Pin } from './icons';
+import { Check, Ellipsis, Pin, type LucideIcon } from './icons';
 import { StateDot } from './StateDot';
 import { Glyph } from './ui';
 
@@ -24,6 +25,9 @@ export function DrawerRow({
   title,
   when,
   sub,
+  subNode,
+  icon,
+  live = true,
   dot,
   pinned = false,
   check,
@@ -42,6 +46,12 @@ export function DrawerRow({
   when?: string;
   /** One line under the title. */
   sub?: string;
+  /** Custom node under the title (e.g. manager's twistable team line). */
+  subNode?: ReactNode;
+  /** An icon leading the row, as the rooms and agents use (.tcv-th-ico). */
+  icon?: LucideIcon;
+  /** Connected to computer: false dims the icon (.agl-ico[data-off]). */
+  live?: boolean;
   /** A session's live state, a dot before the title; null or absent for a conversation. */
   dot?: Dot | null;
   pinned?: boolean;
@@ -65,6 +75,7 @@ export function DrawerRow({
   /** `<group>-<id>`: its dot is `<group>-dot-<id>`, its pin `<group>-pin-<id>`, its box `<group>-<id>-check`. */
   testID: string;
 }) {
+  const hasSub = !!sub || !!subNode;
   return (
     <Pressable
       testID={testID}
@@ -79,7 +90,7 @@ export function DrawerRow({
       onAccessibilityAction={(e) => {
         if (e.nativeEvent.actionName === 'more') onMore?.();
       }}
-      style={[s.row, sub ? s.two : null]}
+      style={[s.row, hasSub ? s.two : null]}
     >
       {({ pressed }) => (
         <>
@@ -88,6 +99,16 @@ export function DrawerRow({
               {check ? <Glyph icon={Check} size={12} color={colors.inkOnAccent} /> : null}
             </View>
           )}
+          {icon ? (
+            <View style={[s.ico, !live && s.icoDim]}>
+              <Glyph icon={icon} size={16} color={pressed ? colors.inkDim : colors.ink} />
+              {dot ? (
+                <View style={s.icoDot} testID={dotId(testID)}>
+                  <StateDot s={dot} size={7} />
+                </View>
+              ) : null}
+            </View>
+          ) : null}
           <View style={s.text}>
             <View style={s.top}>
               {pinned ? (
@@ -95,7 +116,7 @@ export function DrawerRow({
                   <Glyph icon={Pin} size={12} color={colors.inkDim} />
                 </View>
               ) : null}
-              {dot ? (
+              {!icon && dot ? (
                 <View style={s.dot} testID={dotId(testID)}>
                   <StateDot s={dot} size={7} />
                 </View>
@@ -109,7 +130,9 @@ export function DrawerRow({
                 </Text>
               ) : null}
             </View>
-            {sub ? (
+            {subNode ? (
+              subNode
+            ) : sub ? (
               <Text style={s.sub} numberOfLines={1}>
                 {sub}
               </Text>
@@ -122,7 +145,7 @@ export function DrawerRow({
               accessibilityRole="button"
               accessibilityLabel={moreLabel ?? `Actions for ${title}`}
               hitSlop={{ left: 4, right: 4 }}
-              style={({ pressed }) => [s.moreBtn, pressed && s.morePressed]}
+              style={({ pressed: morePressed }) => [s.moreBtn, morePressed && s.morePressed]}
             >
               <Glyph icon={Ellipsis} size={16} color={colors.inkDim} />
             </Pressable>
@@ -149,7 +172,24 @@ const s = StyleSheet.create({
     paddingHorizontal: gutter,
   },
   // Two lines: the title and what was last said - the web's 6, and its line heights.
-  two: { paddingVertical: 6 },
+  two: { paddingVertical: 6, alignItems: 'flex-start' },
+  ico: {
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginTop: 2,
+  },
+  icoDim: { opacity: 0.45 },
+  icoDot: {
+    position: 'absolute',
+    right: -3,
+    bottom: -3,
+    padding: 1,
+    borderRadius: 5,
+    backgroundColor: colors.surface,
+  },
   box: {
     width: 16,
     height: 16,

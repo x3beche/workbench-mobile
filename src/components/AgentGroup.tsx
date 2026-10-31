@@ -16,7 +16,7 @@ import { FOLD_FIRST, isOpen, isPinned } from '../lib/side';
 import type { WbcStrings } from '../lib/wbcStrings';
 import { colors, fonts, gutter, type } from '../theme/tokens';
 import { DrawerRow } from './DrawerRow';
-import { ExternalLink, FolderInput, LogOut, Pin, PinOff } from './icons';
+import { ExternalLink, FolderInput, LogOut, Pin, PinOff, SquareCode, SquareTerminal } from './icons';
 import { GroupHead, type SessionRowData } from './SessionGroup';
 import { ActionList, Sheet } from './Sheet';
 
@@ -32,7 +32,11 @@ export interface AgentRowData extends SessionRowData {
   old?: boolean;
 }
 
-const INDENT = 16;
+const STEP = 24;
+const ICON_CENTER_Y = 16;
+const railX = (col: number) => gutter + (col - 1) * STEP + 8;
+const elbowX = (depth: number) => gutter + (depth - 1) * STEP + 8;
+const trunkX = (depth: number) => gutter + depth * STEP + 8;
 
 export function AgentGroup({
   rows: every,
@@ -137,27 +141,39 @@ export function AgentGroup({
         right={<Text style={s.sum} testID={`${testID}-sum`}>{a.summary(rows.length, rows.filter((r) => r.dot === 'running').length, rows.filter((r) => r.dot === 'retry').length)}</Text>}
         testID={`${testID}-fold`}
       />
-      {shown.map(({ row: r, depth, kids }) => {
+      {shown.map(({ row: r, depth, kids, last, rails }) => {
         const pin = pinned(r);
+        const icon = r.group === 'claude' ? SquareTerminal : SquareCode;
+        const managerX = depth > 0 ? elbowX(depth) : 0;
+        const trunkLine = kids > 0 && !shut.has(r.key);
         return (
-          <View key={r.key} style={[s.row, { paddingLeft: depth * INDENT }]}>
-            {kids ? (
-              <Pressable
-                onPress={() => twist(r.key)}
-                accessibilityRole="button"
-                accessibilityLabel={shut.has(r.key) ? a.showTeam : a.hideTeam}
-                hitSlop={6}
-                style={[s.twist, { left: depth * INDENT }]}
-                testID={`agent-twist-${r.key}`}
-              >
-                <Text style={[s.twistText, !shut.has(r.key) && s.twistOpen]}>›</Text>
-              </Pressable>
-            ) : null}
-            <View style={s.grow}>
+          <View key={r.key} style={s.rowWrap}>
+            <View style={[s.grow, { paddingLeft: depth * STEP }]}>
               <DrawerRow
                 title={r.name}
                 when={r.when}
-                sub={kids ? team(r.key) : (r.note ?? undefined)}
+                sub={kids ? undefined : (r.note ?? undefined)}
+                subNode={
+                  kids ? (
+                    <Pressable
+                      testID={`agent-twist-${r.key}`}
+                      onPress={() => twist(r.key)}
+                      accessibilityRole="button"
+                      accessibilityLabel={shut.has(r.key) ? a.showTeam : a.hideTeam}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      style={s.teamBtn}
+                    >
+                      <Text style={s.teamText} numberOfLines={1}>
+                        {team(r.key)}
+                      </Text>
+                      <Text style={[s.teamCaret, !shut.has(r.key) && s.teamCaretOpen]} aria-hidden>
+                        ›
+                      </Text>
+                    </Pressable>
+                  ) : undefined
+                }
+                icon={icon}
+                live={r.live}
                 dot={busy(r) ? r.dot : null}
                 pinned={pin}
                 on={r.key === selected}
@@ -168,6 +184,25 @@ export function AgentGroup({
                 testID={`agent-${r.key}`}
               />
             </View>
+            {/* Rails from ancestors running down past this row */}
+            {rails.map((col) => (
+              <View key={col} style={[s.vertLine, { left: railX(col) }]} pointerEvents="none" />
+            ))}
+            {/* Trunk down from manager icon to its children */}
+            {trunkLine ? (
+              <View style={[s.trunk, { left: trunkX(depth) }]} pointerEvents="none" />
+            ) : null}
+            {/* Elbow from manager to this row: └ for last child, ├ for others */}
+            {depth > 0 ? (
+              last ? (
+                <View style={[s.elbow, { left: managerX, width: 16 }]} pointerEvents="none" />
+              ) : (
+                <>
+                  <View style={[s.vertLine, { left: managerX }]} pointerEvents="none" />
+                  <View style={[s.horizLine, { left: managerX, width: 16 }]} pointerEvents="none" />
+                </>
+              )
+            ) : null}
           </View>
         );
       })}
@@ -212,11 +247,25 @@ export function AgentGroup({
 }
 
 const s = StyleSheet.create({
-  row: { position: 'relative' },
+  rowWrap: { position: 'relative' },
   grow: { flex: 1 },
-  twist: { position: 'absolute', top: 0, bottom: 0, width: 14, zIndex: 1, alignItems: 'center', justifyContent: 'center' },
-  twistText: { fontFamily: fonts.sansMedium, fontSize: type.small, color: colors.inkDim },
-  twistOpen: { transform: [{ rotate: '90deg' }] },
+  vertLine: { position: 'absolute', top: 0, bottom: 0, width: 1, backgroundColor: colors.line, zIndex: 1 },
+  horizLine: { position: 'absolute', top: ICON_CENTER_Y, height: 1, backgroundColor: colors.line, zIndex: 1 },
+  elbow: {
+    position: 'absolute',
+    top: 0,
+    height: ICON_CENTER_Y + 1,
+    borderLeftWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.line,
+    borderBottomLeftRadius: 4,
+    zIndex: 1,
+  },
+  trunk: { position: 'absolute', top: ICON_CENTER_Y + 8, bottom: 0, width: 1, backgroundColor: colors.line, zIndex: 1 },
+  teamBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start' },
+  teamText: { fontFamily: fonts.sans, fontSize: type.micro, lineHeight: type.microLine, color: colors.inkDim },
+  teamCaret: { fontFamily: fonts.sansMedium, fontSize: type.small, color: colors.inkDim, marginTop: -1 },
+  teamCaretOpen: { transform: [{ rotate: '90deg' }] },
   more: { minHeight: 32, justifyContent: 'center', paddingHorizontal: gutter },
   moreText: { fontFamily: fonts.sansMedium, fontSize: type.micro, color: colors.inkDim },
   pressed: { color: colors.ink },

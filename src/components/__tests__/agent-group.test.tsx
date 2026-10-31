@@ -73,7 +73,8 @@ const LINKS = linkMap([
     expect(screen.getByText('2 agents · 1 working')).toBeTruthy();
     // The head says how many, and how many are at work; an idle one has no dot (a dot is news).
     expect(screen.getByTestId('drawer-agents-sum').props.children).toBe('5 · 1 working');
-    expect(screen.queryByTestId('agent-wbo:ses_alone1-dot')).toBeNull();
+    expect(screen.queryByTestId('agent-dot-wbo:ses_alone1')).toBeNull();
+    expect(screen.getByTestId('agent-dot-wbo:ses_worker1')).toBeTruthy();
   });
 
   it('folded, shows no rows - the head\'s summary says what is there', async () => {
