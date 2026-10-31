@@ -15,13 +15,16 @@ export interface NoticeTask {
  * Parses a Workbench notification message into its tasks.
  * Returns null if the text is not a Workbench notification.
  */
-export function parseNotice(text: string): NoticeTask[] | null {
+export function parseNotice(text: string, kind?: string): NoticeTask[] | null {
   if (!text || typeof text !== 'string') return null;
   const match = /^\s*\[Workbench\]\s*([\s\S]*)$/.exec(text);
-  if (!match) return null;
+  // What a message is, the server marks where it is stored (`kind: "notify"`, backend/wbclaude.py): a marked
+  // one is a notification with or without the prefix, and the prefix stays the way of the lines written before.
+  const body = match ? match[1] : kind === 'notify' ? text : null;
+  if (body === null) return null;
 
   const tasks: NoticeTask[] = [];
-  const lines = match[1].split('\n');
+  const lines = body.split('\n');
 
   for (const rawLine of lines) {
     const line = rawLine.trim();

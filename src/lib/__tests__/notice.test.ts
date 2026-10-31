@@ -67,6 +67,25 @@ describe('Workbench notification parser', () => {
     expect(parseNotice('')).toBeNull();
   });
 
+  it('knows the server’s mark without the prefix', () => {
+    // what the Workbench stores as kind: "notify" (backend/wbclaude.py): a notification, prefix or none
+    const text = '#123 T1 - answered: done\n(task_status 123)';
+    expect(parseNotice(text)).toBeNull();
+    expect(parseNotice(text, 'notify')).toEqual([
+      { id: '123', name: 'T1', state: 'answered', summary: 'done' },
+    ]);
+  });
+
+  it('still knows the prefix without a mark, for the lines written before it', () => {
+    expect(parseNotice('[Workbench] #1 T - waiting')).toEqual([{ id: '1', name: 'T', state: 'waiting' }]);
+  });
+
+  it('leaves an ordinary message alone, marked or not', () => {
+    expect(parseNotice('#1 T - waiting', 'chat')).toBeNull();
+    expect(parseNotice('Can you look at the rig?', 'notify')).toBeNull();
+    expect(parseNotice('Can you look at the rig?')).toBeNull();
+  });
+
   it('maps state to correct tone', () => {
     expect(noticeTone('answered')).toBe('ok');
     expect(noticeTone('waiting')).toBe('warn');

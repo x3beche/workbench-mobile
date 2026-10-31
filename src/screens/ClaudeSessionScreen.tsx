@@ -387,6 +387,12 @@ export function ClaudeSessionScreen({
     return rows.reverse();
   }, [turns, pending]);
   const dot = liveDot(s?.bridge);
+  // The messages the server marked as the Workbench's own words: a turn drawn from one of them is a note even
+  // when its text carries no prefix (backend/wbclaude.py, post_message's kind).
+  const notifyIds = useMemo(
+    () => new Set((s?.messages ?? []).filter((m) => m.kind === 'notify').map((m) => m.id)),
+    [s?.messages],
+  );
   const sub = [t.claudeCode, s?.computer, s?.bridge?.connected ? s.bridge.cwd : ''].filter(Boolean).join(' · ');
 
   const renderItem = ({ item }: { item: Item }) =>
@@ -397,6 +403,11 @@ export function ClaudeSessionScreen({
         sid={sid}
         client={client}
         mark={mark}
+        kind={
+          item.turn.kind === 'notify' || (!!item.turn.message && notifyIds.has(item.turn.message))
+            ? 'notify'
+            : undefined
+        }
         t={t}
         onZoom={setZoom}
       />
@@ -660,6 +671,7 @@ function TurnRow({
   sid,
   client,
   mark,
+  kind,
   t,
   onZoom,
 }: {
@@ -668,6 +680,8 @@ function TurnRow({
   sid: string;
   client: WorkbenchClient | null;
   mark: string;
+  /** What the message this turn came from was, when the server marked it ("notify": the Workbench's own words). */
+  kind?: string;
   t: WbcStrings;
   onZoom: (uri: string) => void;
 }) {
@@ -715,7 +729,7 @@ function TurnRow({
     </Text>
   ) : null;
   if (turn.role === 'user') {
-    const noticeTasks = parseNotice(words);
+    const noticeTasks = parseNotice(unmark(words, mark), kind);
     if (noticeTasks) {
       const isTr = t.fromWorkbench === "Workbench'ten";
       return (

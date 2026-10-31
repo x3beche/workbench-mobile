@@ -472,6 +472,64 @@ describe('a long answer on the phone', () => {
     expect(screen.getByText('MOBIL-PANEL-YAMA-1.9.27')).toBeTruthy();
   });
 
+  it('draws a notification the server marked, with no [Workbench] prefix in its text', async () => {
+    const marked: WbcMessage = {
+      id: 'm_n',
+      text: '#123 T1 - answered: done\n(task_status 123)',
+      by: { id: 'u1', name: 'Ada' },
+      status: 'delivered',
+      detail: '',
+      error: '',
+      at: NOW - 70,
+      updated: NOW - 60,
+      delivered_at: NOW - 60,
+      kind: 'notify',
+    };
+    const c = client({ messages: [marked] });
+    c.wbcTurns.mockImplementation(async () => ({
+      turns: [
+        {
+          id: 'r9',
+          role: 'user',
+          text: `${MARK} #123 T1 - answered: done`,
+          at: NOW - 60,
+          remote: true,
+          message: 'm_n',
+        },
+      ],
+      more: false,
+      before: null,
+    }));
+    await open(c);
+    expect(screen.getByTestId('wbc-turn-notice')).toBeTruthy();
+    expect(screen.queryByTestId('wbc-turn-user')).toBeNull();
+  });
+
+  it('draws a line the server did not mark as the person\'s own, even in the same shape', async () => {
+    const plain: WbcMessage = {
+      id: 'm_p',
+      text: '#123 T1 - answered: done',
+      by: { id: 'u1', name: 'Ada' },
+      status: 'delivered',
+      detail: '',
+      error: '',
+      at: NOW - 70,
+      updated: NOW - 60,
+      delivered_at: NOW - 60,
+    };
+    const c = client({ messages: [plain] });
+    c.wbcTurns.mockImplementation(async () => ({
+      turns: [
+        { id: 'r9', role: 'user', text: `${MARK} #123 T1 - answered: done`, at: NOW - 60, remote: true, message: 'm_p' },
+      ],
+      more: false,
+      before: null,
+    }));
+    await open(c);
+    expect(screen.queryByTestId('wbc-turn-notice')).toBeNull();
+    expect(screen.getByTestId('wbc-turn-user')).toBeTruthy();
+  });
+
   it('does not say "delivered" again once the turn names the message it came from', async () => {
     const sent = (over: Partial<WbcMessage>): WbcMessage => ({
       id: 'm',

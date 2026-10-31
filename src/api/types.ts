@@ -641,6 +641,9 @@ export interface WbcMessage {
   delivered_at: number | null;
   images?: { n: number; type: string; bytes: number }[];
   images_gone?: boolean;
+  /** What the message is, when it is not the person's own line: "notify" is the Workbench telling the session
+   *  about the work under it (backend/wbclaude.py, post_message). */
+  kind?: string;
 }
 
 /** What pictures a message may carry: how many, how large, which types. */
@@ -676,6 +679,8 @@ export interface WbcTurn {
   /** The Chat message this turn came from - a prompt the gateway did not mark, so the page can tell which of
    *  its own messages are in the conversation (backend/wbclaude.py: `turns`). */
   message?: string;
+  /** What that message was, when it is not the person's own line ("notify": the Workbench's own words). */
+  kind?: string;
   images?: WbcPic[];
   /** The text here is the first part of a longer one (`full_len` characters): the rest is asked for on its own
    *  (backend/wbclaude.py, GET .../turns/{id}/text) - never cut in silence. */
