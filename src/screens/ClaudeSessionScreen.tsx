@@ -47,11 +47,13 @@ import { Camera, Images, Paperclip, SquareTerminal, X } from '../components/icon
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Markdown } from '../components/Markdown';
 import { NewBelow } from '../components/NewBelow';
+import { NoticeTurn } from '../components/NoticeTurn';
 import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
 import { TeamSheet } from '../components/TeamSheet';
 import { EmptyState, ErrorText, Glyph, IconButton, LoadError, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
+import { parseNotice } from '../lib/notice';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { teamStrings } from '../lib/teamStrings';
 import {
@@ -713,6 +715,17 @@ function TurnRow({
     </Text>
   ) : null;
   if (turn.role === 'user') {
+    const noticeTasks = parseNotice(words);
+    if (noticeTasks) {
+      const isTr = t.fromWorkbench === "Workbench'ten";
+      return (
+        <NoticeTurn
+          tasks={noticeTasks}
+          lang={isTr ? 'tr' : 'en'}
+          testID="wbc-turn-notice"
+        />
+      );
+    }
     const shown = unmark(words, mark);
     return (
       <View style={[st.msgRow, st.user]} testID="wbc-turn-user">

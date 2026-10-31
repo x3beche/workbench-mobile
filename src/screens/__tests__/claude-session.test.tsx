@@ -453,4 +453,22 @@ describe('a long answer on the phone', () => {
     expect(screen.queryByTestId('wbc-more')).toBeNull();
     expect(screen.queryByTestId('wbc-more-gone')).toBeNull();
   });
+
+  it('draws a [Workbench] notification as a system notice row, not a user bubble', async () => {
+    const c = withTurns(
+      [
+        {
+          id: 't_notice',
+          role: 'user',
+          text: '[Workbench] #676936 MOBIL-PANEL-YAMA-1.9.27 - answered: answer summary here\n(task_status 676936 for the whole answer)',
+          at: NOW,
+        },
+      ],
+      jest.fn(),
+    );
+    await open(c);
+    expect(screen.getByTestId('wbc-turn-notice')).toBeTruthy();
+    expect(screen.queryByTestId('wbc-turn-user')).toBeNull();
+    expect(screen.getByText('MOBIL-PANEL-YAMA-1.9.27')).toBeTruthy();
+  });
 });
