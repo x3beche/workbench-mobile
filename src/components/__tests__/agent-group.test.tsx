@@ -137,4 +137,37 @@ const LINKS = linkMap([
     await fireEvent.press(screen.getByTestId('agent-wbo:ses_worker2'));
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ group: 'opencode', id: 'ses_worker2' }));
   });
+
+  it('renames an OpenCode session from its menu, and only where one may write to it', async () => {
+    const onRename = jest.fn(async () => undefined);
+    await render(
+      <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 800 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } }}>
+        <AgentGroup
+          rows={ROWS.map((r) => (r.key === 'wbo:ses_worker2' ? { ...r, canRename: true } : r))}
+          links={LINKS}
+          maxDepth={3}
+          prefs={SIDE_EMPTY}
+          selected={null}
+          searching={false}
+          t={wbcStrings('en')}
+          a={agentStrings('en')}
+          onOpen={jest.fn()}
+          onFold={jest.fn()}
+          onPin={jest.fn()}
+          onLink={jest.fn()}
+          onRename={onRename}
+        />
+      </SafeAreaProvider>,
+    );
+    // A Claude session's name is its folder's: nothing to rename here.
+    await fireEvent(screen.getByTestId('agent-wbc:boss01'), 'longPress');
+    expect(screen.queryByText('Rename')).toBeNull();
+    await fireEvent.press(screen.getByText('Open'));
+
+    await fireEvent(screen.getByTestId('agent-wbo:ses_worker2'), 'longPress');
+    await fireEvent.press(screen.getByText('Rename'));
+    await fireEvent.changeText(screen.getByTestId('dialog-input'), 'Rail sag, the second');
+    await fireEvent.press(screen.getByTestId('dialog-confirm'));
+    expect(onRename).toHaveBeenCalledWith('wbo:ses_worker2', 'Rail sag, the second');
+  });
 });

@@ -187,6 +187,29 @@ async function draw(client: WorkbenchClient, onOpenAgent = jest.fn(), hub: LiveH
 }
 
 (canRender ? describe : describe.skip)("a manager's Team", () => {
+  it('opens on the task a notification row asked for, with its own word out', async () => {
+    const c = fake();
+    await render(
+      <LiveContext.Provider value={null}>
+        <TeamSheet
+          client={c}
+          sid="boss"
+          t={t}
+          sub="Boss"
+          focusTask="e5f6a7"
+          onClose={jest.fn()}
+          onOpenAgent={jest.fn()}
+        />
+      </LiveContext.Provider>,
+    );
+    // the answered one's own word is open, without a tap - that is the summary the notification row led to
+    expect(screen.getByTestId('team-answer-e5f6a7')).toBeTruthy();
+    // and its row says it was asked for, beside the ones that were not
+    expect(screen.getByTestId('team-task-e5f6a7').props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ borderLeftColor: colors.accent })]),
+    );
+  });
+
   it('is one list in the order the person needs, with the counts of the team above it', async () => {
     const c = fake();
     await draw(c);

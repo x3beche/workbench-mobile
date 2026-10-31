@@ -689,6 +689,12 @@ export class WorkbenchClient {
     return this.request<WbcTurnsPage>('GET', `/api/wbc/sessions/${encodeURIComponent(sid)}/turns?limit=${limit}${back}`);
   }
 
+  /** Rename one's own OpenCode session: its own title, changed on that computer too, so the TUI shows the same
+   *  (POST /api/wbo/sessions/{sid}/title). An older wb-opencode there refuses it - the server says why. */
+  async wboRename(sid: string, title: string): Promise<void> {
+    await this.request('POST', `/api/wbo/sessions/${encodeURIComponent(sid)}/title`, { title });
+  }
+
   /** The window this session keeps to: a number of tokens, or null for the model's own. */
   wboContext(sid: string, limit: number | null): Promise<{ ok: boolean; limit: number | null; scope: string }> {
     return this.request('PUT', `/api/wbo/sessions/${encodeURIComponent(sid)}/context`, { limit });

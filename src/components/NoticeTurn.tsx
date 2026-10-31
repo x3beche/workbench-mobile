@@ -7,10 +7,13 @@ import { colors, fonts } from '../theme/tokens';
 export function NoticeTurn({
   tasks,
   lang = 'en',
+  onOpenTask,
   testID = 'wbc-turn-notice',
 }: {
   tasks: NoticeTask[];
   lang?: 'en' | 'tr';
+  /** A task's number was tapped: its own row in the Team sheet (the web's openTask). */
+  onOpenTask?: (id: string) => void;
   testID?: string;
 }) {
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -38,24 +41,42 @@ export function NoticeTurn({
         const hasSummary = !!task.summary;
         return (
           <View key={task.id} style={s.taskBlock}>
-            <Pressable
-              onPress={() => hasSummary && toggle(task.id)}
-              disabled={!hasSummary}
-              accessibilityRole={hasSummary ? 'button' : undefined}
-              accessibilityState={hasSummary ? { expanded: isOpen } : undefined}
-              style={s.lineBtn}
-              testID={`notice-task-${task.id}`}
-            >
+            <View style={s.lineBtn} testID={`notice-task-${task.id}`}>
               <View style={[s.dot, { backgroundColor: dotColor(task.state) }]} />
-              <Text style={s.lineText} numberOfLines={1} ellipsizeMode="tail">
+              <Text style={s.ink} numberOfLines={1}>
                 <Text style={s.brand}>Workbench</Text>
                 <Text style={s.dim}> · </Text>
-                <Text style={s.mono}>#{task.id} </Text>
-                <Text>{task.name}</Text>
-                <Text style={s.dim}> · </Text>
-                <Text>{stateLabel(task.state, lang)}</Text>
               </Text>
-            </Pressable>
+              {/* The number is the way to the task itself: its row in the Team sheet opens on it. */}
+              {onOpenTask ? (
+                <Pressable
+                  onPress={() => onOpenTask(task.id)}
+                  accessibilityRole="button"
+                  accessibilityHint={task.name}
+                  hitSlop={6}
+                  testID={`notice-task-open-${task.id}`}
+                >
+                  <Text style={s.mono}>#{task.id} </Text>
+                </Pressable>
+              ) : (
+                <Text style={s.mono}>#{task.id} </Text>
+              )}
+              <Pressable
+                onPress={() => hasSummary && toggle(task.id)}
+                disabled={!hasSummary}
+                accessibilityRole={hasSummary ? 'button' : undefined}
+                accessibilityState={hasSummary ? { expanded: isOpen } : undefined}
+                accessibilityLabel={`${task.name} · ${stateLabel(task.state, lang)}`}
+                style={s.rest}
+                testID={`notice-task-toggle-${task.id}`}
+              >
+                <Text style={s.lineText} numberOfLines={1} ellipsizeMode="tail">
+                  <Text>{task.name}</Text>
+                  <Text style={s.dim}> · </Text>
+                  <Text>{stateLabel(task.state, lang)}</Text>
+                </Text>
+              </Pressable>
+            </View>
             {isOpen && task.summary ? (
               <Text style={s.summary} selectable testID={`notice-summary-${task.id}`}>
                 {task.summary}
@@ -92,6 +113,14 @@ const s = StyleSheet.create({
     borderRadius: 2.5,
     flexShrink: 0,
   },
+  ink: {
+    flexShrink: 0,
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.inkDim,
+  },
+  rest: { flexShrink: 1 },
   lineText: {
     fontFamily: fonts.sans,
     fontSize: 12,

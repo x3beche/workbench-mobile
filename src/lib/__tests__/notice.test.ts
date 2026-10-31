@@ -90,6 +90,8 @@ describe('Workbench notification parser', () => {
     expect(noticeTone('answered')).toBe('ok');
     expect(noticeTone('waiting')).toBe('warn');
     expect(noticeTone('stalled')).toBe('warn');
+    // A turn cut off before it answered: the same amber as waiting, not a green tick and not a failure.
+    expect(noticeTone('interrupted')).toBe('warn');
     expect(noticeTone('failed')).toBe('danger');
     expect(noticeTone('could not be sent')).toBe('danger');
   });

@@ -61,6 +61,7 @@ export function TeamSheet({
   sid,
   t,
   sub,
+  focusTask = null,
   onClose,
   onOpenAgent,
 }: {
@@ -70,6 +71,8 @@ export function TeamSheet({
   t: TeamStrings;
   /** A line under the sheet's title (the session's name). */
   sub?: string;
+  /** A task to open on: the row shows it marked, with its own word open (a notification row's number). */
+  focusTask?: string | null;
   onClose: () => void;
   /** An agent's row was tapped: its own session takes the screen. */
   onOpenAgent: (key: string) => void;
@@ -77,7 +80,7 @@ export function TeamSheet({
   const [data, setData] = useState<TeamAnswer | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** The tasks whose own word is open, and whether the closed ones are shown. */
-  const [shown, setShown] = useState<ReadonlySet<string>>(() => new Set());
+  const [shown, setShown] = useState<ReadonlySet<string>>(() => new Set(focusTask ? [focusTask] : []));
   /** The agents whose context numbers are shown (a tap on the share, where the bar cannot say it all). */
   const [ctxShown, setCtxShown] = useState<ReadonlySet<string>>(() => new Set());
   const [closedOpen, setClosedOpen] = useState(false);
@@ -150,6 +153,12 @@ export function TeamSheet({
     });
 
   const open = data ? openTasks(data.tasks) : [];
+  /** The closed tasks are opened on the focused one, when that is where it is. */
+  useEffect(() => {
+    if (!data || !focusTask) return;
+    if (closedTasks(data.tasks).some((x) => x.task === focusTask)) setClosedOpen(true);
+    setShown((held) => (held.has(focusTask) ? held : new Set([...held, focusTask])));
+  }, [data, focusTask]);
   const closed = data ? closedTasks(data.tasks) : [];
   const agents = data ? agentsInOrder(data.agents) : [];
   const working = agents.filter((a) => dotTone(a.state) === 'ok').length;
@@ -198,6 +207,7 @@ export function TeamSheet({
                   t={t}
                   now={now}
                   shown={shown}
+                  focus={focusTask}
                   ctxShown={ctxShown.has(a.agent)}
                   onOpenAgent={onOpenAgent}
                   onFlip={flip}
@@ -257,6 +267,7 @@ function AgentBlock({
   t,
   now,
   shown,
+  focus,
   ctxShown,
   onOpenAgent,
   onFlip,
@@ -268,6 +279,8 @@ function AgentBlock({
   t: TeamStrings;
   now: number;
   shown: ReadonlySet<string>;
+  /** The task a notification row asked for: its row is marked. */
+  focus: string | null;
   /** The share's numbers are open under the row. */
   ctxShown: boolean;
   onOpenAgent: (key: string) => void;
@@ -328,6 +341,7 @@ function AgentBlock({
           t={t}
           now={now}
           open={shown.has(task.task)}
+          focus={focus === task.task}
           onFlip={() => onFlip(task.task)}
         />
       ))}
@@ -346,19 +360,22 @@ function TaskBlock({
   t,
   now,
   open,
+  focus,
   onFlip,
 }: {
   task: TeamTask;
   t: TeamStrings;
   now: number;
   open: boolean;
+  /** Asked for by a notification row: marked until the sheet is opened again. */
+  focus: boolean;
   onFlip: () => void;
 }) {
   const line = reportLine(task, t);
   const reports = task.reports || [];
   const last = reports.length ? reports[reports.length - 1] : null;
   return (
-    <View style={s.task} testID={`team-task-${task.task}`}>
+    <View style={[s.task, focus && s.taskFocus]} testID={`team-task-${task.task}`}>
       <Pressable
         onPress={onFlip}
         accessibilityRole="button"
@@ -447,6 +464,8 @@ const s = StyleSheet.create({
   warnText: { color: colors.warn },
   badText: { color: colors.danger },
   task: { paddingBottom: 1 },
+  /* The one a notification row asked for: a hairline of the accent down its side, no colour of its own. */
+  taskFocus: { borderLeftWidth: 2, borderLeftColor: colors.accent, marginLeft: 10, paddingLeft: 0 },
   taskRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

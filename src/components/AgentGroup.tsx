@@ -1,8 +1,8 @@
 /**
  * The drawer's Agents group: one's own Claude Code sessions and OpenCode sessions as one list, and the ones a
  * person put under another drawn under it, indented - the web's Chat list (frontend/src/app/rooms/agents-list.ts).
- * A long press (or the row's …) opens Open, Put under …, On its own and Pin / Unpin; there is no dragging on a
- * phone. The rules are the server's (backend/agents.py) and are checked here first (lib/agents.ts) so a move
+ * A long press (or the row's …) opens Open, Put under …, On its own, Rename (an OpenCode session's own name, on
+ * that computer too) and Pin / Unpin; there is no dragging on a phone. The rules are the server's (backend/agents.py) and are checked here first (lib/agents.ts) so a move
  * that cannot be taken is not offered. Folded or open as the person chose (the "agents" fold, lib/side.ts);
  * open, it shows the pinned trees, the newest five and the open one's, with "Show N more".
  */
@@ -16,9 +16,9 @@ import { FOLD_FIRST, isOpen, isPinned } from '../lib/side';
 import type { WbcStrings } from '../lib/wbcStrings';
 import { colors, fonts, gutter, type } from '../theme/tokens';
 import { DrawerRow } from './DrawerRow';
-import { ExternalLink, FolderInput, LogOut, Pin, PinOff, SquareCode, SquareTerminal } from './icons';
+import { ExternalLink, FolderInput, LogOut, Pencil, Pin, PinOff, SquareCode, SquareTerminal } from './icons';
 import { GroupHead, type SessionRowData } from './SessionGroup';
-import { ActionList, Sheet } from './Sheet';
+import { ActionList, Dialog, Sheet } from './Sheet';
 
 /** One row: a session of either kind, named by its key ("wbc:<id>" / "wbo:<id>"). */
 export interface AgentRowData extends SessionRowData {
@@ -30,6 +30,8 @@ export interface AgentRowData extends SessionRowData {
   child: boolean;
   /** Not used in the last day and doing nothing: shown on "Show N older". */
   old?: boolean;
+  /** An OpenCode session one may write to: its name is OpenCode's own and can be changed from here. */
+  canRename?: boolean;
 }
 
 const STEP = 24;
@@ -51,6 +53,7 @@ export function AgentGroup({
   onFold,
   onPin,
   onLink,
+  onRename,
   testID = 'drawer-agents',
 }: {
   rows: AgentRowData[];
@@ -68,11 +71,15 @@ export function AgentGroup({
   onPin: (group: SideGroup, id: string, pinned: boolean) => void;
   /** Put a worker under a manager (null: on its own again). */
   onLink: (worker: string, manager: string | null) => void;
+  /** Rename an OpenCode session: its own title, changed on that computer too. */
+  onRename?: (key: string, title: string) => Promise<void>;
   testID?: string;
 }) {
   const [more, setMore] = useState(false);
   const [menu, setMenu] = useState<AgentRowData | null>(null);
   const [shut, setShut] = useState<ReadonlySet<string>>(() => new Set());
+  /** The row whose name is being changed: its own dialog, its own field. */
+  const [renaming, setRenaming] = useState<AgentRowData | null>(null);
   const [showOld, setShowOld] = useState(false);
   const rows = showOld ? every : every.filter((r) => !r.old);
   const older = showOld ? 0 : every.length - rows.length;
@@ -226,6 +233,9 @@ export function AgentGroup({
           <ActionList
             actions={[
               { id: 'agent-open', label: t.open, icon: ExternalLink, onPress: () => { setMenu(null); onOpen(menu); } },
+              ...(menu.canRename && onRename
+                ? [{ id: 'agent-rename', label: a.rename, icon: Pencil, onPress: () => { const r = menu; setMenu(null); setRenaming(r); } }]
+                : []),
               ...candidates(menu).map((c) => ({
                 id: `agent-under-${c.key}`,
                 label: a.putUnder(c.name),
@@ -241,6 +251,25 @@ export function AgentGroup({
             ]}
           />
         </Sheet>
+      ) : null}
+      {renaming ? (
+        <Dialog
+          title={a.renameTitle}
+          confirm={a.rename}
+          text={a.renameField}
+          input={{ value: renaming.name, label: a.renameName }}
+          testID={`${testID}-rename`}
+          onCancel={() => setRenaming(null)}
+          onConfirm={async (title) => {
+            if (!onRename) return;
+            try {
+              await onRename(renaming.key, title);
+            } catch {
+              throw new Error(a.renameFailed);
+            }
+            setRenaming(null);
+          }}
+        />
       ) : null}
     </View>
   );

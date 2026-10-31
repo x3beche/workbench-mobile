@@ -55,14 +55,27 @@ const multiTasks = [
   it('toggles summary open and closed on tap', async () => {
     await render(<NoticeTurn tasks={singleTask} lang="en" />);
     expect(screen.queryByTestId('notice-summary-676936')).toBeNull();
-    await fireEvent.press(screen.getByTestId('notice-task-676936'));
+    await fireEvent.press(screen.getByTestId('notice-task-toggle-676936'));
     expect(screen.getByTestId('notice-summary-676936')).toHaveTextContent('built and signed APK');
-    await fireEvent.press(screen.getByTestId('notice-task-676936'));
+    await fireEvent.press(screen.getByTestId('notice-task-toggle-676936'));
     expect(screen.queryByTestId('notice-summary-676936')).toBeNull();
   });
 
   it('translates state into Turkish when lang is tr', async () => {
     await render(<NoticeTurn tasks={singleTask} lang="tr" />);
     expect(screen.getByText('cevaplandı')).toBeTruthy();
+  });
+
+  it('opens the task from its number, and does not open the summary with it', async () => {
+    const onOpenTask = jest.fn();
+    await render(<NoticeTurn tasks={singleTask} lang="en" onOpenTask={onOpenTask} />);
+    await fireEvent.press(screen.getByTestId('notice-task-open-676936'));
+    expect(onOpenTask).toHaveBeenCalledWith('676936');
+    expect(screen.queryByTestId('notice-summary-676936')).toBeNull();
+  });
+
+  it('has no way to the task when nothing listens for it', async () => {
+    await render(<NoticeTurn tasks={singleTask} lang="en" />);
+    expect(screen.queryByTestId('notice-task-open-676936')).toBeNull();
   });
 });

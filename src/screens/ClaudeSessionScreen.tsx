@@ -127,6 +127,8 @@ export function ClaudeSessionScreen({
 }) {
   /** Its Team, in a sheet: the agents under it and the tasks it gave them. */
   const [team, setTeam] = useState(false);
+  /** The task a notification row's number asked for: the Team sheet opens on it. */
+  const [teamFocus, setTeamFocus] = useState<string | null>(null);
   const teamT = useMemo(() => teamStrings(uiLang(lang)), [lang]);
   const [s, setS] = useState<WbcDetail | null>(() => (initial ? { ...initial, messages: [], mark: MARK } : null));
   const [turns, setTurns] = useState<WbcTurn[] | null>(null);
@@ -408,6 +410,11 @@ export function ClaudeSessionScreen({
             ? 'notify'
             : undefined
         }
+        // A number opens the task itself: the Team sheet, on that row (the web's openTask).
+        onOpenTask={(id) => {
+          setTeamFocus(id);
+          setTeam(true);
+        }}
         t={t}
         onZoom={setZoom}
       />
@@ -610,7 +617,11 @@ export function ClaudeSessionScreen({
           sid={sid}
           t={teamT}
           sub={s?.name || undefined}
-          onClose={() => setTeam(false)}
+          focusTask={teamFocus}
+          onClose={() => {
+            setTeam(false);
+            setTeamFocus(null);
+          }}
           onOpenAgent={(key) => {
             setTeam(false);
             onOpenAgent?.(key);
@@ -672,6 +683,7 @@ function TurnRow({
   client,
   mark,
   kind,
+  onOpenTask,
   t,
   onZoom,
 }: {
@@ -682,6 +694,8 @@ function TurnRow({
   mark: string;
   /** What the message this turn came from was, when the server marked it ("notify": the Workbench's own words). */
   kind?: string;
+  /** A task's number in a notification row: its own row in the Team sheet. */
+  onOpenTask: (id: string) => void;
   t: WbcStrings;
   onZoom: (uri: string) => void;
 }) {
@@ -736,6 +750,7 @@ function TurnRow({
         <NoticeTurn
           tasks={noticeTasks}
           lang={isTr ? 'tr' : 'en'}
+          onOpenTask={onOpenTask}
           testID="wbc-turn-notice"
         />
       );

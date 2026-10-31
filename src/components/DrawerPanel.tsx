@@ -336,6 +336,8 @@ export function DrawerPanel({
         when: x.updated ? ago(new Date(x.updated).toISOString(), new Date(), uiLang(lang)) : '',
         dot: wboDot(x),
         live: !!x.bridge?.connected,
+        // Its name is OpenCode's own, and one may change it only where one may write (as the web's list says).
+        canRename: !!x.may_send,
       })),
     ];
   }, [agents, wbc, onWbc, wbo, onWbo, q, openWbc, openWbo, side, lang]);
@@ -600,6 +602,14 @@ export function DrawerPanel({
                 onFold={fold}
                 onPin={pin}
                 onLink={agents.onLink}
+                onRename={
+                  client
+                    ? async (key, title) => {
+                        // "wbo:<session>" - the rename goes to OpenCode on that computer, not to a name of ours.
+                        await client.wboRename(key.replace(/^wbo:/, ''), title);
+                      }
+                    : undefined
+                }
               />
             ) : null}
             {!picking && scope === 'live' && !agents && wbc && onWbc ? (

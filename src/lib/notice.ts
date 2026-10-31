@@ -53,6 +53,8 @@ export function parseNotice(text: string, kind?: string): NoticeTask[] | null {
 export function noticeTone(state: string): 'ok' | 'warn' | 'danger' {
   const s = state.trim().toLowerCase();
   if (s.includes('answer')) return 'ok';
+  // A turn cut off before it answered (backend/agents_mcp.py's "interrupted"): not a failure, and not nothing.
+  if (s.includes('interrupt')) return 'warn';
   if (s.includes('wait') || s.includes('stall') || s.includes('no sign')) return 'warn';
   if (s.includes('fail') || s.includes('could not')) return 'danger';
   return 'ok';

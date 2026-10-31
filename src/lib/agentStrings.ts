@@ -16,6 +16,13 @@ export interface AgentStrings {
   hideOlder: string;
   showTeam: string;
   hideTeam: string;
+  /** The row's menu, for an OpenCode session one may write to: its own name, on that computer too. */
+  rename: string;
+  renameTitle: string;
+  renameField: string;
+  /** The field's own label (the web's "New name"). */
+  renameName: string;
+  renameFailed: string;
   why: Record<WhyNot, string>;
   moveFailed: string;
 }
@@ -30,6 +37,11 @@ const en: AgentStrings = {
   hideOlder: 'Hide the older ones',
   showTeam: 'Show its agents',
   hideTeam: 'Hide its agents',
+  rename: 'Rename',
+  renameTitle: 'Rename the OpenCode session',
+  renameField: 'Its own name on that computer - the TUI shows the same.',
+  renameName: 'New name',
+  renameFailed: 'It could not be renamed.',
   why: {
     self: 'An agent cannot manage itself.',
     circle: 'That would make a circle: the manager is under this agent already.',
@@ -48,6 +60,11 @@ const tr: AgentStrings = {
   hideOlder: 'Eskileri gizle',
   showTeam: 'Ajanlarını göster',
   hideTeam: 'Ajanlarını gizle',
+  rename: 'Yeniden adlandır',
+  renameTitle: 'OpenCode oturumunu yeniden adlandır',
+  renameField: 'Bilgisayarındaki kendi adı - TUI de aynısını gösterir.',
+  renameName: 'Yeni ad',
+  renameFailed: 'Yeniden adlandırılamadı.',
   why: {
     self: 'Bir ajan kendini yönetemez.',
     circle: 'Bu bir döngü olur: yönetici zaten bu ajanın altında.',

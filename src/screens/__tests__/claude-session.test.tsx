@@ -530,6 +530,31 @@ describe('a long answer on the phone', () => {
     expect(screen.getByTestId('wbc-turn-user')).toBeTruthy();
   });
 
+  it('opens a task from a notification row in the Team sheet', async () => {
+    const c = client();
+    (c as unknown as { agentTeam: jest.Mock }).agentTeam = jest.fn(async () => ({
+      manager: 'wbc:s1',
+      agents: [],
+      tasks: [{ task: 'eb8eeb', agent: 'wbo:x', title: 'Audit', status: 'interrupted' }],
+    }));
+    c.wbcTurns.mockImplementation(async () => ({
+      turns: [
+        {
+          id: 'r1',
+          role: 'user',
+          text: '[Workbench] #eb8eeb AUDIT-WEB-MOBILE - interrupted',
+          at: NOW - 60,
+          remote: true,
+        },
+      ],
+      more: false,
+      before: null,
+    }));
+    await open(c);
+    await fireEvent.press(screen.getByTestId('notice-task-open-eb8eeb'));
+    expect(screen.getByTestId('wbc-team-sheet')).toBeTruthy();
+  });
+
   it('does not say "delivered" again once the turn names the message it came from', async () => {
     const sent = (over: Partial<WbcMessage>): WbcMessage => ({
       id: 'm',
