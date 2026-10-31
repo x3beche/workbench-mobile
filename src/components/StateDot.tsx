@@ -65,9 +65,9 @@ function release(): void {
   breath.setValue(1);
 }
 
-export function StateDot({ s, size = 7 }: { s: Dot; size?: number }) {
+export function StateDot({ s, size = 7, testID, pulse: breathe }: { s: Dot; size?: number; testID?: string; pulse?: boolean }) {
   const reduce = useReduceMotion();
-  const pulse = s === 'running' && !reduce;
+  const pulse = (s === 'running' || breathe) && !reduce;
   const [on, setOn] = useState(false);
 
   useEffect(() => {
@@ -83,6 +83,7 @@ export function StateDot({ s, size = 7 }: { s: Dot; size?: number }) {
   return (
     <Animated.View
       aria-hidden
+      testID={testID}
       style={[
         s_.dot,
         { width: size, height: size, borderRadius: size / 2, backgroundColor: INK[s] },

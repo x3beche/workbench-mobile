@@ -73,7 +73,6 @@ import {
   sendTone,
   sendWord,
   TURNS_PAGE,
-  updateWord,
   provName,
   wboDot,
   wboWhy,
@@ -533,12 +532,14 @@ export function OpencodeSessionScreen({
   };
   // A question drawn from the tool's own call says why it is not answered here; any other, why one cannot write.
   const noteOf = (a: WboAsk) => (a.local ? localWhy(s, t) : why);
-  const update = updateWord(s, t);
-  /** The header's word: the dot says it alone while OpenCode works - it is
-   *  the dot that pulses - and the word would say it twice (as the web). Waiting
-   *  gets the short word: the line has the computer to carry too, and the sentence
-   *  is the sheet's and the question card's. */
-  const head = s && s.status !== 'busy' ? (s.status === 'waiting' ? t.waitingShort : wboWord(s, t)) : '';
+  /** The header's word: the dot says it alone while OpenCode works (it pulses) and while that computer is
+   *  away (the grey one) - a word for either would say the same thing twice; no bridge at all still says
+   *  "not connected", since there is no dot to say it. Waiting takes the short word: the line has the room
+   *  and the computer to carry too, and the sentence is the sheet's and the question card's. */
+  const away = !!s?.bridge && !s.bridge.connected;
+  const head = s && s.status !== 'busy' && !away
+    ? s.status === 'waiting' ? t.waitingShort : wboWord(s, t)
+    : '';
   /**
    * An answer's thinking and tool rows apart from its words, with what the one
    * line they are written as while the Chat is compact says (Settings > Chat;
@@ -685,7 +686,7 @@ export function OpencodeSessionScreen({
              the folder, the model and the window while it is open - one fact, one place. */
           column ? null : (
             <>
-              {dot ? <StateDot s={dot} /> : null}
+              {dot ? <StateDot s={dot} testID="wbo-dot" /> : null}
               {/* The state gives way first: where it runs is the fact this line is for. */}
               <View style={st.stateLine} testID="wbo-state">
                 {s && head ? (

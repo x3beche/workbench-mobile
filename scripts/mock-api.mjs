@@ -24,6 +24,7 @@ import { handleCcpool } from './mock-ccpool.mjs';
 import { addExport, handleFiles } from './mock-files.mjs';
 import { handleAnalytics, handleOrchestrator, handleRooms } from './mock-orchestrator.mjs';
 import { activityNow, handleS2Api, publish } from './mock-s2.mjs';
+import { handleTeam } from './mock-team.mjs';
 import { handleWbc } from './mock-wbc.mjs';
 import { handleWbo } from './mock-wbo.mjs';
 
@@ -418,6 +419,7 @@ export async function handle(req, res) {
   if (handleAnalytics(req, res, p, url)) return;
   if (handleOrchestrator(req, res, p, body)) return;
   if (handleRooms(req, res, p, url, body)) return;
+  if (handleTeam(req, res, p)) return;
   if (handleWbc(req, res, p, url, body)) return;
   if (handleWbo(req, res, p, url, body)) return;
   if (handleCcpool(req, res, p)) return;

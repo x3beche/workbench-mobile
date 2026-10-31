@@ -438,6 +438,44 @@ const SESSIONS = [
     asks: [],
   },
   {
+    // A computer that is away: its dot is the grey one, and the header says only where it runs.
+    row: row('ses_off00000e5', 'Sensor board bring-up', {
+      status: 'idle',
+      computer: 'x33-workstation',
+      directory: '~/projects/redline-studio/frontend/src/app',
+      updated: ms() - 5 * 60_000,
+      seen: secs() - 900,
+      bridge: bridge({
+        id: 'wbo-b5-x33',
+        host: 'x33-workstation',
+        connected: false,
+        seen: secs() - 900,
+        cwd: '~/projects/redline-studio/frontend/src/app',
+      }),
+      may_send: false,
+      why: 'no-bridge',
+    }),
+    msgs: [
+      {
+        id: 'msg_o1',
+        role: 'user',
+        time: ms() - 40 * 60_000,
+        done: ms() - 40 * 60_000,
+        parts: [{ id: 't0', type: 'text', text: 'Bring up the new board and tell me what is wrong.' }],
+      },
+      {
+        id: 'msg_o2',
+        role: 'assistant',
+        model: 'deepseek/deepseek-v4-flash',
+        time: ms() - 39 * 60_000,
+        done: ms() - 38 * 60_000,
+        parts: [{ id: 't0', type: 'text', text: 'The 1V8 rail comes up first; the radio stays silent until it does.' }],
+      },
+    ],
+    sends: [],
+    asks: [],
+  },
+  {
     row: row('ses_lid00000c3', 'Enclosure lid review', { status: 'ended', updated: ms() - 18 * 3600_000 }),
     msgs: [
       {

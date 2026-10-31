@@ -1,8 +1,8 @@
 /**
  * A session's column on the phone: the same answer the web's right-hand column draws
  * (backend/wb_panel.py, GET /api/wbo/sessions/{sid}/panel) - what it waits for, its todo list, the files it
- * changed, the model and its window, the computer it runs on, the tools it used - in that order, the things
- * that need a person first.
+ * changed, the model and its window, the tools it used - in that order, the things that need a person
+ * first. Where it runs - the computer and the folder - is the session title's own line, not a section.
  *
  * The sections are the web's (frontend/src/app/rooms/session-panel.ts) and so are the rules: a section with
  * nothing in it is not drawn at all, the person's fold of it is kept on the server (/api/me/side `panel`),
@@ -14,7 +14,7 @@ import type { WboStrings } from './wboStrings';
 
 export type { PanelRecentCall };
 
-export type PanelSectionId = 'pending' | 'todos' | 'files' | 'model' | 'computer' | 'tools' | 'flow';
+export type PanelSectionId = 'pending' | 'todos' | 'files' | 'model' | 'tools' | 'flow';
 
 export interface PanelSection {
   id: PanelSectionId;
@@ -33,8 +33,9 @@ export const CTX_DANGER = 95;
 
 /** The sections that have something to say, in the order a person reads them - the same order the web's
  *  column has: the model and its window first (it is the thing a session is), then what the run is doing, then
- *  the files it changed. The question waiting and the computer are not sections: the question is one line above
- *  them (its card is in the conversation, where it is answered), and the computer is the dim line at the foot. */
+ *  the files it changed. The question waiting is not a section either: it is one line above them (its card is
+ *  in the conversation, where it is answered), and where the session runs - the computer and its folder - is
+ *  the title's line (SessionPanelSheet). */
 /** Total line counts: "+n −n · k/n" where only some files carry diff numbers. */
 export function filesCount(p: WboPanel | null): string {
   const list = p?.files?.items ?? [];
@@ -232,7 +233,7 @@ export function stallNote(p: WboPanel, t: WboStrings, now: number): string {
 }
 
 /** The one thing wrong on that computer: a stale installer or an MCP server that is down. */
-export function footFlag(c: (WboBridge & { name?: string; outdated?: boolean; self_updates?: boolean; mcp?: { name: string; status: string }[] }) | null): { text: string; tone: string; tip: string } | null {
+export function footFlag(c: WboBridge | null): { text: string; tone: string; tip: string } | null {
   if (!c || !c.connected) return null;
   if (c.outdated && !c.self_updates) {
     return { text: 'update', tone: 'warn', tip: 'A newer wb-opencode is out: run its installer again on that computer' };
@@ -245,12 +246,17 @@ export function footFlag(c: (WboBridge & { name?: string; outdated?: boolean; se
   return null;
 }
 
-/** The directory as the foot has room for it: its last two segments. */
-export function footDir(path: string): string {
-  const one = (path || '').replace(/\/+$/, '');
+/** The folder under a session's name, read from its start: `~/projects/sensor-board`. A deeper one gives way in
+ *  the middle and keeps the two names a person knows it by - the project and the folder the session is in, as
+ *  the web's title bar writes it: `~/…/redline-studio/rooms`. */
+export function titleDir(path: string): string {
+  const one = (path || '').replace(/\/+$/, '').replace(/^\/home\/[^/]+/, '~');
   if (!one || one === '~') return one;
   const parts = one.split('/').filter(Boolean);
-  return parts.length <= 2 ? one : `…/${parts.slice(-2).join('/')}`;
+  if (parts.length <= 3) return one;
+  const leaf = parts[parts.length - 1];
+  const project = parts[1] === 'projects' && parts[2] ? parts[2] : parts[parts.length - 2];
+  return (one.startsWith('~/') ? '~/…/' : '…/') + [project, leaf].filter((x, i, a) => a.indexOf(x) === i).join('/');
 }
 
 export function clock(ms: number): string {

@@ -16,6 +16,7 @@ import { LiveContext } from '../../live/LiveContext';
 import { SIDE_EMPTY, withPin } from '../../lib/side';
 import { wbcStrings } from '../../lib/wbcStrings';
 import { wboStrings } from '../../lib/wboStrings';
+import { colors } from '../../theme/tokens';
 import { OpencodeSessionScreen } from '../OpencodeSessionScreen';
 
 jest.mock(
@@ -366,6 +367,28 @@ async function show(d: WboDetail, t = en) {
       }),
     );
     expect(screen.getByTestId('wbo-flag')).toHaveTextContent('MCP 1/2');
+  });
+
+  it('draws the connection as the dot alone: hairline grey while that computer is away, and no word for it', async () => {
+    await show(detail({ bridge: { ...row().bridge!, connected: false } }));
+    expect(screen.getByTestId('wbo-state')).toHaveTextContent(/^OpenCode · ada-laptop$/);
+    // the run's state dot is the computer's too (it is aria-hidden, the colour is all it says)
+    expect(screen.getByTestId('wbo-dot', { includeHiddenElements: true })).toHaveStyle({
+      backgroundColor: colors.pressed,
+    });
+  });
+
+  it('says "not connected" only where there is no computer to draw a dot for', async () => {
+    await show(detail({ bridge: null }));
+    expect(screen.getByTestId('wbo-state')).toHaveTextContent(/^not connected · OpenCode · ada-laptop$/);
+    expect(screen.queryByTestId('wbo-dot', { includeHiddenElements: true })).toBeNull();
+  });
+
+  it('draws the dot green while that computer is there', async () => {
+    await show(detail());
+    expect(screen.getByTestId('wbo-dot', { includeHiddenElements: true })).toHaveStyle({
+      backgroundColor: colors.ok,
+    });
   });
 
   it('answers what OpenCode asks from the phone', async () => {

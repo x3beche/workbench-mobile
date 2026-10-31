@@ -1,11 +1,13 @@
 /**
  * A session's column on the phone (components/SessionPanelSheet.tsx, lib/wboPanel.ts): the "i" beside the
  * session's title opens what the web's right-hand column shows - the model and its window, what the run is
- * doing now, the files it changed, and the computer in one dim line at the foot - and the rules of that column:
+ * doing now, and the files it changed - and the rules of that column:
  * a section with nothing in it is not drawn, a section folds as the person folded it (kept on the server), a
  * question is one line at the top that goes to its card in the conversation (where it is answered), and nothing
- * the sheet says is said again in the screen's header.
+ * the sheet says is said again in the screen's header. Where the session runs is not a section: its folder is
+ * the line under the sheet's title, from its start, tap to copy.
  */
+import * as Clipboard from 'expo-clipboard';
 import * as React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
@@ -205,6 +207,18 @@ async function open(p: WboPanel) {
     // the state is under the sheet's title, once - never a line under the cost
     expect(screen.getByText('Rail sag · idle')).toBeTruthy();
     expect(screen.queryByText(/^idle$/i)).toBeNull();
+  });
+
+
+  it('writes the folder from its start under the sheet title, and a tap copies the whole one', async () => {
+    const p = panel();
+    p.session.computer = { ...p.session.computer!, cwd: '~/projects/redline-studio/frontend/src/app' };
+    await open(p);
+    expect(screen.getByTestId('wbo-panel-cwd')).toHaveTextContent('~/…/redline-studio/app');
+    await fireEvent.press(screen.getByTestId('wbo-panel-cwd'));
+    await act(async () => undefined);
+    expect(Clipboard.setStringAsync).toHaveBeenCalledWith('~/projects/redline-studio/frontend/src/app');
+    expect(screen.getByText(t.copied)).toBeTruthy();
   });
 
   it('draws no section that has nothing in it', async () => {

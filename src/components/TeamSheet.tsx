@@ -1,10 +1,13 @@
 /**
  * A manager session's Team, as the web app's right-hand column draws it (frontend/src/app/rooms/team-panel.ts)
- * in a sheet that rises from the bottom: the agents the session has under it - a name, a state dot, how much of
- * its window it uses and the task it holds - and the tasks it gave them, the open ones first with their answer
- * under a tap, the closed ones folded. One answer carries it all (GET /api/agents/team/{manager}); it is read
- * when the bus says the agents changed and every fifteen seconds while the sheet is open. Nothing here writes:
- * the work is given in the conversation, this only says how it is going.
+ * in a sheet that rises from the bottom. One list, one block an agent: its state dot, its name and how much of
+ * its window it uses, then the tasks it holds (an id and a title that wraps rather than being cut, the state
+ * and the time it is taking at the right), then the agent's own last word as one dim line a tap opens in the
+ * same small type. An agent holding nothing gets one line: the task it closed last. What waits on the person
+ * comes first, then what works, then the idle; the closed tasks are folded at the foot, grouped by agent.
+ * One answer carries it all (GET /api/agents/team/{manager}); it is read when the bus says the agents changed
+ * and every fifteen seconds while the sheet is open. Nothing here writes: the work is given in the conversation,
+ * this only says how it is going.
  *
  * Mount it to open it, as the OpenCode session's column is (components/SessionPanelSheet.tsx).
  */
@@ -25,33 +28,33 @@ import type { TeamAgent, TeamAnswer, TeamTask } from '../api/types';
 import { useBus } from '../live/LiveContext';
 import { inFront } from '../live/hub';
 import {
+  agentsInOrder,
+  barTone,
   closedTasks,
-  openCount,
+  dotTone,
+  groupClosed,
+  contextNumbers,
+  idleLine,
+  lastClosed,
+  oneLine,
   openTasks,
+  overPct,
   pctOf,
+  reportLine,
   shortTask,
-  teamTone,
+  tasksOf,
   took,
   when,
-  type TeamTone,
 } from '../lib/team';
 import type { TeamStrings } from '../lib/teamStrings';
 import { colors, fonts, gutter, space, type } from '../theme/tokens';
 import { ChevronDown, ChevronRight } from './icons';
-import { Markdown } from './Markdown';
+import { StateDot } from './StateDot';
 import { TallSheet } from './TallSheet';
 import { ErrorText, Glyph } from './ui';
 
 /** While the sheet is open, its team is read this often: a task's state changes without a word on the bus. */
 const REFRESH_MS = 15_000;
-
-const TONE: Record<TeamTone, string> = {
-  live: colors.accent,
-  warn: colors.warn,
-  bad: colors.danger,
-  ok: colors.ok,
-  idle: colors.pressed,
-};
 
 export function TeamSheet({
   client,
@@ -73,8 +76,10 @@ export function TeamSheet({
 }) {
   const [data, setData] = useState<TeamAnswer | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** The tasks whose answer is open, and whether the closed ones are shown. */
+  /** The tasks whose own word is open, and whether the closed ones are shown. */
   const [shown, setShown] = useState<ReadonlySet<string>>(() => new Set());
+  /** The agents whose context numbers are shown (a tap on the share, where the bar cannot say it all). */
+  const [ctxShown, setCtxShown] = useState<ReadonlySet<string>>(() => new Set());
   const [closedOpen, setClosedOpen] = useState(false);
   /** When the answer was read: a row's age is said against it (set with every read). */
   const [now, setNow] = useState(0);
@@ -136,12 +141,18 @@ export function TeamSheet({
       else next.add(id);
       return next;
     });
+  const flipCtx = (agent: string) =>
+    setCtxShown((held) => {
+      const next = new Set(held);
+      if (next.has(agent)) next.delete(agent);
+      else next.add(agent);
+      return next;
+    });
 
   const open = data ? openTasks(data.tasks) : [];
   const closed = data ? closedTasks(data.tasks) : [];
-  const agentOf = (task: TeamTask): TeamAgent | null => data?.agents.find((a) => a.agent === task.agent) ?? null;
-  /** The task an agent is on: the first open one it holds. */
-  const heldBy = (a: TeamAgent): TeamTask | null => open.find((x) => x.agent === a.agent) ?? null;
+  const agents = data ? agentsInOrder(data.agents) : [];
+  const working = agents.filter((a) => dotTone(a.state) === 'ok').length;
 
   return (
     <TallSheet
@@ -172,101 +183,65 @@ export function TeamSheet({
           testID="team-scroll"
         >
           <SafeAreaView edges={['left', 'right']} style={s.wrap}>
-            <View style={s.sec} testID="team-agents">
-              <View style={s.head}>
-                <Text style={s.headText}>{t.agents}</Text>
-                <Text style={s.fig} testID="team-agents-count">
-                  {data.agents.length}
-                </Text>
-              </View>
-              {data.agents.length ? (
-                data.agents.map((a) => {
-                  const pct = pctOf(a);
-                  const n = openCount(a);
-                  const task = heldBy(a);
-                  return (
-                    <Pressable
-                      key={a.agent}
-                      onPress={() => onOpenAgent(a.agent)}
-                      accessibilityRole="button"
-                      accessibilityHint={a.directory || a.computer || ''}
-                      style={[s.row, a.level > 1 && s.indent]}
-                      testID={`team-agent-${a.agent}`}
-                    >
-                      <View style={s.top}>
-                        <View style={[s.dot, { backgroundColor: TONE[teamTone(a.state)] }]} aria-hidden />
-                        <Text style={s.name} numberOfLines={1}>
-                          {a.name}
+            <View style={s.counts} testID="team-counts">
+              <Text style={s.countsText}>
+                {t.agentsLine(data.agents.length)} · {t.workingLine(working)}
+              </Text>
+            </View>
+            {agents.length ? (
+              agents.map((a) => (
+                <AgentBlock
+                  key={a.agent}
+                  a={a}
+                  tasks={tasksOf(a, open)}
+                  last={lastClosed(a.agent, closed)}
+                  t={t}
+                  now={now}
+                  shown={shown}
+                  ctxShown={ctxShown.has(a.agent)}
+                  onOpenAgent={onOpenAgent}
+                  onFlip={flip}
+                  onCtx={() => flipCtx(a.agent)}
+                />
+              ))
+            ) : (
+              <Text style={s.dim} testID="team-empty-agent">
+                {t.none}
+              </Text>
+            )}
+            {closed.length ? (
+              <View style={s.closedBox}>
+                <Pressable
+                  onPress={() => setClosedOpen(!closedOpen)}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: closedOpen }}
+                  style={s.closedHead}
+                  testID="team-closed"
+                >
+                  <Glyph icon={closedOpen ? ChevronDown : ChevronRight} size={11} color={colors.inkDim} />
+                  <Text style={s.dim}>{t.closed(closed.length)}</Text>
+                </Pressable>
+                {closedOpen
+                  ? groupClosed(agents, closed).map((g) => (
+                      <View key={g.agent} testID={`team-closed-group-${g.agent}`}>
+                        <Text style={s.closedAgent} numberOfLines={1}>
+                          {g.name}
                         </Text>
-                        {pct != null ? <Text style={s.fig}>{pct}%</Text> : null}
+                        {g.tasks.map((task) => (
+                          <View key={task.task} style={s.closedLine} testID={`team-closed-${task.task}`}>
+                            <Text style={s.closedMain} numberOfLines={1}>
+                              <Text style={s.id}>#{shortTask(task.task)}</Text> {task.title}
+                            </Text>
+                            <Text style={s.closedWhen} numberOfLines={1}>
+                              {t.status(task.status)} {when(task.updated, now)}
+                            </Text>
+                          </View>
+                        ))}
                       </View>
-                      <Text style={s.snip} numberOfLines={1}>
-                        {n ? t.open(n) : t.idle}
-                        {task ? ` · #${shortTask(task.task)} ${task.title}` : ''}
-                      </Text>
-                    </Pressable>
-                  );
-                })
-              ) : (
-                <Text style={s.dim} testID="team-empty-agent">
-                  {t.none}
-                </Text>
-              )}
-            </View>
-
-            <View style={s.sec} testID="team-tasks">
-              <View style={s.head}>
-                <Text style={s.headText}>{t.tasks}</Text>
-                <Text style={s.fig} testID="team-tasks-count">
-                  {open.length}
-                </Text>
+                    ))
+                  : null}
               </View>
-              {open.length ? (
-                open.map((task) => (
-                  <TaskRow
-                    key={task.task}
-                    task={task}
-                    t={t}
-                    now={now}
-                    agentName={agentOf(task)?.name || task.agent_name}
-                    open={shown.has(task.task)}
-                    onPress={() => flip(task.task)}
-                  />
-                ))
-              ) : (
-                <Text style={s.dim} testID="team-empty-task">
-                  {t.noTasks}
-                </Text>
-              )}
-              {closed.length ? (
-                <View style={s.closedBox}>
-                  <Pressable
-                    onPress={() => setClosedOpen(!closedOpen)}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: closedOpen }}
-                    style={s.closedHead}
-                    testID="team-closed"
-                  >
-                    <Glyph icon={closedOpen ? ChevronDown : ChevronRight} size={11} color={colors.inkDim} />
-                    <Text style={s.dim}>{t.closed(closed.length)}</Text>
-                  </Pressable>
-                  {closedOpen
-                    ? closed.map((task) => (
-                        <TaskRow
-                          key={task.task}
-                          task={task}
-                          t={t}
-                          now={now}
-                          agentName={agentOf(task)?.name || task.agent_name}
-                          quiet
-                          open={shown.has(task.task)}
-                          onPress={() => flip(task.task)}
-                        />
-                      ))
-                    : null}
-                </View>
-              ) : null}
-            </View>
+            ) : null}
           </SafeAreaView>
         </ScrollView>
       ) : null}
@@ -274,59 +249,163 @@ export function TeamSheet({
   );
 }
 
-function TaskRow({
+/** One agent: the row that opens it, the tasks it holds, and the one line it gets when it holds none. */
+function AgentBlock({
+  a,
+  tasks,
+  last,
+  t,
+  now,
+  shown,
+  ctxShown,
+  onOpenAgent,
+  onFlip,
+  onCtx,
+}: {
+  a: TeamAgent;
+  tasks: TeamTask[];
+  last: TeamTask | null;
+  t: TeamStrings;
+  now: number;
+  shown: ReadonlySet<string>;
+  /** The share's numbers are open under the row. */
+  ctxShown: boolean;
+  onOpenAgent: (key: string) => void;
+  onFlip: (id: string) => void;
+  onCtx: () => void;
+}) {
+  const pct = pctOf(a);
+  const tone = barTone(pct);
+  const over = overPct(a);
+  const numbers = contextNumbers(a);
+  return (
+    <View style={[s.agent, a.level > 1 && s.indent]} testID={`team-agent-block-${a.agent}`}>
+      <Pressable
+        onPress={() => onOpenAgent(a.agent)}
+        accessibilityRole="button"
+        accessibilityHint={a.directory || a.computer || ''}
+        style={s.agentRow}
+        testID={`team-agent-${a.agent}`}
+      >
+        <AgentDot state={a.state} testID={`team-dot-${a.agent}`} />
+        <Text style={s.name} numberOfLines={1}>
+          {a.name}
+        </Text>
+        {pct != null ? (
+          <Pressable
+            onPress={onCtx}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: ctxShown }}
+            accessibilityLabel={`${t.context}: ${numbers}`}
+            style={s.ctx}
+            testID={`team-ctx-${a.agent}`}
+          >
+            <View style={s.bar}>
+              <View
+                style={[
+                  s.barFill,
+                  { width: `${pct}%` },
+                  tone === 'warn' ? s.barWarn : tone === 'bad' ? s.barBad : null,
+                ]}
+                testID={`team-bar-${a.agent}`}
+              />
+            </View>
+            <Text style={[s.pct, tone === 'warn' ? s.warnText : tone === 'bad' ? s.badText : null]}>
+              {over ? t.full : `${pct}%`}
+            </Text>
+          </Pressable>
+        ) : null}
+      </Pressable>
+      {ctxShown ? (
+        <Text style={s.ctxNumbers} numberOfLines={1} testID={`team-ctx-numbers-${a.agent}`}>
+          {numbers}
+        </Text>
+      ) : null}
+      {tasks.map((task) => (
+        <TaskBlock
+          key={task.task}
+          task={task}
+          t={t}
+          now={now}
+          open={shown.has(task.task)}
+          onFlip={() => onFlip(task.task)}
+        />
+      ))}
+      {!tasks.length ? (
+        <Text style={s.idleLine} numberOfLines={1} testID={`team-idle-${a.agent}`}>
+          {idleLine(a.state, last, t, now)}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/** One task under its agent: the number and its title, state and time at the right, the agent's word under. */
+function TaskBlock({
   task,
   t,
   now,
-  agentName,
-  quiet = false,
   open,
-  onPress,
+  onFlip,
 }: {
   task: TeamTask;
   t: TeamStrings;
   now: number;
-  agentName: string;
-  /** A closed task: no state dot, and what became of it in the line under. */
-  quiet?: boolean;
   open: boolean;
-  onPress: () => void;
+  onFlip: () => void;
 }) {
-  const outcome = [agentName, t.status(task.status), task.outcome || ''].filter(Boolean).join(' · ');
+  const line = reportLine(task, t);
+  const reports = task.reports || [];
+  const last = reports.length ? reports[reports.length - 1] : null;
   return (
     <View style={s.task} testID={`team-task-${task.task}`}>
       <Pressable
-        onPress={onPress}
+        onPress={onFlip}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        style={s.row}
+        style={s.taskRow}
         testID={`team-task-row-${task.task}`}
       >
-        <View style={s.top}>
-          {quiet ? null : <View style={[s.dot, { backgroundColor: TONE[teamTone(task.status)] }]} aria-hidden />}
-          <Text style={s.id}>#{shortTask(task.task)}</Text>
-          <Text style={s.title} numberOfLines={1}>
-            {task.title}
-          </Text>
-          <Text style={s.when}>{when(task.updated, now)}</Text>
-        </View>
-        <Text style={s.snip} numberOfLines={1}>
-          {quiet ? outcome : `${outcome} · ${took(task.created, task.updated)}`}
+        <Text style={[s.taskMain, open && s.taskMainOpen]} numberOfLines={2} testID={`team-task-main-${task.task}`}>
+          <Text style={s.id}>#{shortTask(task.task)}</Text> {task.title}
+        </Text>
+        <Text style={s.taskWhen} numberOfLines={1}>
+          {t.status(task.status)} · {took(task, now)}
         </Text>
       </Pressable>
-      {open ? (
-        task.answer ? (
-          <View style={s.answer} testID={`team-answer-${task.task}`}>
-            <Markdown text={task.answer} />
-          </View>
-        ) : (
-          <Text style={[s.snip, s.answerPad]} testID={`team-no-answer-${task.task}`}>
-            {t.noAnswer}
+      {line ? (
+        <Pressable
+          onPress={onFlip}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={line}
+          testID={`team-note-${task.task}`}
+        >
+          <Text style={s.note} numberOfLines={1} testID={`team-note-text-${task.task}`}>
+            {line}
           </Text>
-        )
+        </Pressable>
+      ) : null}
+      {open && (last || task.answer) ? (
+        <View style={s.detail} testID={`team-answer-${task.task}`}>
+          {last ? <Text style={s.detailText}>{oneLine(last.summary)}</Text> : null}
+          {task.answer ? (
+            <Text style={[s.answer, last ? s.answerGap : null]}>{oneLine(task.answer)}</Text>
+          ) : null}
+        </View>
       ) : null}
     </View>
   );
+}
+
+/** The state dot: working in the good green and breathing, waiting amber, interrupted/failed the error, idle a
+ *  hollow ring. */
+function AgentDot({ state, testID }: { state: string; testID: string }) {
+  const tone = dotTone(state);
+  if (tone === 'ok') return <StateDot s="done" pulse testID={testID} />;
+  if (tone === 'warn') return <View style={[s.dot, s.dotWarn]} testID={testID} aria-hidden />;
+  if (tone === 'bad') return <View style={[s.dot, s.dotBad]} testID={testID} aria-hidden />;
+  return <View style={[s.dot, s.dotIdle]} testID={testID} aria-hidden />;
 }
 
 const s = StyleSheet.create({
@@ -335,31 +414,96 @@ const s = StyleSheet.create({
   center: { paddingVertical: space.xl, alignItems: 'center' },
   err: { paddingHorizontal: gutter, paddingVertical: space.xs, gap: space.xs },
   retry: { fontFamily: fonts.sansMedium, fontSize: type.small, color: colors.ink },
-  sec: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line, paddingBottom: space.xs },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 7, paddingBottom: 4 },
-  headText: {
+  counts: { flexDirection: 'row', paddingTop: 1, paddingBottom: 5 },
+  countsText: { flex: 1, fontFamily: fonts.sans, fontSize: 10.5, color: colors.inkDim, textAlign: 'right' },
+  agent: { paddingTop: 2, paddingBottom: 6 },
+  agentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minWidth: 0,
+    paddingVertical: 3,
+    minHeight: 26,
+  },
+  indent: { paddingLeft: 12 },
+  dot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
+  dotWarn: { backgroundColor: colors.warn },
+  dotBad: { backgroundColor: colors.danger },
+  dotIdle: { borderWidth: 1, borderColor: colors.line },
+  name: { flexShrink: 1, fontFamily: fonts.sans, fontSize: 12, color: colors.ink },
+  ctx: { flexDirection: 'row', alignItems: 'center', gap: 5, marginLeft: 'auto' },
+  bar: { width: 36, height: 3, borderRadius: 2, backgroundColor: colors.line, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 2, backgroundColor: colors.inkDim },
+  barWarn: { backgroundColor: colors.warn },
+  barBad: { backgroundColor: colors.danger },
+  pct: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
+  ctxNumbers: {
+    paddingLeft: 12,
+    paddingTop: 1,
+    fontFamily: fonts.mono,
+    fontSize: 10.5,
+    color: colors.inkDim,
+  },
+  warnText: { color: colors.warn },
+  badText: { color: colors.danger },
+  task: { paddingBottom: 1 },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingTop: 2,
+    paddingBottom: 1,
+    paddingLeft: 12,
+  },
+  taskMain: {
     flex: 1,
-    fontFamily: fonts.sansSemi,
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
+    minWidth: 0,
+    fontFamily: fonts.sans,
+    fontSize: 11.5,
+    lineHeight: 15.5,
     color: colors.ink,
   },
-  fig: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim, textAlign: 'right' },
-  row: { paddingVertical: 4, paddingBottom: 5 },
-  indent: { paddingLeft: 12 },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  name: { flexShrink: 1, fontFamily: fonts.sans, fontSize: 12, color: colors.ink },
-  id: { flexShrink: 0, fontFamily: fonts.mono, fontSize: 11, color: colors.ink },
-  title: { flex: 1, minWidth: 0, fontFamily: fonts.sans, fontSize: 12, color: colors.ink },
-  when: { flexShrink: 0, fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
-  snip: { fontFamily: fonts.sans, fontSize: 10.5, lineHeight: 15, color: colors.inkDim, marginTop: 1 },
-  dim: { fontFamily: fonts.sans, fontSize: 11, color: colors.inkDim, paddingVertical: 3 },
-  answer: { paddingBottom: 6, paddingTop: 2 },
-  answerPad: { paddingBottom: 4 },
-  closedBox: { marginTop: 2 },
-  closedHead: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 3, minHeight: 24 },
-  task: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
+  taskMainOpen: { color: colors.inkBright },
+  id: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
+  taskWhen: { flexShrink: 0, fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
+  note: {
+    paddingLeft: 12,
+    paddingBottom: 1,
+    fontFamily: fonts.sans,
+    fontSize: 10.5,
+    lineHeight: 14.5,
+    color: colors.inkDim,
+  },
+  detail: { paddingLeft: 12, paddingTop: 3, paddingBottom: 5, gap: 1 },
+  detailText: { fontFamily: fonts.sans, fontSize: 10.5, lineHeight: 14.5, color: colors.inkDim },
+  answer: { fontFamily: fonts.sans, fontSize: 11, lineHeight: 16, color: colors.ink },
+  answerGap: { marginTop: 2 },
+  idleLine: {
+    paddingLeft: 12,
+    paddingBottom: 1,
+    fontFamily: fonts.sans,
+    fontSize: 10.5,
+    lineHeight: 14.5,
+    color: colors.inkDim,
+  },
+  dim: { fontFamily: fonts.sans, fontSize: 10.5, lineHeight: 15, color: colors.inkDim, paddingVertical: 3 },
+  closedBox: { marginTop: 4 },
+  closedHead: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2, minHeight: 24 },
+  closedAgent: {
+    paddingLeft: 10,
+    paddingTop: 4,
+    paddingBottom: 1,
+    fontFamily: fonts.sans,
+    fontSize: 10.5,
+    color: colors.inkDim,
+  },
+  closedLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingLeft: 20,
+    paddingBottom: 1,
+  },
+  closedMain: { flex: 1, minWidth: 0, fontFamily: fonts.sans, fontSize: 10.5, lineHeight: 14.5, color: colors.inkDim },
+  closedWhen: { flexShrink: 0, fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
 });
