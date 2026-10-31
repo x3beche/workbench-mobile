@@ -125,6 +125,24 @@ export function mixOn(fg: string, bg: string, alpha: number): string {
 }
 
 /**
+ * The colour as text on `bg`: itself once it is 4.5:1 (WCAG AA for body text), else the same hue
+ * moved toward white or black until it is. `readableOn` is the same idea at 3:1, for a line or a
+ * control's edge.
+ */
+export function readableText(colour: string, bg: string, need = 4.5): string {
+  if (!channels(colour) || !channels(bg)) return colour;
+  if (contrast(colour, bg) >= need) return colour;
+  const first = luminance(bg) < 0.4 ? '#ffffff' : '#000000';
+  for (const toward of [first, first === '#ffffff' ? '#000000' : '#ffffff']) {
+    for (let a = 0.05; a <= 0.95; a += 0.05) {
+      const mixed = mixOn(toward, colour, a);
+      if (contrast(mixed, bg) >= need) return mixed;
+    }
+  }
+  return first;
+}
+
+/**
  * The colour as it has to be to be seen on `bg`: itself once it reaches 3:1
  * (WCAG's floor for a line or a control's edge), else the same hue moved
  * toward white or black - the light one on a dark ground, the dark one on a
@@ -181,6 +199,21 @@ export function paletteOf(t: ThemeDef): Palette {
     ...(c as unknown as Omit<Palette, 'warnSoft' | 'lineStrong' | 'focus'>),
     warnSoft: withAlpha(c.warn, 0.09),
   } as Palette;
+  // Text read on the ground it is drawn on, in whatever theme: the dim words, the status words
+  // and the accent reach WCAG AA (4.5:1) even in the themes whose CSS stopped at 3:1. A dim word
+  // on a card (surface2) is read there too, so the floor is the worse of the two grounds.
+  const worstGround = (colour: string) =>
+    contrast(colour, c.surface) <= contrast(colour, c.surface2) ? c.surface : c.surface2;
+  p.ink = readableText(c.ink, worstGround(c.ink));
+  p.inkBright = readableText(c.inkBright, worstGround(c.inkBright));
+  p.inkDim = readableText(c.inkDim, worstGround(c.inkDim));
+  p.warn = readableText(c.warn, worstGround(c.warn));
+  p.danger = readableText(c.danger, worstGround(c.danger));
+  p.ok = readableText(c.ok, worstGround(c.ok));
+  // The accent is a control's colour (3:1); the words set on an accent ground - the primary
+  // button's - are text (4.5:1).
+  p.accent = readableOn(c.accent, c.surface);
+  p.inkOnAccent = readableText(c.inkOnAccent, c.accentDeep);
   // Read against the ground they are drawn on, in whatever theme: the light
   // ones' series were pale yellows and greens on white.
   for (const key of SERIES_KEYS) p[key] = readableOn(String(c[key] ?? '#888888'), c.surface);

@@ -173,7 +173,7 @@ export function TeamSheet({
       {error ? (
         <View style={s.err}>
           <ErrorText>{error}</ErrorText>
-          <Pressable onPress={reload} accessibilityRole="button" testID="team-retry">
+          <Pressable onPress={reload} accessibilityRole="button" hitSlop={12} testID="team-retry">
             <Text style={s.retry}>{t.retry}</Text>
           </Pressable>
         </View>
@@ -300,9 +300,10 @@ function AgentBlock({
         accessibilityRole="button"
         accessibilityHint={a.directory || a.computer || ''}
         style={s.agentRow}
+        hitSlop={{ top: 9, bottom: 9 }}
         testID={`team-agent-${a.agent}`}
       >
-        <AgentDot state={a.state} testID={`team-dot-${a.agent}`} />
+        <AgentDot state={a.state} t={t} testID={`team-dot-${a.agent}`} />
         <Text style={s.name} numberOfLines={1}>
           {a.name}
         </Text>
@@ -383,6 +384,7 @@ function TaskBlock({
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         style={s.taskRow}
+        hitSlop={{ top: 6, bottom: 6 }}
         testID={`team-task-row-${task.task}`}
       >
         <Text style={[s.taskMain, open && s.taskMainOpen]} numberOfLines={2} testID={`team-task-main-${task.task}`}>
@@ -398,6 +400,7 @@ function TaskBlock({
           accessibilityRole="button"
           accessibilityState={{ expanded: open }}
           accessibilityLabel={line}
+          hitSlop={{ top: 15, bottom: 15 }}
           testID={`team-note-${task.task}`}
         >
           <Text style={s.note} numberOfLines={1} testID={`team-note-text-${task.task}`}>
@@ -419,12 +422,14 @@ function TaskBlock({
 
 /** The state dot: working in the good green and breathing, waiting amber, interrupted/failed the error, idle a
  *  hollow ring. */
-function AgentDot({ state, testID }: { state: string; testID: string }) {
+function AgentDot({ state, t, testID }: { state: string; t: TeamStrings; testID: string }) {
   const tone = dotTone(state);
-  if (tone === 'ok') return <StateDot s="done" pulse testID={testID} />;
-  if (tone === 'warn') return <View style={[s.dot, s.dotWarn]} testID={testID} aria-hidden />;
-  if (tone === 'bad') return <View style={[s.dot, s.dotBad]} testID={testID} aria-hidden />;
-  return <View style={[s.dot, s.dotIdle]} testID={testID} aria-hidden />;
+  // The colour is the state here (nothing beside it says the word), so the dot itself carries it.
+  const word = tone === 'ok' ? t.status('working') : tone === 'warn' ? t.status('waiting') : tone === 'bad' ? t.status('failed') : t.idle;
+  if (tone === 'ok') return <StateDot s="done" pulse testID={testID} label={word} />;
+  if (tone === 'warn') return <View style={[s.dot, s.dotWarn]} testID={testID} accessible accessibilityRole="text" accessibilityLabel={word} />;
+  if (tone === 'bad') return <View style={[s.dot, s.dotBad]} testID={testID} accessible accessibilityRole="text" accessibilityLabel={word} />;
+  return <View style={[s.dot, s.dotIdle]} testID={testID} accessible accessibilityRole="text" accessibilityLabel={word} />;
 }
 
 const s = StyleSheet.create({

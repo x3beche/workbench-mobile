@@ -198,6 +198,8 @@ async function open(p: WboPanel) {
     expect(screen.getByTestId('wbo-panel-ctxchart')).toBeTruthy();
     expect(screen.getByTestId('wbo-panel-strip')).toBeTruthy();
     expect(screen.getByTestId('wbo-diff-spark')).toBeTruthy();
+    // The range says which one is read (its reach is the hit slop's, not the 15 pt pill's).
+    expect(screen.getByTestId('wbo-range-auto').props.accessibilityState).toEqual({ selected: true });
     // the computer is not a section of its own any more: its folder is the line under the sheet's title
     expect(screen.queryByTestId('wbo-sec-computer')).toBeNull();
     expect(screen.getByTestId('wbo-panel-cwd')).toHaveTextContent(/~\/sensor/);

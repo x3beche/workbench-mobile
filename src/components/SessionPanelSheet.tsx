@@ -179,6 +179,7 @@ function SessionPanel({
               accessibilityRole="button"
               accessibilityHint={t.stoppedUntilAnswered}
               style={s.wait}
+              hitSlop={{ top: 10, bottom: 10 }}
               testID="wbo-panel-waiting"
             >
               <View style={[s.waitDot, { backgroundColor: colors.warn }]} />
@@ -197,6 +198,7 @@ function SessionPanel({
                 accessibilityRole="button"
                 accessibilityState={{ expanded: isOpen(sec.id) }}
                 style={s.head}
+                hitSlop={{ top: 6, bottom: 6 }}
                 testID={`wbo-sec-${sec.id}`}
               >
                 <Glyph icon={isOpen(sec.id) ? ChevronDown : ChevronRight} size={11} color={colors.inkDim} />
@@ -343,6 +345,7 @@ function ModelBody({
         onPress={() => setSpendOpen(!spendOpen)}
         accessibilityRole="button"
         accessibilityState={{ expanded: spendOpen }}
+        hitSlop={{ top: 13, bottom: 13 }}
         testID="wbo-panel-spend"
       >
         <Text style={s.spend} numberOfLines={1}>
@@ -441,6 +444,7 @@ function FlowBody({
               style={s.recentRow}
               onPress={() => onJump(r.part)}
               accessibilityRole="button"
+              hitSlop={{ top: 12, bottom: 12 }}
               testID="wbo-panel-recent"
             >
               <Text style={[s.stateMark, r.status === 'completed' && s.stateOk, r.status === 'error' && s.stateErr]}>
@@ -459,7 +463,8 @@ function FlowBody({
             </Pressable>
           ))}
           {recent.length > 5 ? (
-            <Pressable onPress={onAllRecent} accessibilityRole="button" style={s.recentMore}>
+            <Pressable onPress={onAllRecent} accessibilityRole="button" style={s.recentMore}
+                       hitSlop={{ top: 12, bottom: 12 }}>
               <Text style={s.link}>{allRecent ? t.fewer : t.showAllOf(recent.length)}</Text>
             </Pressable>
           ) : null}
@@ -480,7 +485,8 @@ function FlowBody({
       ) : null}
       {todos ? (
         <Pressable onPress={() => setTodoOpen(!todoOpen)} accessibilityRole="button" style={s.todosLine}
-                   accessibilityState={{ expanded: todoOpen }} testID="wbo-panel-todos">
+                   accessibilityState={{ expanded: todoOpen }} hitSlop={{ top: 8, bottom: 8 }}
+                   testID="wbo-panel-todos">
           <View style={s.todoBar}>
             <View style={[s.todoBarFill, { width: `${todos.total ? (todos.done * 100) / todos.total : 0}%` }]} />
           </View>
@@ -588,6 +594,7 @@ function FilesBody({
             accessibilityRole="button"
             accessibilityHint={t.showInConversation}
             style={s.fileRow}
+            hitSlop={{ top: 3, bottom: 3 }}
             testID="wbo-panel-file"
           >
             <View style={s.filecol}>

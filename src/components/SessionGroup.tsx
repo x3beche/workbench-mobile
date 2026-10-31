@@ -112,7 +112,8 @@ export function SessionGroup({
         );
       })}
       {open && hidden > 0 ? (
-        <Pressable onPress={() => setMore(true)} accessibilityRole="button" style={s.more} testID={`${testID}-more`}>
+        <Pressable onPress={() => setMore(true)} accessibilityRole="button" style={s.more}
+                   hitSlop={{ top: 6, bottom: 6 }} testID={`${testID}-more`}>
           {({ pressed }) => <Text style={[s.moreText, pressed && s.headPressed]}>{t.showMore(hidden)}</Text>}
         </Pressable>
       ) : null}

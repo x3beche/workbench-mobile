@@ -53,7 +53,8 @@ export function NoticeTurn({
                   onPress={() => onOpenTask(task.id)}
                   accessibilityRole="button"
                   accessibilityHint={task.name}
-                  hitSlop={6}
+                  // The number is 10.5 pt of mono: 15 pt of slop above and below make it a 44 pt target.
+                  hitSlop={{ top: 15, bottom: 15 }}
                   testID={`notice-task-open-${task.id}`}
                 >
                   <Text style={s.mono}>#{task.id} </Text>
@@ -67,6 +68,7 @@ export function NoticeTurn({
                 accessibilityRole={hasSummary ? 'button' : undefined}
                 accessibilityState={hasSummary ? { expanded: isOpen } : undefined}
                 accessibilityLabel={`${task.name} · ${stateLabel(task.state, lang)}`}
+                hitSlop={{ top: 15, bottom: 15 }}
                 style={s.rest}
                 testID={`notice-task-toggle-${task.id}`}
               >

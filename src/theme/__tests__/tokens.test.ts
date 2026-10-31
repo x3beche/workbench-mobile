@@ -54,5 +54,14 @@ describe('every theme', () => {
     for (const key of ['series1', 'series2', 'series3', 'series4', 'series5', 'series6', 'series7', 'series8'] as const) {
       expect(contrast(p[key], ground)).toBeGreaterThanOrEqual(3);
     }
+    // Text is text in every theme: WCAG AA's 4.5:1 for the dim words, the status words, the accent
+    // and the ink on it - on the page and on a card alike.
+    for (const bg of [t.colors.surface, t.colors.surface2]) {
+      for (const key of ['ink', 'inkBright', 'inkDim', 'warn', 'danger', 'ok'] as const) {
+        expect(contrast(p[key], bg)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+    expect(contrast(p.accent, ground)).toBeGreaterThanOrEqual(3);
+    expect(contrast(p.inkOnAccent, p.accentDeep)).toBeGreaterThanOrEqual(4.5);
   });
 });
