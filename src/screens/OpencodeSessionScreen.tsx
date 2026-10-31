@@ -535,8 +535,10 @@ export function OpencodeSessionScreen({
   const noteOf = (a: WboAsk) => (a.local ? localWhy(s, t) : why);
   const update = updateWord(s, t);
   /** The header's word: the dot says it alone while OpenCode works - it is
-   *  the dot that pulses - and the word would say it twice (as the web). */
-  const head = s && s.status !== 'busy' ? wboWord(s, t) : '';
+   *  the dot that pulses - and the word would say it twice (as the web). Waiting
+   *  gets the short word: the line has the computer to carry too, and the sentence
+   *  is the sheet's and the question card's. */
+  const head = s && s.status !== 'busy' ? (s.status === 'waiting' ? t.waitingShort : wboWord(s, t)) : '';
   /**
    * An answer's thinking and tool rows apart from its words, with what the one
    * line they are written as while the Chat is compact says (Settings > Chat;
@@ -695,28 +697,29 @@ export function OpencodeSessionScreen({
                   {s && head ? ` · ${sub}` : sub}
                 </Text>
               </View>
-              {subFlag ? (
-                // The one thing wrong with that computer: an old wb-opencode, an MCP server that fell off.
-                <Pressable
-                  onPress={() => setNotice(subFlag.tip)}
-                  accessibilityRole="button"
-                  accessibilityLabel={subFlag.tip}
-                  accessibilityHint={subFlag.tip}
-                  hitSlop={6}
-                  testID="wbo-flag"
-                >
-                  <Text style={st.subFlag} numberOfLines={1}>
-                    {subFlag.text}
-                  </Text>
-                </Pressable>
-              ) : null}
             </>
           )
         }
         below={
-          s?.bridge?.connected && !s.bridge.remote ? (
+          /* The bar's own tag line: what is wrong with that computer - an old wb-opencode, an MCP server that
+             fell off - beside the other tags, so the line above keeps the room and the computer whole. */
+          subFlag || (s?.bridge?.connected && !s.bridge.remote) ? (
             <View style={st.tags}>
-              <Text style={st.tag}>{t.remoteOff}</Text>
+              {s?.bridge?.connected && !s.bridge.remote ? <Text style={st.tag}>{t.remoteOff}</Text> : null}
+              {subFlag ? (
+                <Pressable
+                  onPress={() => setNotice(subFlag.tip)}
+                  accessibilityRole="button"
+                  accessibilityLabel={subFlag.text}
+                  accessibilityHint={subFlag.tip}
+                  hitSlop={6}
+                  testID="wbo-flag"
+                >
+                  <Text style={[st.tag, st.subFlag]} numberOfLines={1}>
+                    {subFlag.text}
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null
         }
@@ -1019,7 +1022,7 @@ const st = StyleSheet.create({
   state: { flexShrink: 1, fontFamily: fonts.sansMedium, color: colors.ink },
   stateLine: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, minWidth: 0 },
   sub: { flexShrink: 0, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
-  subFlag: { flexShrink: 0, fontFamily: fonts.mono, fontSize: type.micro, color: colors.warn },
+  subFlag: { fontFamily: fonts.mono, fontSize: type.micro, color: colors.warn },
   tags: {
     flexDirection: 'row',
     justifyContent: 'center',

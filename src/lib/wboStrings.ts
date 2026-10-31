@@ -16,6 +16,8 @@ export interface WboStrings extends WbcStrings {
   ready: string;
   retrying: string;
   waitingAnswer: string;
+  /** The header line's word while it waits - the sentence is the sheet's and the question card's. */
+  waitingShort: string;
   writing: string;
   thinking: string;
   thought: string;
@@ -128,6 +130,7 @@ const en: WboStrings = {
   ready: 'ready',
   retrying: 'retrying',
   waitingAnswer: 'waiting for your answer',
+  waitingShort: 'waiting',
   writing: 'writing…',
   thinking: 'thinking…',
   thought: 'Thought it through',
@@ -294,6 +297,7 @@ const tr: WboStrings = {
   ready: 'hazır',
   retrying: 'yeniden deniyor',
   waitingAnswer: 'cevabınızı bekliyor',
+  waitingShort: 'bekliyor',
   writing: 'yazıyor…',
   thinking: 'düşünüyor…',
   thought: 'Düşünme',

@@ -335,10 +335,17 @@ async function show(d: WboDetail, t = en) {
     expect(screen.getByTestId('wbo-state')).not.toHaveTextContent('sensor');
   });
 
+  it("keeps the header's waiting word short so the computer still fits the line", async () => {
+    await show(detail({ status: 'waiting' }));
+    expect(screen.getByTestId('wbo-state')).toHaveTextContent(/^waiting · OpenCode · ada-laptop$/);
+  });
+
   it('says an old wb-opencode, or an MCP server that fell off, as a small warn badge', async () => {
     await show(detail({ bridge: { ...row().bridge!, outdated: true, latest: '0.3.0' } }));
     expect(screen.getByTestId('wbo-flag')).toHaveTextContent(/update/i);
     expect(screen.getByTestId('wbo-state')).toHaveTextContent(/OpenCode · ada-laptop/);
+    // The badge is the bar's tag line under the title, not a word in the line the computer is on.
+    expect(screen.getByTestId('wbo-state')).not.toHaveTextContent(/update/i);
   });
 
   it('says nothing about an old wb-opencode that keeps itself current', async () => {
