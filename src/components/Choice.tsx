@@ -8,11 +8,14 @@ export function Choice<T extends string>({
   value,
   onChange,
   label,
+  disabled,
 }: {
   options: { id: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
   label: string;
+  /** Drawn but not usable: the run on that computer cannot take the choice now, and the line under it says why. */
+  disabled?: boolean;
 }) {
   return (
     <View style={s.row} accessibilityRole="radiogroup" accessibilityLabel={label}>
@@ -22,9 +25,10 @@ export function Choice<T extends string>({
           <Pressable
             key={o.id}
             accessibilityRole="radio"
-            accessibilityState={{ checked: on }}
+            accessibilityState={{ checked: on, disabled: !!disabled }}
+            disabled={!!disabled}
             onPress={() => onChange(o.id)}
-            style={({ pressed }) => [s.opt, pressed && s.pressed]}
+            style={({ pressed }) => [s.opt, pressed && !disabled && s.pressed, !!disabled && s.off]}
           >
             <Text style={[s.text, on && s.on]}>{o.label}</Text>
           </Pressable>
@@ -38,6 +42,7 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', borderWidth: 1, borderColor: colors.lineStrong, borderRadius: 6, overflow: 'hidden' },
   opt: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: colors.hover },
+  off: { opacity: 0.45 },
   text: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
   on: { fontFamily: fonts.sansSemi, color: colors.inkBright },
 });

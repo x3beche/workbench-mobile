@@ -391,9 +391,9 @@ describe('the window a session keeps to', () => {
     expect(client.wboContext).toHaveBeenCalledWith(SID, 128_000);
   });
 
-  it('says the size it keeps to, and why it cannot be chosen, when the run there is too old', async () => {
-    // a model capped at 512k on purpose, on a run older than 0.3.5: no picker, and the step before the cap
-    // still carries 1M - the line and the bar read the model's own window, not the step's number
+  it('keeps the row drawn but greyed when the run there is too old, and says why under it', async () => {
+    // a model capped at 512k on purpose, on a run older than 0.3.5: the sizes are drawn and cannot be used,
+    // and the step before the cap still carries 1M - the line and the bar read the model's own window
     const p = panel({
       session: {
         ...panel().session,
@@ -409,8 +409,31 @@ describe('the window a session keeps to', () => {
     await act(async () => undefined);
     await fireEvent.press(screen.getByTestId('wbo-column'));
     await act(async () => undefined);
-    expect(screen.queryByTestId('wbo-panel-ctxpick')).toBeNull();
+    // the row is there (a control that is not drawn reads as the feature being gone), greyed
+    expect(screen.getByTestId('wbo-panel-ctxpick')).toBeTruthy();
+    const radios = screen.getAllByRole('radio');
+    expect(radios.length).toBe(4);                    // the model's own and the three under it
+    radios.forEach(r => expect(r).toBeDisabled());
     expect(screen.getByTestId('wbo-panel-ctxwhy')).toHaveTextContent(/512k · restart to change/);
     expect(screen.getByTestId('wbo-panel-context')).toHaveTextContent('331k / 512k · 65%');
+  });
+
+  it('says the computer is away when that is why the row is greyed', async () => {
+    const p = panel({
+      session: {
+        ...panel().session,
+        computer: { ...panel().session.computer, connected: false } as never,
+        context_options: { limit: null, max: 512_000, steps: [64_000, 128_000, 256_000], min: 16_000, can: false },
+      },
+    });
+    await render(
+      <LiveContext.Provider value={hub}>
+        <OpencodeSessionScreen sid={SID} client={fakeClient(p) as unknown as WorkbenchClient} t={t} lang="en" />
+      </LiveContext.Provider>,
+    );
+    await act(async () => undefined);
+    await fireEvent.press(screen.getByTestId('wbo-column'));
+    await act(async () => undefined);
+    expect(screen.getByTestId('wbo-panel-ctxwhy')).toHaveTextContent(/that computer is not connected/);
   });
 });

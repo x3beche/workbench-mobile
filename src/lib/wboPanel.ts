@@ -60,14 +60,15 @@ export function panelSections(p: WboPanel | null, t: WboStrings): PanelSection[]
   if (p.series?.spans?.length || p.series?.recent?.length || p.todos?.items.length) {
     out.push({ id: 'flow', label: t.now, count: null, warn: false });
   }
-  if (p.files?.items.length) {
-    // the work's own files; the scratch ones are folded at the foot, and the head counts only the work
-    const list = p.files.items;
+  if (p.files?.items.length || p.files?.temp?.items?.length) {
+    // the work's own files; the scratch ones are folded at the foot, and the head counts only the work - a
+    // session with nothing changed but scratch files still wants the section, and its head says no number
+    const list = p.files?.items ?? [];
     const counted = list.some((r) => r.additions != null || r.est_add != null);
     out.push({
       id: 'files',
       label: t.changedFiles,
-      count: counted ? filesCount(p) : String(list.length),
+      count: !list.length ? null : counted ? filesCount(p) : String(list.length),
       warn: false,
     });
   }
@@ -168,6 +169,15 @@ export function windowOf(p: WboPanel): number | null {
   const most = n(o?.max ?? null);
   if (chosen && most) return Math.min(chosen, most);
   return chosen ?? most ?? n(p.session.context?.limit ?? null);
+}
+
+/** Why the window row may not be used now: the run on that computer is older than the one that keeps a window
+ *  (0.3.5), or that computer is not there. Empty when the row may be used. */
+export function ctxWhy(p: WboPanel, t: WboStrings): string {
+  if (p.session.context_options?.can) return '';
+  const c = p.session.computer;
+  if (c && c.connected === false) return t.ctxOffline;
+  return t.ctxRestart;
 }
 
 /** What the window holds, in percent: worked out here rather than taken from the step's `pct`, so the bar, the

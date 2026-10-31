@@ -13,6 +13,7 @@ import type { PanelFile, WboAsk, WboPanel } from '../api/types';
 import {
   baseName,
   ctxLine,
+  ctxWhy,
   ctxTip,
   ctxTone,
   dirName,
@@ -308,13 +309,16 @@ function ModelBody({
         </View>
       ) : null}
       {/* the window it keeps to: a smaller one makes OpenCode compact sooner (the bar above is read against
-          it), and the sizes are the ones the model's own window allows */}
-      {panel.session.context_options?.can && panel.session.context_options.steps?.length ? (
+          it), and the sizes are the ones the model's own window allows. The row is drawn whether or not the run
+          can take a window now: a run that cannot gets it greyed, with the reason under it - a control that is
+          not drawn at all reads as the feature being gone. */}
+      {panel.session.context_options?.steps?.length ? (
         <View style={s.ctxPick} testID="wbo-panel-ctxpick">
           <Text style={s.dim}>{t.context}</Text>
           <Choice
             label={t.context}
             value={panel.session.context_limit ? String(panel.session.context_limit) : ''}
+            disabled={!panel.session.context_options.can}
             options={[
               { id: '', label: panel.session.context_options.max
                   ? `${t.contextOwn} · ${sizeWord(panel.session.context_options.max)}` : t.contextOwn },
@@ -323,19 +327,17 @@ function ModelBody({
             onChange={(v) => onContext(v ? Number(v) : null)}
           />
         </View>
-      ) : panel.session.context_options ? (
-        /* the run on that computer cannot be given one (older than 0.3.5, or not there): the size it keeps to
-           is still the truth, and the reason is where the picker would be rather than nothing at all */
-        <View style={s.ctxPick} testID="wbo-panel-ctxwhy">
-          <Text style={s.dim}>{t.context}</Text>
-          <Text
-            style={s.dim}
-            numberOfLines={2}
-            accessibilityLabel={`${t.context}: ${sizeWord(windowOf(panel) ?? 0)} · ${t.ctxRestart}`}
-          >
-            {`${sizeWord(windowOf(panel) ?? 0)} · ${t.ctxRestart}`}
-          </Text>
-        </View>
+      ) : null}
+      {panel.session.context_options && !panel.session.context_options.can ? (
+        /* why it is greyed: the run there is too old to keep a window (0.3.5), or that computer is not there */
+        <Text
+          style={s.ctxWhy}
+          numberOfLines={2}
+          testID="wbo-panel-ctxwhy"
+          accessibilityLabel={`${t.context}: ${ctxWhy(panel, t)}`}
+        >
+          {`${sizeWord(windowOf(panel) ?? 0)} · ${ctxWhy(panel, t)}`}
+        </Text>
       ) : null}
       {/* the window over the turns: the line says when this session is to be left */}
       <ContextChart points={panel.series?.context ?? []} limit={windowOf(panel) ?? 0} tone={tone} testID="wbo-panel-ctxchart" />
@@ -668,6 +670,7 @@ const s = StyleSheet.create({
   ctxPick: { paddingBottom: space.sm, gap: space.xs },
   rowText: { flex: 1, minWidth: 0, fontFamily: fonts.sans, fontSize: 11, color: colors.inkDim },
   ctx: { fontFamily: fonts.mono, fontSize: 11, color: colors.ink },
+  ctxWhy: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim, paddingBottom: space.sm },
   bar: { height: 3, borderRadius: 2, backgroundColor: colors.line, marginTop: 4, overflow: 'hidden' },
   barFill: { height: 3, backgroundColor: colors.inkDim },
   barWarn: { backgroundColor: colors.warn },
