@@ -10,12 +10,14 @@
  * The server works the numbers out (backend/wb_panel.py's series), so the phone lays out what it is given.
  */
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 
 import type { PanelSeries } from '../api/types';
 import { SERIES } from './Charts';
-import { colors, type } from '../theme/tokens';
+import { colors, fonts, type } from '../theme/tokens';
+import { breakAt, windowFor, xAt, type RangeId } from '../lib/sessionFlow';
+import { clock, STALL_QUIET_MS } from '../lib/wboPanel';
 
 /** What the strip colours a slice by - one entry per category the server names. */
 export const CATS: { id: string; label: string; c: string }[] = [
@@ -38,7 +40,7 @@ export function ContextChart({
   tone,
   testID,
 }: {
-  points: { turn: number; used: number; limit: number; drop?: boolean }[];
+  points: { turn: number; at: number | null; used: number; limit: number; drop?: boolean }[];
   limit: number;
   tone: string | null;
   testID?: string;
@@ -63,37 +65,53 @@ export function ContextChart({
   }
   return (
     <View style={s.ctx} testID={testID}>
-      <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-        <Path d={area} fill={fill} fillOpacity={0.16} />
-        <Path d={line} stroke={stroke} strokeWidth={1.3} fill="none" />
-        {limit ? <Line x1={0} x2={W} y1={y(limit)} y2={y(limit)} stroke={colors.inkDim} strokeOpacity={0.5}
-                       strokeWidth={1} strokeDasharray="3 3" /> : null}
-        {rows.map((p, i) =>
-          p.drop ? (
-            <Line key={`d${p.turn}`} x1={x(i)} x2={x(i)} y1={0} y2={H} stroke={colors.warn} strokeOpacity={0.8}
-                  strokeWidth={1} strokeDasharray="2 3" />
-          ) : null,
-        )}
-      </Svg>
+      <View style={s.ctxBox}>
+        <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+          <Path d={area} fill={fill} fillOpacity={0.16} />
+          <Path d={line} stroke={stroke} strokeWidth={1.3} fill="none" />
+          {limit ? (
+            <Line x1={0} x2={W} y1={y(limit)} y2={y(limit)} stroke={colors.inkDim} strokeOpacity={0.5}
+                  strokeWidth={1} strokeDasharray="3 3" />
+          ) : null}
+          {rows.map((p, i) =>
+            p.drop ? (
+              <Line key={`d${p.turn}`} x1={x(i)} x2={x(i)} y1={0} y2={H} stroke={colors.warn} strokeOpacity={0.8}
+                    strokeWidth={1} strokeDasharray="2 3" />
+            ) : null,
+          )}
+        </Svg>
+        {limit ? <Text style={[s.axText, s.axTop]}>{fmt(limit)}</Text> : null}
+        <Text style={[s.axText, s.axBot]}>0</Text>
+      </View>
+      <View style={s.ctxAx}>
+        <Text style={s.ctxTurn}>turn {rows[0]?.turn ?? 1}</Text>
+        <Text style={s.ctxTurn}>turn {rows[rows.length - 1]?.turn ?? rows.length}</Text>
+      </View>
     </View>
   );
 }
 
-const RANGES = [
-  { id: '15m', ms: 15 * 60_000, label: '15 min' },
-  { id: '1h', ms: 60 * 60_000, label: '1 hour' },
-  { id: 'all', ms: 0, label: 'all' },
-] as const;
+const RANGES: { id: RangeId; label: string }[] = [
+  { id: 'auto', label: 'auto' },
+  { id: '15m', label: '15m' },
+  { id: '1h', label: '1h' },
+  { id: 'all', label: 'all' },
+];
 
-/** The run as a strip: every call a slice as long as it took, the writing between the calls the ground it
- *  stands on, a red notch where a call failed, and a line at "now". A tap on a slice takes the conversation to
- *  that call. Under it the output-token rate by the minute: a run that is thinking and one that is stuck look
- *  different there and nowhere else. */
+function gapText(ms: number): string {
+  const h = ms / 3_600_000;
+  if (h >= 1.5) return `${Math.round(h)}h`;
+  const m = Math.round(ms / 60_000);
+  return `${m}m`;
+}
+
+/** The run as a strip: tool slices above (≥2 units wide), writing as faint ground behind, pace hairline
+ *  across the bottom, breaks for quiet stretches >10 min, and clocks at both ends. */
 export function FlowStrip({
   series,
   now,
   working,
-  range,
+  range = 'auto',
   onRange,
   onJump,
   stall,
@@ -102,92 +120,212 @@ export function FlowStrip({
   series: PanelSeries | undefined;
   now: number;
   working: boolean;
-  range: '15m' | '1h' | 'all';
-  onRange: (id: '15m' | '1h' | 'all') => void;
+  range: RangeId;
+  onRange: (id: RangeId) => void;
   onJump: (message: string) => void;
-  /** "nothing new for 4 min" - or ''. */
   stall: string;
   testID?: string;
 }) {
   const W = 300;
-  const H = 30;
-  const RH = 22;
-  const spans = series?.spans ?? [];
-  const step = series?.rate?.step ?? 60_000;
-  const items = series?.rate?.items ?? [];
-  const from = useMemo(() => {
-    const r = RANGES.find((x) => x.id === range) ?? RANGES[0];
-    if (r.ms) return now - r.ms;
-    return Math.min(...spans.map((x) => x.start), now - 60_000);
-  }, [range, now, spans]);
-  const span = Math.max(1, now - from);
-  const sx = (at: number) => ((at - from) / span) * W;
-  const shown = spans
-    .filter((x) => x.end >= from && x.start <= now)
-    .map((x) => ({ ...x, start: Math.max(x.start, from), end: Math.min(Math.max(x.end, x.start + 400), now) }))
-    .sort((a, b) => (a.cat === 'text' ? 0 : 1) - (b.cat === 'text' ? 0 : 1) || a.start - b.start);
-  const rates = items.filter((b) => b.at + step >= from && b.at <= now);
-  const peak = Math.max(1, ...rates.map((b) => b.n));
-  const seen = new Set(shown.map((x) => x.cat));
-  const legend = CATS.filter((c) => seen.has(c.id));
-  if (!spans.length) return null;
+  const H = 44;
+  const STRIP_H = 34;
+  const spans = useMemo(() => (series?.spans ?? []).filter((s) => s.cat !== 'text'), [series?.spans]);
+  const bands = series?.bands ?? [];
+  const win = useMemo(() => windowFor(range, spans, now, working), [range, spans, now, working]);
+  const breaks = useMemo(() => breakAt(win, W), [win]);
+
+  const sx = (at: number) => xAt(win, at, W);
+  const sw = (from: number, to: number, min = 0.7) => Math.max(min, sx(to) - sx(from));
+
+  const bandsIn = useMemo(
+    () =>
+      bands
+        .filter((b) => b.end >= win.from && b.start <= win.to)
+        .map((b) => ({
+          ...b,
+          start: Math.max(b.start, win.from),
+          end: Math.min(Math.max(b.end, b.start + 400), win.to),
+        })),
+    [bands, win],
+  );
+
+  const slices = useMemo(
+    () =>
+      spans
+        .filter((s) => s.end >= win.from && s.start <= win.to)
+        .map((s) => ({
+          ...s,
+          start: Math.max(s.start, win.from),
+          end: Math.min(Math.max(s.end, s.start + 400), win.to),
+        }))
+        .sort((a, b) => a.start - b.start),
+    [spans, win],
+  );
+
+  const rateItems = series?.rate?.items ?? [];
+  const rateStep = series?.rate?.step ?? 60_000;
+  const rateLine = useMemo(() => {
+    const rows = rateItems.filter((x) => x.at + rateStep >= win.from && x.at <= win.to);
+    if (rows.length < 2) return '';
+    const peak = Math.max(1, ...rows.map((r) => r.n));
+    const top = STRIP_H + 2;
+    const bottom = H - 2;
+    return rows
+      .map(
+        (r, i) =>
+          `${i ? 'L' : 'M'}${sx(r.at).toFixed(1)},${(bottom - (r.n / peak) * (bottom - top)).toFixed(1)}`,
+      )
+      .join(' ');
+  }, [rateItems, rateStep, win]);
+
+  const stuck = useMemo(() => {
+    if (!working) return false;
+    const last = rateItems.reduce((p, b) => Math.max(p, b.at + rateStep), 0);
+    return !!last && now - last > STALL_QUIET_MS;
+  }, [working, rateItems, rateStep, now]);
+
+  const nowX = working ? sx(now) : null;
+
+  // Legend counts calls only (writing is never in legend)
+  const legend = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const s of slices) n.set(s.cat, (n.get(s.cat) ?? 0) + 1);
+    return CATS.filter((c) => c.id !== 'text' && n.has(c.id))
+      .map((c) => ({ ...c, n: n.get(c.id) ?? 0 }))
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 4);
+  }, [slices]);
+
+  const legendMore = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const s of slices) n.set(s.cat, (n.get(s.cat) ?? 0) + 1);
+    const total = CATS.filter((c) => c.id !== 'text' && n.has(c.id)).length;
+    return total > 4 ? total - 4 : 0;
+  }, [slices]);
+
+  if (!spans.length && !bands.length) return null;
+
   return (
-    <View testID={testID}>
+    <View style={s.flowWrap} testID={testID}>
       <View style={s.stripTop}>
         <View style={s.legend}>
-          {legend.map((c) => (
-            <View key={c.id} style={s.key}>
-              <View style={[s.keyDot, { backgroundColor: c.c }]} />
+          {legend.map((k) => (
+            <View key={k.id} style={s.key}>
+              <View style={[s.keyDot, { backgroundColor: k.c }]} />
+              <Text style={s.keyLabel}>{k.label}</Text>
+              <Text style={s.keyCount}>{k.n}</Text>
             </View>
           ))}
+          {legendMore > 0 ? (
+            <Text style={s.keyMore}>+{legendMore}</Text>
+          ) : null}
         </View>
         <View style={s.ranges}>
           {RANGES.map((r) => (
-            <Text
+            <Pressable
               key={r.id}
               onPress={() => onRange(r.id)}
-              style={[s.range, range === r.id ? s.rangeOn : null]}
+              style={[s.rangeBtn, range === r.id && s.rangeOn]}
               accessibilityRole="button"
               testID={`wbo-range-${r.id}`}
             >
-              {r.label}
-            </Text>
+              <Text style={[s.rangeText, range === r.id && s.rangeTextOn]}>
+                {r.label}
+              </Text>
+            </Pressable>
           ))}
         </View>
       </View>
-      <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-        {shown.map((x, i) => (
-          <Rect
-            key={`${x.start}-${x.part}-${i}`}
-            x={sx(x.start)}
-            y={2}
-            width={Math.max(0.7, sx(x.end) - sx(x.start))}
-            height={H - 4}
-            fill={catColor(x.cat)}
-            fillOpacity={x.cat === 'text' ? 0.28 : 0.9}
-            onPress={x.part ? () => onJump(x.part) : undefined}
-          />
-        ))}
-        {shown.map((x, i) =>
-          x.status === 'error' ? (
-            <Rect key={`e${i}`} x={sx(x.start)} y={0} width={Math.max(0.7, sx(x.end) - sx(x.start))} height={2}
-                  fill={colors.danger} />
-          ) : null,
-        )}
-        {working ? <Line x1={sx(now)} x2={sx(now)} y1={0} y2={H} stroke={colors.inkBright} strokeOpacity={0.55}
-                         strokeWidth={1} /> : null}
-      </Svg>
-      {rates.length >= 2 ? (
-        <Svg width="100%" height={RH} viewBox={`0 0 ${W} ${RH}`} preserveAspectRatio="none">
-          {rates.map((b) => {
-            const h = Math.max(1, (b.n / peak) * RH);
-            return (
-              <Rect key={b.at} x={sx(b.at) + 0.4} y={RH - h} width={Math.max(0.8, (step / span) * W - 0.8)}
-                    height={h} fill={colors.inkDim} fillOpacity={0.45} />
-            );
-          })}
+
+      <View style={s.stripBox}>
+        <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+          {/* Flat writing ground behind everything */}
+          {bandsIn.map((b, i) => (
+            <Rect
+              key={`b-${b.start}-${i}`}
+              x={sx(b.start)}
+              y={0}
+              width={sw(b.start, b.end, 0.6)}
+              height={STRIP_H}
+              fill={colors.ink}
+              fillOpacity={0.06}
+            />
+          ))}
+          {/* Tool call slices (≥2 units wide) */}
+          {slices.map((x, i) => (
+            <Rect
+              key={`${x.start}-${x.part}-${i}`}
+              x={sx(x.start)}
+              y={2}
+              width={sw(x.start, x.end, 2)}
+              height={STRIP_H - 4}
+              fill={catColor(x.cat)}
+              fillOpacity={0.92}
+              onPress={x.part ? () => onJump(x.part) : undefined}
+            />
+          ))}
+          {/* Error mark at top of slice */}
+          {slices.map((x, i) =>
+            x.status === 'error' ? (
+              <Rect
+                key={`e${i}`}
+                x={sx(x.start)}
+                y={0}
+                width={sw(x.start, x.end, 2)}
+                height={2}
+                fill={colors.danger}
+              />
+            ) : null,
+          )}
+          {/* Folded quiet breaks */}
+          {breaks.map((g, i) => (
+            <Line
+              key={`brk-${i}`}
+              x1={g.x}
+              x2={g.x}
+              y1={0}
+              y2={H}
+              stroke={colors.line}
+              strokeWidth={1}
+              strokeDasharray="2 3"
+              strokeOpacity={0.9}
+            />
+          ))}
+          {/* Hairline pace */}
+          {rateLine ? (
+            <Path
+              d={rateLine}
+              stroke={stuck ? colors.warn : colors.inkDim}
+              strokeOpacity={stuck ? 0.8 : 0.55}
+              strokeWidth={1}
+              fill="none"
+            />
+          ) : null}
+          {/* Now line */}
+          {nowX != null ? (
+            <Line
+              x1={nowX}
+              x2={nowX}
+              y1={0}
+              y2={H}
+              stroke={colors.inkBright}
+              strokeOpacity={0.55}
+              strokeWidth={1}
+            />
+          ) : null}
         </Svg>
-      ) : null}
+        {breaks.map((g, i) => (
+          <Text key={`btip-${i}`} style={[s.breakTip, { left: `${(g.x / W) * 100}%` }]}>
+            {gapText(g.ms)}
+          </Text>
+        ))}
+      </View>
+
+      <View style={s.axis}>
+        <Text style={s.axisTime}>{clock(win.from)}</Text>
+        <Text style={s.axisTime}>{clock(win.to)}</Text>
+      </View>
+
       {stall ? <Text style={s.stall}>{stall}</Text> : null}
     </View>
   );
@@ -215,13 +353,31 @@ const fmt = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : 
 
 const s = StyleSheet.create({
   ctx: { marginTop: 6 },
+  ctxBox: { position: 'relative' },
   ctxOne: { fontSize: type.small, color: colors.ink, marginTop: 6 },
-  stripTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
-  legend: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
-  key: { flexDirection: 'row', alignItems: 'center' },
+  axText: { position: 'absolute', right: 0, fontFamily: fonts.mono, fontSize: 9, color: colors.inkDim },
+  axTop: { top: 0 },
+  axBot: { bottom: 0 },
+  ctxAx: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
+  ctxTurn: { fontFamily: fonts.mono, fontSize: 9, color: colors.inkDim },
+  flowWrap: { marginTop: 4 },
+  stripTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, flexWrap: 'wrap' },
+  key: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   keyDot: { width: 6, height: 6, borderRadius: 2 },
+  keyLabel: { fontFamily: fonts.sans, fontSize: 9.5, color: colors.inkDim },
+  keyCount: { fontFamily: fonts.mono, fontSize: 9.5, fontWeight: '600', color: colors.ink },
+  keyMore: { fontFamily: fonts.mono, fontSize: 9.5, color: colors.inkDim },
   ranges: { flexDirection: 'row', gap: 2 },
-  range: { fontSize: type.micro, color: colors.inkDim, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
-  rangeOn: { color: colors.ink, backgroundColor: colors.surface2 },
-  stall: { fontSize: type.micro, color: colors.warn, marginTop: 3 },
+  rangeBtn: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
+  rangeOn: { backgroundColor: colors.surface2 },
+  rangeText: { fontFamily: fonts.mono, fontSize: 9.5, color: colors.inkDim },
+  rangeTextOn: { color: colors.ink },
+  stripBox: { position: 'relative' },
+  breakTip: { position: 'absolute', top: '50%', transform: [{ translateX: -8 }, { translateY: -6 }],
+             paddingHorizontal: 2, borderRadius: 2, backgroundColor: colors.surface,
+             fontFamily: fonts.mono, fontSize: 8.5, color: colors.inkDim },
+  axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
+  axisTime: { fontFamily: fonts.mono, fontSize: 9, color: colors.inkDim },
+  stall: { fontFamily: fonts.sans, fontSize: 10.5, color: colors.warn, marginTop: 3 },
 });

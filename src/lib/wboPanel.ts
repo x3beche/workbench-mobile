@@ -9,8 +9,10 @@
  * the head's number sits at the same place on every row, and the words are the web's Turkish wherever it has
  * the same line (lib/wboStrings.ts).
  */
-import type { PanelFile, PanelTool, WboPanel } from '../api/types';
+import type { PanelFile, PanelRecentCall, PanelTool, WboBridge, WboPanel } from '../api/types';
 import type { WboStrings } from './wboStrings';
+
+export type { PanelRecentCall };
 
 export type PanelSectionId = 'pending' | 'todos' | 'files' | 'model' | 'computer' | 'tools' | 'flow';
 
@@ -33,22 +35,38 @@ export const CTX_DANGER = 95;
  *  column has: the model and its window first (it is the thing a session is), then what the run is doing, then
  *  the files it changed. The question waiting and the computer are not sections: the question is one line above
  *  them (its card is in the conversation, where it is answered), and the computer is the dim line at the foot. */
+/** Total line counts: "+n −n · k/n" where only some files carry diff numbers. */
+export function filesCount(p: WboPanel | null): string {
+  const list = p?.files?.items ?? [];
+  if (!list.length) return '';
+  const add = list.reduce((n, r) => n + (r.additions ?? (r.est_add ?? 0)), 0);
+  const del = list.reduce((n, r) => n + (r.deletions ?? (r.est_del ?? 0)), 0);
+  const withDiff = list.filter((r) => r.additions != null).length;
+  const count = withDiff && withDiff < list.length ? ` · ${withDiff}/${list.length}` : '';
+  return `+${add} −${del}${count}`;
+}
+
+/** A file the session's own diff no longer holds: what its last call changed, marked as a guess. */
+export function estOf(r: PanelFile): { add: number; del: number; why: string } | null {
+  if (r.additions != null || (r.est_add == null && r.est_del == null)) return null;
+  return { add: r.est_add ?? 0, del: r.est_del ?? 0, why: r.path };
+}
+
 export function panelSections(p: WboPanel | null, t: WboStrings): PanelSection[] {
   if (!p) return [];
   const out: PanelSection[] = [];
   out.push({ id: 'model', label: t.model, count: null, warn: p.session.status === 'error' });
-  if (p.series?.spans?.length || p.todos?.items.length) {
+  if (p.series?.spans?.length || p.series?.recent?.length || p.todos?.items.length) {
     out.push({ id: 'flow', label: t.now, count: null, warn: false });
   }
   if (p.files?.items.length) {
     // the work's own files; the scratch ones are folded at the foot, and the head counts only the work
-    const counted = p.files.items.some((r) => r.additions != null);
-    const add = p.files.items.reduce((n, r) => n + (r.additions ?? 0), 0);
-    const del = p.files.items.reduce((n, r) => n + (r.deletions ?? 0), 0);
+    const list = p.files.items;
+    const counted = list.some((r) => r.additions != null || r.est_add != null);
     out.push({
       id: 'files',
       label: t.changedFiles,
-      count: counted ? `+${add} −${del}` : String(p.files.items.length),
+      count: counted ? filesCount(p) : String(list.length),
       warn: false,
     });
   }
@@ -177,4 +195,60 @@ export function kfmt(n: number): string {
   if (n >= 1e4) return `${(n / 1e3).toFixed(2)}k`;
   if (n >= 1000) return n.toLocaleString('en-US');
   return String(Math.round(n));
+}
+
+export function took(ms: number): string {
+  const s = Math.max(0, ms / 1000);
+  if (s < 60) return `${s.toFixed(s < 10 ? 1 : 0)}s`;
+  const m = Math.floor(s / 60);
+  return `${m}m ${Math.round(s % 60)}s`;
+}
+
+export function tookFor(r: PanelRecentCall, now: number): string {
+  if (r.start == null) return '';
+  return took((r.end ?? now) - r.start);
+}
+
+export const STALL_CALL_MS = 180_000;
+export const STALL_QUIET_MS = 120_000;
+
+/** Working, and nothing new for 2 minutes (or one call running for 3 minutes). */
+export function stallNote(p: WboPanel, t: WboStrings, now: number): string {
+  const working = p.session.status === 'busy' || p.session.status === 'retry';
+  if (!working) return '';
+  const rows = p.series?.recent ?? [];
+  const last = rows[rows.length - 1];
+  if (!last) return '';
+  const running = last.end == null || (last.status !== 'completed' && last.status !== 'error');
+  const quiet = now - (running ? (last.start ?? now) : (last.end ?? now));
+  const limit = running ? STALL_CALL_MS : STALL_QUIET_MS;
+  if (quiet < limit) return '';
+  return t.nothingNew(Math.max(1, Math.round(quiet / 60_000)));
+}
+
+/** The one thing wrong on that computer: a stale installer or an MCP server that is down. */
+export function footFlag(c: (WboBridge & { name?: string; outdated?: boolean; self_updates?: boolean; mcp?: { name: string; status: string }[] }) | null): { text: string; tone: string; tip: string } | null {
+  if (!c || !c.connected) return null;
+  if (c.outdated && !c.self_updates) {
+    return { text: 'update', tone: 'warn', tip: 'A newer wb-opencode is out: run its installer again on that computer' };
+  }
+  const mcp = c.mcp ?? [];
+  const down = mcp.filter((m) => m.status !== 'connected').length;
+  if (down) {
+    return { text: `MCP ${mcp.length - down}/${mcp.length}`, tone: 'warn', tip: 'An MCP server on that computer is not connected' };
+  }
+  return null;
+}
+
+/** The directory as the foot has room for it: its last two segments. */
+export function footDir(path: string): string {
+  const one = (path || '').replace(/\/+$/, '');
+  if (!one || one === '~') return one;
+  const parts = one.split('/').filter(Boolean);
+  return parts.length <= 2 ? one : `…/${parts.slice(-2).join('/')}`;
+}
+
+export function clock(ms: number): string {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
