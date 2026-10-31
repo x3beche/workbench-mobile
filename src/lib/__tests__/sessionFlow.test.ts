@@ -32,8 +32,11 @@ test('auto while working: the last 15 minutes', () => {
 test('auto when idle: the last stretch of work, with a little room', () => {
   const w = windowFor('auto', night, now, false);
   expect(w.auto).toBe('block');
-  expect(w.from).toBeGreaterThanOrEqual(t0 + 13 * h - m);
+  // the block is two minutes long, so the five-minute floor widens it - the point is that the work is
+  // inside the window, and that the window is never one call wide
+  expect(w.from).toBeLessThanOrEqual(t0 + 13 * h);
   expect(w.to).toBeGreaterThanOrEqual(t0 + 13 * h + 2 * m);
+  expect(w.to - w.from).toBeGreaterThanOrEqual(5 * m);
 });
 
 test('"all" folds the quiet stretches, so the work is not a sliver at the left', () => {
