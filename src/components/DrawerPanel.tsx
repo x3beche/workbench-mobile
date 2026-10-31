@@ -53,6 +53,7 @@ import { Avatar } from './Avatar';
 import {
   Archive,
   ArchiveRestore,
+  Building,
   ChartColumn,
   Check,
   ChevronRight,
@@ -116,6 +117,9 @@ export function DrawerPanel({
   onAnalytics,
   analyticsOn = false,
   analyticsLabel = 'Analytics',
+  onOffice,
+  officeOn = false,
+  officeLabel = 'Office',
   accountOn = false,
   wbc = null,
   openWbc = null,
@@ -170,6 +174,10 @@ export function DrawerPanel({
   onAnalytics?: () => void;
   analyticsOn?: boolean;
   analyticsLabel?: string;
+  /** The Office: the read-only picture of the company (docs/OFFICE.md). */
+  onOffice?: () => void;
+  officeOn?: boolean;
+  officeLabel?: string;
   /** Settings (the account at the foot opens it) is what is open. */
   accountOn?: boolean;
   /** One's own Claude Code sessions (GET /api/wbc/sessions) and their words; null on a server without them. */
@@ -757,6 +765,23 @@ export function DrawerPanel({
             <>
               <Glyph icon={ChartColumn} size={20} color={pressed ? colors.inkDim : colors.ink} />
               <Text style={[s.newText, analyticsOn && s.titleOn, pressed && s.dimText]}>{analyticsLabel}</Text>
+            </>
+          )}
+        </Pressable>
+      ) : null}
+      {onOffice ? (
+        <Pressable
+          testID="open-office"
+          onPress={onOffice}
+          accessibilityRole="button"
+          accessibilityLabel={officeLabel}
+          accessibilityState={{ selected: officeOn }}
+          style={s.navRow}
+        >
+          {({ pressed }) => (
+            <>
+              <Glyph icon={Building} size={20} color={pressed ? colors.inkDim : colors.ink} />
+              <Text style={[s.newText, officeOn && s.titleOn, pressed && s.dimText]}>{officeLabel}</Text>
             </>
           )}
         </Pressable>

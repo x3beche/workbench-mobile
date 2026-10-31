@@ -139,7 +139,8 @@ export type LastView =
   | { kind: 'files' }
   | { kind: 'settings' }
   | { kind: 'analytics' }
-  | { kind: 'ccpool' };
+  | { kind: 'ccpool' }
+  | { kind: 'office' };
 
 export async function lastView(key: string): Promise<LastView | null> {
   const all = await readJson<Record<string, LastView>>(LAST_VIEW, {});

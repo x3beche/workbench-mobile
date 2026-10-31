@@ -53,6 +53,8 @@ import type {
   SidePrefs,
   ChatDetail,
   TeamAnswer,
+  OfficeLayout,
+  OfficeLive,
   WbcDetail,
   WbcMessage,
   WboAnswer,
@@ -782,6 +784,18 @@ export class WorkbenchClient {
    *  (GET /api/agents/team/{manager}, backend/agents_mcp.py). Only one's own session is answered. */
   agentTeam(manager: string): Promise<TeamAnswer> {
     return this.request<TeamAnswer>('GET', `/api/agents/team/${encodeURIComponent(manager)}`);
+  }
+
+  // ---- the Office (backend/office.py) ---------------------------------------------
+
+  /** The company's layout: its floor, rooms, furniture and seats (GET /api/office). */
+  office(): Promise<OfficeLayout> {
+    return this.request<OfficeLayout>('GET', '/api/office');
+  }
+
+  /** What each agent is doing now, and how often the server wants to be asked again (GET /api/office/live). */
+  officeLive(): Promise<OfficeLive> {
+    return this.request<OfficeLive>('GET', '/api/office/live');
   }
 
   /** One session: its last messages, the lines sent from Workbench, what it asks, who may write. */

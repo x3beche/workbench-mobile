@@ -60,6 +60,7 @@ import { tick } from '../lib/feel';
 import { orchStrings } from '../lib/orchStrings';
 import { ccpoolStrings } from '../lib/ccpoolStrings';
 import { settingsStrings } from '../lib/settingsStrings';
+import { officeStrings } from '../lib/officeStrings';
 import { knownRooms } from '../lib/rooms';
 import { SIDE_EMPTY, withArchived, withDetail, withFold, withPin, withRoomsFold, type RoomsFold } from '../lib/side';
 import { agentStrings } from '../lib/agentStrings';
@@ -82,6 +83,7 @@ import { FilesScreen, type FilesHandle } from './FilesScreen';
 import { OrchestratorScreen, type OrchestratorHandle } from './OrchestratorScreen';
 import { AnalyticsScreen } from './AnalyticsScreen';
 import { CcpoolScreen } from './CcpoolScreen';
+import { OfficeScreen } from './OfficeScreen';
 import { ClaudeSessionScreen } from './ClaudeSessionScreen';
 import { OpencodeSessionScreen } from './OpencodeSessionScreen';
 import { RoomScreen } from './RoomScreen';
@@ -170,7 +172,7 @@ export function Workspace({
     | { chat?: undefined; what: 'empty' }
     | null
   >(null);
-  const [page, setPage] = useState<'chat' | 'files' | 'settings' | 'analytics' | 'ccpool'>('chat');
+  const [page, setPage] = useState<'chat' | 'files' | 'settings' | 'analytics' | 'ccpool' | 'office'>('chat');
   /** Settings > Claude pool: what Settings read for its row, drawn at once. */
   const [poolFirst, setPoolFirst] = useState<PoolOverview | null>(null);
   /** The workspace's room open on screen, if any (3D Drawing, PCB Design, Firmware). */
@@ -210,6 +212,7 @@ export function Workspace({
   const stt = useMemo(() => settingsStrings(ui), [ui]);
   const wt = useMemo(() => wbcStrings(ui), [ui]);
   const ct = useMemo(() => wboStrings(ui), [ui]);
+  const of = useMemo(() => officeStrings(ui), [ui]);
   const at = useMemo(() => agentStrings(ui), [ui]);
   const wst = useMemo(() => workspaceStrings(ui), [ui]);
   const updateNote =
@@ -579,6 +582,7 @@ export function Workspace({
       else if (v.kind === 'settings') setPage('settings');
       else if (v.kind === 'analytics') setPage('analytics');
       else if (v.kind === 'ccpool') setPage('ccpool');
+      else if (v.kind === 'office') setPage('office');
     });
     return () => {
       live = false;
@@ -684,10 +688,22 @@ export function Workspace({
     show(null);
   };
 
+  /** A character's session from the Office: the Office stays behind it, so closing the session comes back. */
+  const openOfficeAgent = (key: string) => {
+    const [kind, id] = key.split(':');
+    if (!id) return;
+    tick();
+    setRoom(null);
+    setOrch(false);
+    setWbcOpen(kind === 'wbc' ? id : null);
+    setWboOpen(kind === 'wbo' ? id : null);
+    setDrawer(false);
+  };
+
   const openFiles = () => openPage('files');
 
-  /** Files, Settings or Analytics: a page of its own in place of the conversation. */
-  const openPage = (which: 'files' | 'settings' | 'analytics') => {
+  /** Files, Settings, Analytics or the Office: a page of its own in place of the conversation. */
+  const openPage = (which: 'files' | 'settings' | 'analytics' | 'office') => {
     setPage(which);
     setRoom(null);
     setOrch(false);
@@ -922,6 +938,9 @@ export function Workspace({
       onAnalytics={() => openPage('analytics')}
       analyticsOn={page === 'analytics'}
       analyticsLabel={stt.analytics}
+      onOffice={() => openPage('office')}
+      officeOn={page === 'office'}
+      officeLabel={of.office}
       updateNote={updateNote}
       scope={scope}
       onScope={setScope}
@@ -1067,6 +1086,16 @@ export function Workspace({
               admin={role === 'owner' || role === 'admin'}
               wide={wide}
               onMenu={() => setDrawer(true)}
+            />
+          </Appear>
+        ) : page === 'office' ? (
+          <Appear key="office" duration={motion.fade}>
+            <OfficeScreen
+              client={client}
+              t={of}
+              wide={wide}
+              onMenu={() => setDrawer(true)}
+              onOpen={openOfficeAgent}
             />
           </Appear>
         ) : page === 'files' ? (

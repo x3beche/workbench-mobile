@@ -22,6 +22,7 @@ import { Buffer } from 'node:buffer';
 import { handleActivity } from './mock-activity.mjs';
 import { handleCcpool } from './mock-ccpool.mjs';
 import { addExport, handleFiles } from './mock-files.mjs';
+import { handleOffice } from './mock-office.mjs';
 import { handleAnalytics, handleOrchestrator, handleRooms } from './mock-orchestrator.mjs';
 import { activityNow, handleS2Api, publish } from './mock-s2.mjs';
 import { handleTeam } from './mock-team.mjs';
@@ -420,6 +421,7 @@ export async function handle(req, res) {
   if (handleOrchestrator(req, res, p, body)) return;
   if (handleRooms(req, res, p, url, body)) return;
   if (handleTeam(req, res, p)) return;
+  if (handleOffice(req, res, p)) return;
   if (handleWbc(req, res, p, url, body)) return;
   if (handleWbo(req, res, p, url, body)) return;
   if (handleCcpool(req, res, p)) return;

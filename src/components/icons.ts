@@ -14,6 +14,7 @@ export { default as ArrowUpToLine } from 'lucide-react-native/icons/arrow-up-to-
 export { default as AudioLines } from 'lucide-react-native/icons/audio-lines';
 export { default as Bot } from 'lucide-react-native/icons/bot';
 export { default as Box } from 'lucide-react-native/icons/box';
+export { default as Building } from 'lucide-react-native/icons/building';
 export { default as Camera } from 'lucide-react-native/icons/camera';
 export { default as ChartColumn } from 'lucide-react-native/icons/chart-column';
 export { default as Check } from 'lucide-react-native/icons/check';

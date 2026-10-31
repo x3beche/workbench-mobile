@@ -1266,3 +1266,88 @@ export interface HostHealth {
   cost: { samples: number; cpu_ms: number | null; avg_ms?: number | null };
   containers: { name: string; state: string; status: string; unhealthy: boolean; restarting: boolean }[];
 }
+
+// ---- the Office (backend/office.py: GET /api/office, GET /api/office/live) ----------
+
+export type OfficeRoomKind = 'department' | 'kitchen' | 'meeting' | 'lounge' | 'lobby' | 'parking';
+
+export interface OfficeFloor {
+  id: string;
+  name: string;
+  order: number;
+  w: number;
+  h: number;
+}
+
+export interface OfficeRoom {
+  id: string;
+  floor: string;
+  name: string;
+  kind: OfficeRoomKind;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** A department's manager (an agent key) and the desks it was built for. */
+  department?: { manager: string; desks: number };
+}
+
+/** One piece of furniture: `kind` is `desk`, `chair`, `pc`, `coffee`, `plant`, `sofa`, `board`, `car_spot`. */
+export interface OfficeItem {
+  id: string;
+  room: string;
+  kind: string;
+  x: number;
+  y: number;
+  dir: number;
+  /** A chair made for an agent: its key. */
+  seat_of?: string;
+}
+
+export interface OfficeSeat {
+  agent: string;
+  item: string;
+  room: string;
+  floor: string;
+  auto: boolean;
+}
+
+/** The company's layout: the floor, its rooms, its furniture and who sits where. */
+export interface OfficeLayout {
+  company: { name: string; settings: { director?: string; every_s?: number }; floors: string[] };
+  tile: number;
+  floors: OfficeFloor[];
+  rooms: OfficeRoom[];
+  items: OfficeItem[];
+  seats: OfficeSeat[];
+  kinds: { rooms: string[]; items: string[] };
+}
+
+/** The task a character carries on its card (an open task of its agent). */
+export interface OfficeTask {
+  id: string;
+  title: string;
+  status: string;
+  /** How far the work is, in percent (the server sends it when it knows). */
+  progress?: number;
+}
+
+export interface OfficeLiveAgent {
+  key: string;
+  name: string;
+  kind: string;
+  state: string;
+  activity: string;
+  bubble: string;
+  seat: { item: string; room: string; floor: string } | null;
+  task?: OfficeTask;
+  /** When the activity began, in the server's epoch seconds: a walk is timed from it. */
+  since: number;
+  manager: string | null;
+}
+
+export interface OfficeLive {
+  agents: OfficeLiveAgent[];
+  /** How often the server asks to be polled, in seconds. */
+  live_s: number;
+}
