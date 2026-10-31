@@ -8,6 +8,9 @@ import {
   choose,
   decisionWord,
   isReady,
+  keepSameAsks,
+  keepSameMsgs,
+  keepSameTurns,
   lastModel,
   localWhy,
   looseAsks,
@@ -106,6 +109,69 @@ const ask = (over: Partial<WboAsk> = {}): WboAsk => ({
   at: 1,
   settled_at: null,
   ...over,
+});
+
+
+describe('a poll that says the same thing again', () => {
+  const user = (id: string, text: string): WboMsg => ({
+    id,
+    role: 'user',
+    time: 1,
+    done: 2,
+    parts: [{ id: `${id}p`, type: 'text', text }],
+  });
+  const answer = (id: string, text: string, done: number | null = 3): WboMsg => ({
+    id,
+    role: 'assistant',
+    time: 1,
+    done,
+    model: 'm',
+    provider: 'workbench',
+    parts: [
+      { id: `${id}r`, type: 'reasoning', text: 'thinking', start: 1, end: 2 },
+      { id: `${id}t`, type: 'tool', tool: 'read', status: done ? 'completed' : 'running', title: 'a.py', start: 2, end: done ? 3 : undefined },
+      { id: `${id}x`, type: 'text', text },
+    ],
+  });
+
+  it('keeps the message objects, the questions and the whole list when nothing changed', () => {
+    const msgs = [user('u', 'run it'), answer('a', 'the rail holds')];
+    const asks: WboAsk[] = [
+      { id: 'q', kind: 'permission', status: 'pending', title: 'Run the DRC?', part: 'at', message: 'a' } as WboAsk,
+    ];
+    // a poll: the same conversation, from the wire, so new objects
+    const again = msgs.map((m) => ({ ...m, parts: m.parts.map((p) => ({ ...p })) }));
+    expect(keepSameMsgs(msgs, again)).toBe(msgs);
+    expect(keepSameAsks(asks, asks.map((a) => ({ ...a })))).toBe(asks);
+    expect(keepSameTurns(buildTurns(msgs, asks), buildTurns(again, asks))).toEqual(buildTurns(msgs, asks));
+
+    // one answer growing: that message (and its turn) is new work, the one before it is the object it was
+    const grew = [again[0], { ...again[1], parts: [again[1].parts[0], again[1].parts[1], { ...again[1].parts[2], text: 'the rail holds still' }] }];
+    const keptMsgs = keepSameMsgs(msgs, grew);
+    expect(keptMsgs[0]).toBe(msgs[0]);
+    expect(keptMsgs[1]).not.toBe(msgs[1]);
+    const held = buildTurns(msgs, asks);
+    const next = keepSameTurns(held, buildTurns(keptMsgs, asks));
+    expect(next).not.toBe(held);
+    expect(next[0]).toBe(held[0]);
+    expect(next[1]).not.toBe(held[1]);
+  });
+
+  it('sees a tool still running, a finished tool and a question answered', () => {
+    const running = answer('a', 'x', null);
+    const done = { ...running, done: 5, parts: running.parts.map((p) => (p.type === 'tool' ? { ...p, status: 'completed', end: 5 } : p)) };
+    expect(keepSameMsgs([running], [done])[0]).not.toBe(running);
+
+    const asked: WboAsk[] = [{ id: 'q', kind: 'permission', status: 'pending', part: 'at' } as WboAsk];
+    const answered: WboAsk[] = [{ ...asked[0], status: 'answered' } as WboAsk];
+    expect(keepSameAsks(asked, answered)[0]).toBe(answered[0]);
+    expect(keepSameAsks(asked, answered)).not.toBe(asked);
+    // and the turn holding that card is drawn again
+    const msgs = [answer('a', 'x')];
+    const before = buildTurns(msgs, asked);
+    const after = keepSameTurns(before, buildTurns(msgs, keepSameAsks(asked, answered)));
+    expect(after[0]).not.toBe(before[0]);
+  });
 });
 
 describe('words and dots', () => {

@@ -122,6 +122,131 @@ export function toStep(p: WboPart): Step {
   };
 }
 
+const samePart = (a: WboPart, b: WboPart): boolean =>
+  a === b ||
+  (a.id === b.id &&
+    a.type === b.type &&
+    a.text === b.text &&
+    a.tool === b.tool &&
+    a.status === b.status &&
+    a.title === b.title &&
+    a.input === b.input &&
+    a.output === b.output &&
+    a.error === b.error &&
+    a.start === b.start &&
+    a.end === b.end);
+
+const sameModel = (a: WboMsg['model'], b: WboMsg['model']): boolean => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (typeof a === 'string' || typeof b === 'string') return a === b;
+  return a.providerID === b.providerID && a.modelID === b.modelID && a.variant === b.variant && a.name === b.name;
+};
+
+/** Whether two readings of one OpenCode message say the same thing: every field a row draws of it, and its parts. */
+export function sameMsg(a: WboMsg, b: WboMsg): boolean {
+  return (
+    a === b ||
+    (a.id === b.id &&
+      a.role === b.role &&
+      a.agent === b.agent &&
+      a.type === b.type &&
+      a.by === b.by &&
+      a.time === b.time &&
+      a.first === b.first &&
+      a.done === b.done &&
+      a.error === b.error &&
+      a.provider === b.provider &&
+      sameModel(a.model, b.model) &&
+      sameModel(a.previous ?? null, b.previous ?? null) &&
+      (a.tok === b.tok || (!!a.tok && !!b.tok && a.tok.every((x, i) => x === b.tok?.[i]))) &&
+      a.parts.length === b.parts.length &&
+      a.parts.every((p, i) => samePart(p, b.parts[i])))
+  );
+}
+
+/**
+ * A poll's messages, with the held objects kept wherever nothing changed: the turns built from them are then
+ * made of the same pieces, and a row is only drawn again when something it shows is different.
+ */
+export function keepSameMsgs(held: WboMsg[] | null, got: WboMsg[]): WboMsg[] {
+  if (!held?.length || !got.length) return got;
+  const seen = new Map(held.map((m) => [m.id, m]));
+  let same = held.length === got.length;
+  const out = got.map((m, i) => {
+    const old = seen.get(m.id);
+    const use = old && sameMsg(old, m) ? old : m;
+    if (use !== held[i]) same = false;
+    return use;
+  });
+  return same ? held : out;
+}
+
+/** A question, as one string: few, and small - what a card draws of it. */
+const askKey = (a: WboAsk) =>
+  `${a.id}|${a.status}|${a.decision ?? ''}|${a.via ?? ''}|${a.error ?? ''}|${a.chosen ? JSON.stringify(a.chosen) : ''}` +
+  `|${a.answer ? JSON.stringify(a.answer) : ''}`;
+
+/** A poll's questions, with the held objects kept where the card would draw the same thing. */
+export function keepSameAsks(held: WboAsk[] | null, got: WboAsk[]): WboAsk[] {
+  if (!held?.length || !got.length) return got;
+  const seen = new Map(held.map((a) => [askKey(a), a]));
+  let same = held.length === got.length;
+  const out = got.map((a, i) => {
+    const old = seen.get(askKey(a));
+    const use = old ?? a;
+    if (use !== held[i]) same = false;
+    return use;
+  });
+  return same ? held : out;
+}
+
+/** Whether two readings of one turn are the same row: its own steps are the same objects (msgs reconciled), the
+ *  items they were drawn into are the same keys, and a question on it is the same card. */
+export function sameTurn(a: Turn, b: Turn): boolean {
+  if (a === b) return true;
+  if (a.kind !== b.kind || a.id !== b.id) return false;
+  if (a.kind === 'assistant' && b.kind === 'assistant') {
+    return sameAssistant(a, b);
+  }
+  if (a.kind === 'assistant' || b.kind === 'assistant') return false;
+  return a.msg === b.msg;
+}
+
+/** The answer row's own pieces: its steps (the same objects) and the items drawn from them. */
+function sameAssistant(a: Extract<Turn, { kind: 'assistant' }>, b: Extract<Turn, { kind: 'assistant' }>): boolean {
+  return (
+    a.live === b.live &&
+    a.writing === b.writing &&
+    a.time === b.time &&
+    a.model === b.model &&
+    a.provider === b.provider &&
+    a.steps.length === b.steps.length &&
+    a.steps.every((m, i) => m === b.steps[i]) &&
+    a.items.length === b.items.length &&
+    a.items.every((it, i) => {
+      const other = b.items[i];
+      if (it.t !== other.t || it.key !== other.key) return false;
+      return it.t === 'ask' && other.t === 'ask' ? it.ask === other.ask : true;
+    })
+  );
+}
+
+/** A poll's turns, with the held ones kept where the row would be drawn the same; the array itself when none
+ *  of them changed, so the list is not asked to draw again. */
+export function keepSameTurns(held: Turn[] | null, got: Turn[]): Turn[] {
+  if (!held?.length || !got.length) return got;
+  const seen = new Map(held.map((t) => [`${t.kind}:${t.id}`, t]));
+  let same = held.length === got.length;
+  const out = got.map((t, i) => {
+    const old = seen.get(`${t.kind}:${t.id}`);
+    const use = old && sameTurn(old, t) ? old : t;
+    if (use !== held[i]) same = false;
+    return use;
+  });
+  return same ? held : out;
+}
+
 /**
  * Rows: each person's message, and each run of OpenCode's messages (its
  * steps, one message each) as one answer - its thinking, words and tool

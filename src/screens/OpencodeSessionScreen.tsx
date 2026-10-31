@@ -22,7 +22,7 @@
  *   Otherwise a note says why, in the server's terms.
  */
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -54,7 +54,7 @@ import { EmptyState, ErrorText, Glyph, IconButton, LoadError, wrapAnywhere } fro
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
 import { WboModelSheet } from '../components/WboModelSheet';
 import { SessionPanelSheet } from '../components/SessionPanelSheet';
-import { chatDetailStrings } from '../lib/chatDetail';
+import { chatDetailStrings, type ChatDetailStrings } from '../lib/chatDetail';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { footFlag, shortK } from '../lib/wboPanel';
 import { ago } from '../lib/time';
@@ -63,6 +63,9 @@ import { readPictureHead } from '../lib/pictureFile';
 import {
   applyWbo,
   buildTurns,
+  keepSameAsks,
+  keepSameMsgs,
+  keepSameTurns,
   localWhy,
   looseAsks,
   pendingSends,
@@ -139,14 +142,29 @@ export function OpencodeSessionScreen({
   onChanged?: () => void;
 }) {
   // The session and its messages change together (a live record touches both): one state.
-  const [view, setView] = useState<{ s: WboDetail | null; msgs: WboMsg[] | null }>(() => ({
+  const [view, setView] = useState<{ s: WboDetail | null; msgs: WboMsg[] | null; turns: Turn[] }>(() => ({
     s: initial ? { ...initial, messages: [], truncated: false, sends: [], asks: [] } : null,
     msgs: null,
+    turns: [],
   }));
-  const { s, msgs } = view;
+  const { s, msgs, turns } = view;
+  /**
+   * A read's session and messages, laid on what is shown: a message, a question and a turn the read did not
+   * change stay the objects they were, so the list is not asked to draw them again (lib/wbo.keepSame*).
+   */
+  const settle = useCallback((v: typeof view, sNext: WboDetail | null, msgsNext: WboMsg[] | null) => {
+    const msgs = msgsNext === null ? null : keepSameMsgs(v.msgs, msgsNext);
+    const asks = keepSameAsks(v.s?.asks ?? [], sNext?.asks ?? []);
+    const next = sNext && asks !== sNext.asks ? { ...sNext, asks } : sNext;
+    return { s: next, msgs, turns: keepSameTurns(v.turns, buildTurns(msgs ?? [], asks)) };
+  }, []);
   const setS = useCallback(
-    (fn: (now: WboDetail | null) => WboDetail | null) => setView((v) => ({ ...v, s: fn(v.s) })),
-    [],
+    (fn: (now: WboDetail | null) => WboDetail | null) =>
+      setView((v) => {
+        const next = fn(v.s);
+        return next === v.s ? v : settle(v, next, v.msgs);
+      }),
+    [settle],
   );
   const [count, setCount] = useState(TURNS_PAGE);
   /** The session could not be read: what it said, and the way to try again. */
@@ -204,7 +222,7 @@ export function OpencodeSessionScreen({
         const was = held.current;
         const newest = d.messages[d.messages.length - 1];
         if (was?.length && newest && newest.id !== was[was.length - 1]?.id && !reader.atBottom()) setBelow(true);
-        setView({ s: d, msgs: d.messages ?? [] });
+        setView((v) => settle(v, d, d.messages ?? []));
         setError(null);
       },
       (e) => {
@@ -214,7 +232,7 @@ export function OpencodeSessionScreen({
         setError(fail(e, t.cantRead));
       },
     );
-  }, [client, sid, fail, t, reader]);
+  }, [client, sid, fail, t, reader, settle]);
 
   useEffect(() => {
     refresh();
@@ -237,12 +255,12 @@ export function OpencodeSessionScreen({
           return e.type === 'ask' && e.session === sid && v.s && e.ask ? { ...v, s: putAsk(v.s, e.ask) } : v;
         }
         const got = applyWbo(v.s, v.msgs, e, sid);
-        return got.s === v.s && got.msgs === v.msgs ? v : { s: got.s, msgs: got.msgs };
+        return got.s === v.s && got.msgs === v.msgs ? v : settle(v, got.s, got.msgs);
       });
       const fresh = e.type === 'message' && e.session === sid && !held.current?.some((m) => m.id === e.id);
       if (fresh && !reader.atBottom()) setBelow(true);
     },
-    [sid, refresh, reader],
+    [sid, refresh, reader, settle],
   );
   useEffect(() => {
     if (!hub || !client) return;
@@ -309,7 +327,7 @@ export function OpencodeSessionScreen({
 
   // ---- answering what OpenCode asks ------------------------------------------------
 
-  const answer = async (a: WboAsk, body: WboAnswer) => {
+  const answer = useCallback(async (a: WboAsk, body: WboAnswer) => {
     if (!client || !s?.may_send) return;
     setAnswering(true);
     setSendError(null);
@@ -324,7 +342,7 @@ export function OpencodeSessionScreen({
     } finally {
       if (mounted.current) setAnswering(false);
     }
-  };
+  }, [client, s?.may_send, sid, setS, fail, t, refresh]);
 
   // ---- sending ---------------------------------------------------------------------
 
@@ -406,7 +424,6 @@ export function OpencodeSessionScreen({
 
   const sends = useMemo(() => s?.sends ?? [], [s?.sends]);
   const asks = useMemo(() => s?.asks ?? [], [s?.asks]);
-  const turns = useMemo(() => buildTurns(msgs ?? [], asks), [msgs, asks]);
   const remote = useMemo(() => remoteIds(sends), [sends]);
   const pending = useMemo(() => pendingSends(sends, msgs ?? []), [sends, msgs]);
   const loose = useMemo(() => looseAsks(asks, msgs ?? []), [asks, msgs]);
@@ -450,7 +467,10 @@ export function OpencodeSessionScreen({
   const subFlag = s?.bridge?.outdated && !s.bridge.self_updates
     ? { text: t.updateShort, tip: t.updateWboLong }
     : s?.bridge ? footFlag(s.bridge) : null;
-  const canAnswer = (a: WboAsk) => a.status === 'pending' && !a.local && !!s?.may_send;
+  const canAnswer = useCallback(
+    (a: WboAsk) => a.status === 'pending' && !a.local && !!s?.may_send,
+    [s?.may_send],
+  );
   const why = s && !s.may_send ? wboWhy(s, t) : null;
 
   const [modelSheet, setModelSheet] = useState(false);
@@ -534,13 +554,8 @@ export function OpencodeSessionScreen({
     }
   };
 
-  const asstModelText = (tn: AnswerTurn) => {
-    const m = tn.model ? modelName(tn.model) : 'OpenCode';
-    const prov = provName(tn.provider);
-    return prov && prov !== 'Workbench' ? `${m} · ${prov}` : m;
-  };
   // A question drawn from the tool's own call says why it is not answered here; any other, why one cannot write.
-  const noteOf = (a: WboAsk) => (a.local ? localWhy(s, t) : why);
+  const noteOf = useCallback((a: WboAsk) => (a.local ? localWhy(s, t) : why), [s, t, why]);
   /** The header's word: the dot says it alone while OpenCode works (it pulses) and while that computer is
    *  away (the grey one) - a word for either would say the same thing twice; no bridge at all still says
    *  "not connected", since there is no dot to say it. Waiting takes the short word: the line has the room
@@ -549,58 +564,9 @@ export function OpencodeSessionScreen({
   const head = s && s.status !== 'busy' && !away
     ? s.status === 'waiting' ? t.waitingShort : wboWord(s, t)
     : '';
-  /**
-   * An answer's thinking and tool rows apart from its words, with what the one
-   * line they are written as while the Chat is compact says (Settings > Chat;
-   * the web's folded() in rooms/opencode-sessions.ts).
-   */
-  const split = (tn: AnswerTurn) => {
-    const work = tn.items.filter((it) => it.t === 'think' || it.t === 'steps');
-    const rest = tn.items.filter((it) => it.t !== 'think' && it.t !== 'steps');
-    const tools = work.reduce((n, it) => n + (it.t === 'steps' ? it.steps.length : 0), 0);
-    const thought = work.reduce((n, it) => n + (it.t === 'think' ? it.text.length : 0), 0);
-    const ms = work.reduce<number | null>(
-      (n, it) => (it.t === 'think' && it.ms != null ? (n ?? 0) + it.ms : n),
-      null,
-    );
-    return { work, rest, tools, thought, ms };
-  };
-  /** One piece of an answer as it is drawn; `open` is a Chat set to detailed. */
-  const drawn = (it: TurnItem, open: boolean) =>
-    it.t === 'think' ? (
-      <Thinking
-        key={`${it.key}:${open ? 'open' : 'folded'}`}
-        text={it.text}
-        live={it.live}
-        open={open}
-        words={{ live: t.thinking, done: t.thought }}
-      />
-    ) : it.t === 'text' ? (
-      <Markdown key={it.key} text={it.text} />
-    ) : it.t === 'steps' ? (
-      <Steps
-        key={`${it.key}:${open ? 'open' : 'folded'}`}
-        steps={it.steps}
-        ran={t.ranTools}
-        detail={open ? 'detailed' : 'normal'}
-      />
-    ) : it.t === 'ask' ? (
-      <AskCard
-        key={it.key}
-        a={it.ask}
-        t={t}
-        canAnswer={canAnswer(it.ask)}
-        busy={answering}
-        note={noteOf(it.ask)}
-        onAnswer={answer}
-      />
-    ) : (
-      <Text key={it.key} style={st.error} accessibilityRole="alert">
-        {it.text}
-      </Text>
-    );
 
-  const renderItem = ({ item }: { item: Item }) => {
+
+  const renderItem = useCallback(({ item }: { item: Item }) => {
     if (item.kind === 'cut')
       return (
         <Text style={[st.headText, st.cut]} testID="wbo-cut">
@@ -650,24 +616,21 @@ export function OpencodeSessionScreen({
         />
       );
     }
-    const { work, rest, tools, thought, ms } = split(tn);
     return (
-      <View style={st.msgRow} testID="wbo-answer">
-        <Text style={st.asstModel} numberOfLines={1}>
-          {asstModelText(tn)}
-        </Text>
-        {tn.live && !tn.items.length ? <TypingDots /> : null}
-        {/* What it did to get there - its thinking and its tool rows - on one
-            line, opened by a tap; then the answer and what it asks. */}
-        {work.length ? (
-          <CompactWork tools={tools} thinking={thought} ms={ms} dw={dw}>
-            {work.map((it) => drawn(it, true))}
-          </CompactWork>
-        ) : null}
-        {rest.map((it) => drawn(it, false))}
-      </View>
+      <AnswerRow
+        turn={tn}
+        dw={dw}
+        t={t}
+        client={client}
+        sid={sid}
+        onZoom={setZoom}
+        canAnswer={canAnswer}
+        noteOf={noteOf}
+        answering={answering}
+        answer={answer}
+      />
     );
-  };
+  }, [t, client, sid, sends, remote, answering, answer, noteOf, canAnswer, dw]);
 
   return (
     <SafeAreaView style={st.safe} edges={['top', 'left', 'right', 'bottom']} testID="wbo-screen">
@@ -950,6 +913,121 @@ function Pics({
         />
       ))}
     </View>
+  );
+}
+
+/** An answer's model line: the model's own name, and the provider beside it when it is not Workbench's. */
+function asstModelText(tn: AnswerTurn): string {
+  const m = tn.model ? modelName(tn.model) : 'OpenCode';
+  const prov = provName(tn.provider);
+  return prov && prov !== 'Workbench' ? `${m} · ${prov}` : m;
+}
+
+/** An answer's thinking and tool rows apart from its words, with what the one line they are written as while
+ *  the Chat is compact says (Settings > Chat; the web's folded() in rooms/opencode-sessions.ts). */
+function splitAnswer(tn: AnswerTurn) {
+  const work = tn.items.filter((it) => it.t === 'think' || it.t === 'steps');
+  const rest = tn.items.filter((it) => it.t !== 'think' && it.t !== 'steps');
+  const tools = work.reduce((n, it) => n + (it.t === 'steps' ? it.steps.length : 0), 0);
+  const thought = work.reduce((n, it) => n + (it.t === 'think' ? it.text.length : 0), 0);
+  const ms = work.reduce<number | null>((n, it) => (it.t === 'think' && it.ms != null ? (n ?? 0) + it.ms : n), null);
+  return { work, rest, tools, thought, ms };
+}
+
+/** One piece of an answer as it is drawn; `open` is a Chat set to detailed. */
+function drawItem(
+  it: TurnItem,
+  open: boolean,
+  h: {
+    t: WboStrings;
+    canAnswer: (a: WboAsk) => boolean;
+    noteOf: (a: WboAsk) => string | null;
+    answering: boolean;
+    answer: (a: WboAsk, body: WboAnswer) => Promise<void>;
+  },
+) {
+  const { t } = h;
+  return it.t === 'think' ? (
+    <Thinking
+      key={`${it.key}:${open ? 'open' : 'folded'}`}
+      text={it.text}
+      live={it.live}
+      open={open}
+      words={{ live: t.thinking, done: t.thought }}
+    />
+  ) : it.t === 'text' ? (
+    <Markdown key={it.key} text={it.text} />
+  ) : it.t === 'steps' ? (
+    <Steps key={`${it.key}:${open ? 'open' : 'folded'}`} steps={it.steps} ran={t.ranTools} detail={open ? 'detailed' : 'normal'} />
+  ) : it.t === 'ask' ? (
+    <AskCard
+      key={it.key}
+      a={it.ask}
+      t={t}
+      canAnswer={h.canAnswer(it.ask)}
+      busy={h.answering}
+      note={h.noteOf(it.ask)}
+      onAnswer={h.answer}
+    />
+  ) : (
+    <Text key={it.key} style={st.error} accessibilityRole="alert">
+      {it.text}
+    </Text>
+  );
+}
+
+/**
+ * One answer's row: its model line, its thinking and tool calls on one line a tap opens, then its words and
+ * what it asks. Memoised on its turn - the turns a poll did not change are the same objects, so only the
+ * answer being written is drawn again. A turn holding a question is always drawn (its card shows the answer
+ * being sent), and those are few.
+ */
+/** What an answer's row is given: its own turn, the words, and what a question on it can do. */
+interface AnswerRowProps {
+  turn: AnswerTurn;
+  dw: ChatDetailStrings;
+  t: WboStrings;
+  client: WorkbenchClient | null;
+  sid: string;
+  onZoom: (uri: string) => void;
+  canAnswer: (a: WboAsk) => boolean;
+  noteOf: (a: WboAsk) => string | null;
+  answering: boolean;
+  answer: (a: WboAsk, body: WboAnswer) => Promise<void>;
+}
+
+const AnswerRow = memo(function AnswerRow({ turn, dw, t, canAnswer, noteOf, answering, answer }: AnswerRowProps) {
+    const { work, rest, tools, thought, ms } = splitAnswer(turn);
+    const drawn = (it: TurnItem, open: boolean) => drawItem(it, open, { t, canAnswer, noteOf, answering, answer });
+    return (
+      <View style={st.msgRow} testID="wbo-answer">
+        <Text style={st.asstModel} numberOfLines={1}>
+          {asstModelText(turn)}
+        </Text>
+        {turn.live && !turn.items.length ? <TypingDots /> : null}
+        {/* What it did to get there - its thinking and its tool rows - on one
+            line, opened by a tap; then the answer and what it asks. */}
+        {work.length ? (
+          <CompactWork tools={tools} thinking={thought} ms={ms} dw={dw}>
+            {work.map((it) => drawn(it, true))}
+          </CompactWork>
+        ) : null}
+        {rest.map((it) => drawn(it, false))}
+      </View>
+    );
+}, sameAnswer);
+
+/** Two rows are the same drawing when they are the same turn, and no question on it is being answered. */
+function sameAnswer(a: AnswerRowProps, b: AnswerRowProps): boolean {
+  return (
+    a.turn === b.turn &&
+    a.dw === b.dw &&
+    a.t === b.t &&
+    a.client === b.client &&
+    a.sid === b.sid &&
+    a.onZoom === b.onZoom &&
+    // a question's card says whether the answer is on its way: those rows are always drawn
+    !a.turn.items.some((it) => it.t === 'ask')
   );
 }
 
