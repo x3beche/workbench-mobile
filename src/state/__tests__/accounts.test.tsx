@@ -143,10 +143,11 @@ describe('the account of 1.5.5 and before', () => {
 });
 
 function Shown() {
-  const { phase, user, server, accounts, account, switchTo, client } = useSession();
+  const { phase, user, server, accounts, account, switchTo, client, notice } = useSession();
   return (
     <View>
       <Text testID="who">{`${phase} ${user?.name ?? '-'} @ ${server ?? '-'}`}</Text>
+      <Text testID="notice">{notice ?? '-'}</Text>
       {accounts.map((a) => (
         <Pressable key={a.id} testID={`to-${a.user?.name}`} onPress={() => switchTo(a.id)}>
           <Text>{a.id === account?.id ? `[${a.user?.name}]` : a.user?.name}</Text>
@@ -183,6 +184,41 @@ describe('switching', () => {
     await act(async () => undefined);
     expect(f.calls.map((c) => [c.url.slice(0, B.length), header(c.init)])).toEqual([[B, 'S-cy']]);
     expect(await AsyncStorage.getItem('workbench.currentAccount')).not.toBe(one.id);
+  });
+
+  it('a 401 of a request made while the app is open lands on login with one calm line, and does not retry', async () => {
+    const one = (await addAccount(A, ada, 'S-ada')).account;
+    await AsyncStorage.setItem('workbench.currentAccount', one.id);
+    let dead = false;
+    const f = fakeFetch((url) => {
+      if (url.endsWith('/api/auth/state')) return jsonResponse(200, { mode: 'on', user: ada, role: 'owner' });
+      if (url.includes('/api/cc/chats')) {
+        return dead
+          ? jsonResponse(401, { detail: 'Sign in first.' })
+          : jsonResponse(200, []);
+      }
+      return jsonResponse(200, []);
+    });
+    await render(
+      <SessionProvider deps={{ fetch: f.fetch }}>
+        <Shown />
+      </SessionProvider>,
+    );
+    expect(await screen.findByText(`app Ada @ ${A}`)).toBeTruthy();
+    dead = true;
+    const before = f.calls.length;
+    await fireEvent.press(screen.getByTestId('ask'));
+    await act(async () => undefined);
+    expect(screen.getByTestId('who').props.children).toContain('login -');
+    expect(screen.getByTestId('notice').props.children).toEqual('Your session ended. Sign in again.');
+    expect(f.calls.length - before).toBe(1);
+    // It waits for the person: no retry loop behind the login screen.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    expect(f.calls.length - before).toBe(1);
+    // The account is still on the phone to sign in again, with its sessions of others untouched.
+    expect(await loadAccounts()).toHaveLength(1);
   });
 
   it("asks the open account to sign in again when its session ended, keeping the others", async () => {
