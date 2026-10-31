@@ -170,6 +170,34 @@ describe('S2Follow', () => {
     f.stop();
   });
 
+  it('waits longer after each failure, up to five minutes, so a server that is away is not hammered', async () => {
+    const s = server({ tokenStatus: 503 });
+    const f = new S2Follow(s.client, () => undefined);
+    f.start();
+    await flush();
+    expect(s.asked()).toBe(1);
+    // The first check of a dead server is quick, one second.
+    await flush(1_100);
+    expect(s.asked()).toBe(2);
+    // Then the wait doubles: 15 s, 30 s, a minute, two, four...
+    await flush(15_100);
+    expect(s.asked()).toBe(3);
+    await flush(30_100);
+    expect(s.asked()).toBe(4);
+    await flush(60_100);
+    expect(s.asked()).toBe(5);
+    await flush(120_100);
+    expect(s.asked()).toBe(6);
+    await flush(240_100);
+    expect(s.asked()).toBe(7);
+    // ...and stops growing at five minutes: five minutes of a dead server is seven checks, not one a second.
+    await flush(299_000);
+    expect(s.asked()).toBe(7);
+    await flush(2_000);
+    expect(s.asked()).toBe(8);
+    f.stop();
+  });
+
   it('leaves an older server (no token route) to its polling and does not ask again', async () => {
     const s = server({ tokenStatus: 404 });
     const f = new S2Follow(s.client, () => undefined);
