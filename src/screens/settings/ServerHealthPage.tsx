@@ -14,6 +14,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { WorkbenchClient } from '../../api/client';
 import type { HostHealth } from '../../api/types';
+import { inFront } from '../../live/hub';
 import { SettingsAbout, SettingsPage } from '../../components/SettingsList';
 import { colors, fonts, radius, space, type } from '../../theme/tokens';
 
@@ -60,7 +61,11 @@ export function ServerHealthPage({
   );
   useEffect(() => {
     load(rng);
-    const t = setInterval(() => load(rng), 60_000);
+    const t = setInterval(() => {
+      // Once a minute is a quiet tick; in the background it is not even that.
+      if (!inFront()) return;
+      load(rng);
+    }, 60_000);
     return () => clearInterval(t);
   }, [load, rng]);
 

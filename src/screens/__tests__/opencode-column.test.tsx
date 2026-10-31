@@ -8,6 +8,7 @@
  * the line under the sheet's title, from its start, tap to copy.
  */
 import * as Clipboard from 'expo-clipboard';
+import { AppState } from 'react-native';
 import * as React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
@@ -341,6 +342,24 @@ async function open(p: WboPanel) {
     await fireEvent.press(recentRow);
     await act(async () => undefined);
     expect(client.wboSession).toHaveBeenCalled();
+  });
+
+  it('reads nothing while the phone is in the background, and reads again in front', async () => {
+    jest.useFakeTimers();
+    const client = await open(panel());
+    const panelCalls = () => (client.wboPanel as jest.Mock).mock.calls.length;
+    const first = panelCalls();
+    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'background' });
+    await act(async () => {
+      jest.advanceTimersByTime(15_000);
+    });
+    expect(panelCalls()).toBe(first);
+    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
+    await act(async () => {
+      jest.advanceTimersByTime(5_000);
+    });
+    expect(panelCalls()).toBe(first + 1);
+    jest.useRealTimers();
   });
 
   it('shows stall warning when quiet for longer than stall threshold', async () => {

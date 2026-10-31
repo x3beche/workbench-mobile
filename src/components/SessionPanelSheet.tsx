@@ -9,6 +9,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type WorkbenchClient } from '../api/client';
+import { inFront } from '../live/hub';
 import type { PanelFile, WboAsk, WboPanel } from '../api/types';
 import {
   baseName,
@@ -112,7 +113,11 @@ function SessionPanel({
         (e) => live && setError(e instanceof ApiError ? e.message : t.columnFailed),
       );
     void read();
-    const timer = setInterval(() => void read(), REFRESH_MS);
+    const timer = setInterval(() => {
+      // A phone in a pocket reads nothing: the sheet's five-second tick waits for the front.
+      if (!inFront()) return;
+      void read();
+    }, REFRESH_MS);
     return () => {
       live = false;
       clearInterval(timer);
