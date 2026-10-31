@@ -637,7 +637,7 @@ function TurnRow({
     setGone(null);
     setBusy(false);
   }, [turn.id, turn.role, turn.text]);
-  const more = Math.max(0, (turn.full_len ?? turn.text.length) - turn.text.length);
+  const more = Math.max(0, (turn.full_len ?? turn.text.length) - (turn.cut_at ?? turn.text.length));
   const openable = !!turn.truncated && more > 0 && full === null && gone === null;
   const open = async () => {
     if (!client || busy) return;

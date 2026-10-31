@@ -3,7 +3,7 @@
     "name": "Workbench",
     "slug": "workbench-mobile",
     "scheme": "workbench",
-    "version": "1.9.24",
+    "version": "1.9.25",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -30,7 +30,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 59,
+      "versionCode": 60,
       "permissions": [
         "android.permission.REQUEST_INSTALL_PACKAGES"
       ],

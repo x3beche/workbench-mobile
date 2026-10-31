@@ -678,6 +678,9 @@ export interface WbcTurn {
    *  (backend/wbclaude.py, GET .../turns/{id}/text) - never cut in silence. */
   truncated?: boolean;
   full_len?: number;
+  /** Where the page's part ends in the original (the cut lands at a line end, and closes a code block it left
+   *  open): the count under it is read from here, not from the drawn length. */
+  cut_at?: number;
   /** An older gateway that says nothing about a text of exactly its old bound may have cut it. */
   maybe?: boolean;
 }

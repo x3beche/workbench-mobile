@@ -438,6 +438,15 @@ describe('a long answer on the phone', () => {
     expect(screen.getByTestId('wbc-more-gone')).toHaveTextContent(/only the first 4,000 characters/i);
   });
 
+  it('counts what is missing from where the server cut, not from what was drawn', async () => {
+    // the page's part stops at a line end and may close a code block it left open: a few characters are added
+    // that are not the answer's, so the count comes from `cut_at`
+    const c = withTurns([{ id: 'r11', role: 'assistant', text: 'x'.repeat(11_985) + '\n```', at: NOW,
+                           truncated: true, full_len: 20_000, cut_at: 11_982 }], jest.fn());
+    await open(c);
+    expect(screen.getByTestId('wbc-more')).toHaveTextContent(/8,018 more characters/);
+  });
+
   it('draws nothing under a text that is whole', async () => {
     const c = withTurns([{ id: 'r1', role: 'assistant', text: 'short', at: NOW }], jest.fn());
     await open(c);
