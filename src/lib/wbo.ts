@@ -8,7 +8,17 @@
  * the lines sent from here until the conversation shows them, and what
  * OpenCode asks (a form of questions, a permission) with the answer chosen.
  */
-import type { Step, WboAsk, WboDetail, WboField, WboMsg, WboPart, WboSend, WboSession } from '../api/types';
+import type {
+  Step,
+  WboAsk,
+  WboDetail,
+  WboField,
+  WboMsg,
+  WboPart,
+  WboSelectedModel,
+  WboSend,
+  WboSession,
+} from '../api/types';
 import { deltaPast, type Dot } from './orchestrator';
 import type { RunStats } from './runStats';
 import type { WboStrings } from './wboStrings';
@@ -140,13 +150,13 @@ export function buildTurns(msgs: WboMsg[], asks: WboAsk[] = []): Turn[] {
         live: false,
         writing: false,
         time: m.time,
-        model: m.model ?? null,
+        model: typeof m.model === 'string' ? m.model : null,
         provider: m.provider ?? null,
         steps: [],
       };
       out.push(tn);
     }
-    tn.model = m.model ?? tn.model;
+    tn.model = typeof m.model === 'string' ? m.model : tn.model;
     tn.provider = m.provider ?? tn.provider;
     tn.steps.push(m);
     tn.live = !m.done;
@@ -304,7 +314,10 @@ export function looseAsks(asks: WboAsk[], msgs: WboMsg[]): WboAsk[] {
 
 /** The model of the last answer. */
 export function lastModel(msgs: WboMsg[]): string | null {
-  for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].role === 'assistant' && msgs[i].model) return msgs[i].model!;
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (m.role === 'assistant' && typeof m.model === 'string') return m.model;
+  }
   return null;
 }
 
@@ -370,6 +383,8 @@ export function turnStats(
   const into = sum((m) => m.tok?.[0]);
   // Where the window stood when the run ended: the last step's prompt, not the steps added up.
   const held = (last.tok?.[0] ?? 0) + (last.tok?.[2] ?? 0);
+  /** The model the step ran on: a message's own id, else the turn's (a system line's whole model is not one). */
+  const on = typeof last.model === 'string' ? last.model : tn.model;
   return {
     sent: Math.min(...sent),
     first: firsts.length ? Math.min(...firsts) : null,
@@ -381,9 +396,9 @@ export function turnStats(
     thinkingChars:
       sum((m) => m.parts.filter((p) => p.type === 'reasoning').reduce((n, p) => n + (p.text?.length ?? 0), 0)) || null,
     thinkingMs: steps.reduce((n, m) => n + thinkMs(m), 0) || null,
-    context: window(last.model ?? tn.model),
+    context: window(on),
     contextTokens: held || null,
-    model: last.model ?? tn.model ?? null,
+    model: on ?? null,
     provider: provName(last.provider ?? tn.provider),
     error: [...steps].reverse().find((m) => m.error)?.error ?? null,
   };
@@ -399,8 +414,11 @@ export interface WboEvent {
   message?: string;
   role?: 'user' | 'assistant';
   agent?: string | null;
-  model?: string | null;
+  model?: string | WboSelectedModel | null;
   provider?: string | null;
+  /** The model a message was on before it changed, and who changed it. */
+  previous?: WboMsg['previous'];
+  by?: string;
   time?: number | null;
   /** When its first token came, and what it spent by the end of the step. */
   first?: number | null;

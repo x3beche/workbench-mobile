@@ -9,6 +9,7 @@
  * that cannot be written to, a group folded with its pinned one in sight,
  * and the wide layout. Run by scripts/shots.sh with SHOTS=opencode.
  */
+const { Buffer } = require('node:buffer');
 const fs = require('fs');
 const puppeteer = require('puppeteer');
 

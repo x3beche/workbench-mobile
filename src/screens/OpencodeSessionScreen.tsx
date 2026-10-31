@@ -46,7 +46,7 @@ import { Composer } from '../components/Composer';
 import { Camera, Images, Info, Paperclip, SquareCode, X } from '../components/icons';
 import { KeyboardSpacer } from '../components/KeyboardSpacer';
 import { Markdown } from '../components/Markdown';
-import { CompactWork, Steps, Thinking, TypingDots } from '../components/MessageItem';
+import { CompactWork, Steps, Thinking, TypingDots, modelName } from '../components/MessageItem';
 import { NewBelow } from '../components/NewBelow';
 import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
@@ -54,7 +54,6 @@ import { EmptyState, ErrorText, Glyph, IconButton, LoadError, wrapAnywhere } fro
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
 import { WboModelSheet } from '../components/WboModelSheet';
 import { SessionPanelSheet } from '../components/SessionPanelSheet';
-import { modelName } from '../components/MessageItem';
 import { chatDetailStrings } from '../lib/chatDetail';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
 import { footFlag, shortK } from '../lib/wboPanel';
@@ -615,10 +614,10 @@ export function OpencodeSessionScreen({
     const tn = item.turn;
     if (tn.kind === 'system') {
       const m = tn.msg;
-      const modObj = m.model && typeof m.model === 'object' ? (m.model as any) : null;
-      const prevObj = m.previous && typeof m.previous === 'object' ? (m.previous as any) : null;
-      const toModel = modObj ? (modObj.name || modObj.modelID || modObj.id || '') : (m.model ? modelName(String(m.model)) : '…');
-      const fromModel = prevObj ? (prevObj.name || prevObj.modelID || prevObj.id || '') : (m.previous ? modelName(String(m.previous)) : t.initial);
+      const modObj = m.model && typeof m.model === 'object' ? m.model : null;
+      const prevObj = m.previous && typeof m.previous === 'object' ? m.previous : null;
+      const toModel = modObj ? (modObj.name || modObj.modelID) : (m.model ? modelName(String(m.model)) : '…');
+      const fromModel = prevObj ? (prevObj.name || prevObj.modelID) : (m.previous ? modelName(String(m.previous)) : t.initial);
       const who = m.by === 'chat' ? t.fromChat : t.onComp;
       return (
         <View style={st.sysRow} key={tn.id} testID="wbo-system-row">

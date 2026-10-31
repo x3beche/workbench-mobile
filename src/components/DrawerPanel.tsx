@@ -292,13 +292,21 @@ export function DrawerPanel({
     }));
   }, [wbo, onWbo, q, openWbo, side, lang]);
   // Both kinds as the Agents group's rows: the same ones the two groups show, and any in a tree.
+  // The list's own clock: "the last day's" moves on while the drawer is open, without reading the wall clock
+  // inside a render.
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setClock(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   const agentRows = useMemo<AgentRowData[]>(() => {
     if (!agents || !wbc || !onWbc || !wbo || !onWbo) return [];
     const linked = new Set<string>([...agents.links.keys(), ...agents.links.values()]);
     // Doing something, the last day's, pinned, open or in a tree - a connected computer holds every session of it,
     // so connected alone is not news; a sub-agent OpenCode started itself only when pinned, open or in a tree.
     const words = q.trim().toLowerCase();
-    const day = Date.now() - 86_400_000;
+    const day = clock - 86_400_000;
     // The rest are kept too, marked `old`: the group shows them on "Show N older" (and a search finds them).
     const recent = (key: string, last: number, busy: boolean, pin: boolean, open: boolean, child: boolean) =>
       child ? open || pin || linked.has(key) : busy || last > day || open || pin || linked.has(key);
@@ -340,7 +348,7 @@ export function DrawerPanel({
         canRename: !!x.may_send,
       })),
     ];
-  }, [agents, wbc, onWbc, wbo, onWbo, q, openWbc, openWbo, side, lang]);
+  }, [agents, wbc, onWbc, wbo, onWbo, q, openWbc, openWbo, side, lang, clock]);
   const fold = onFold ?? (() => undefined);
   // The rooms are open until folded by hand (kept as the session groups' folds); folded, their unread is on the header.
   const roomsOpen = isOpen(side, 'rooms', true);

@@ -10,12 +10,12 @@
  * are the web page's, where a person sets them.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import type { WorkbenchClient } from '../../api/client';
 import type { HostHealth } from '../../api/types';
 import { SettingsAbout, SettingsPage } from '../../components/SettingsList';
-import { colors, fonts, gutter, radius, space, type } from '../../theme/tokens';
+import { colors, fonts, radius, space, type } from '../../theme/tokens';
 
 const RANGES: { id: string; word: string }[] = [
   { id: '24h', word: '24h' },

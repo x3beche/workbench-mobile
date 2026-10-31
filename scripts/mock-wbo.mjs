@@ -16,6 +16,7 @@
  * permission goes "answering" -> answered from the Chat, and OpenCode goes
  * on. Each step is also told on the bus (`wbo`); pins and folds on `side`.
  */
+import { Buffer } from 'node:buffer';
 import { publish } from './mock-s2.mjs';
 
 const me = { id: 'u1', name: 'Ada Demir' };

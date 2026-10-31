@@ -775,7 +775,7 @@ proxy, not the export.
 ```sh
 npm run typecheck
 npm run lint
-npm test
+npm test           # tsc first (pretest), then the jest suite
 npm run check      # all three
 ```
 

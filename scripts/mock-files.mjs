@@ -5,6 +5,8 @@
  * backend/files_api.py does. Pictures are drawn here as SVG (no image
  * library needed); the screenshots are taken in a browser, which shows them.
  */
+import { Buffer } from 'node:buffer';
+
 const ago = (min) => new Date(Date.now() - min * 60_000).toISOString();
 const me = { id: 'u1', name: 'Ada Demir' };
 const kerem = { id: 'u2', name: 'Kerem' };

@@ -15,7 +15,7 @@
  * The numbers on it are made up: a picture of the card, not a reading of it.
  */
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
 import { ChevronRight, Cpu, RotateCcw, TriangleAlert, Wrench } from '../../components/icons';
 import type { SettingsStrings } from '../../lib/settingsStrings';
@@ -279,7 +279,7 @@ type PreviewState = (typeof STATES)[number];
 export function WidgetPreview({ t }: { t: SettingsStrings }) {
   const [room, setRoom] = useState(0);
   const [face, setFace] = useState<PreviewState>('normal');
-  const [now] = useState(Date.now());
+  const [now] = useState(() => Date.now());
   // Drawn at 362 dp wide where the page is that wide; narrower pages get the
   // same card in the room they have, the way a launcher hands it a smaller cell.
   const w = Math.min(room || CELL.w, CELL.w);
@@ -418,17 +418,18 @@ export function WidgetPreview({ t }: { t: SettingsStrings }) {
  */
 export function WidgetRefreshes({ t }: { t: SettingsStrings }) {
   const [log, setLog] = useState<RefreshEntry[] | null>(null);
-  const [exempt, setExempt] = useState<boolean | null>(null);
+  const [exempt] = useState<boolean | null>(() => {
+    try {
+      return power ? power.isIgnoringBatteryOptimizations() : null;
+    } catch {
+      return null;
+    }
+  });
   const [allowed, setAllowed] = useState<boolean | null>(null);
 
   useEffect(() => {
     let live = true;
     void readRefreshLog().then((rows) => live && setLog(rows));
-    try {
-      setExempt(power ? power.isIgnoringBatteryOptimizations() : null);
-    } catch {
-      setExempt(null);
-    }
     void backgroundAllowed().then((yes) => live && setAllowed(yes));
     return () => {
       live = false;

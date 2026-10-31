@@ -668,7 +668,7 @@ export function StatsWidget({
   lang = 'en',
   state = {},
   staleAfter = STALE_MS,
-  now = Date.now(),
+  now,
 }: {
   snap: WidgetSnapshot | null;
   /** The widget's own size, in dp: every measure here is worked out from it. */
@@ -681,8 +681,8 @@ export function StatsWidget({
   state?: WidgetState;
   /** A reading older than this is drawn in the warning tone, in its corner. */
   staleAfter?: number;
-  /** The clock its corner reads against (a picture of the widget in the app passes its own). */
-  now?: number;
+  /** The clock its corner reads against: the renderer passes it, so the drawing never reads the wall clock. */
+  now: number;
 }) {
   // The text each half writes, worked out once: the drawing below writes it and
   // `widest` sizes the card to it.

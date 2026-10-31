@@ -165,7 +165,9 @@ export async function draw(snap: WidgetSnapshot | null, state: WidgetState = {})
   try {
     await requestWidgetUpdate({
       widgetName: WIDGET_NAME,
-      renderWidget: (info) => <StatsWidget snap={snap} w={info.width} h={info.height} t={t} lang={lang} state={state} />,
+      renderWidget: (info) => (
+        <StatsWidget snap={snap} w={info.width} h={info.height} t={t} lang={lang} state={state} now={Date.now()} />
+      ),
     });
     return true;
   } catch {

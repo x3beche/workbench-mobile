@@ -27,7 +27,7 @@ import { inFront } from '../../live/hub';
 import { useBus, useLive } from '../../live/LiveContext';
 import { stateWord, statusDot, whenOf, failureWord, haltTitle } from '../../lib/orchestrator';
 import type { OrchStrings } from '../../lib/orchStrings';
-import { colors, fonts, gutter, radius, space, theme, type } from '../../theme/tokens';
+import { colors, fonts, gutter, space, type } from '../../theme/tokens';
 import { modelName } from '../../components/MessageItem';
 
 /** GET /api/me/orchestrator/overview - what this page draws, as the server shapes it. */

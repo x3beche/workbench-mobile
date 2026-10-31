@@ -192,12 +192,12 @@ export function WboModelSheet({
 }
 
 const s = StyleSheet.create({
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.scrim },
+  scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
   sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingHorizontal: gutter.screen,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    paddingHorizontal: gutter,
     overflow: 'hidden',
   },
   grip: {
@@ -206,38 +206,38 @@ const s = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: colors.line,
     alignSelf: 'center',
-    marginTop: space.s,
+    marginTop: space.sm,
     marginBottom: space.xs,
   },
   head: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: space.s,
+    paddingVertical: space.sm,
   },
   flex: { flex: 1 },
   title: {
     fontFamily: fonts.sans,
-    fontSize: type.h2,
+    fontSize: type.title,
     fontWeight: '600',
     color: colors.inkBright,
   },
   now: {
     fontFamily: fonts.sans,
-    fontSize: type.caption,
+    fontSize: type.tiny,
     color: colors.inkDim,
     marginTop: 2,
   },
   body: {
     paddingBottom: space.xs,
-    gap: space.s,
+    gap: space.sm,
   },
   search: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceHover,
-    borderRadius: radius.m,
-    paddingHorizontal: space.s,
+    backgroundColor: colors.surface2,
+    borderRadius: radius.md,
+    paddingHorizontal: space.sm,
     height: 40,
     gap: space.xs,
   },
@@ -251,11 +251,11 @@ const s = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: space.s,
+    paddingVertical: space.sm,
     paddingHorizontal: space.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
-    minHeight: touch.min,
+    minHeight: touch,
   },
   rowHead: {
     flexDirection: 'row',
@@ -275,7 +275,7 @@ const s = StyleSheet.create({
   dim: { opacity: 0.6 },
   id: {
     fontFamily: fonts.mono,
-    fontSize: type.caption,
+    fontSize: type.tiny,
     color: colors.inkDim,
     marginTop: 2,
   },
@@ -283,7 +283,7 @@ const s = StyleSheet.create({
     fontSize: 12,
   },
   tagWrap: {
-    backgroundColor: colors.surfaceHover,
+    backgroundColor: colors.surface2,
     borderRadius: 4,
     paddingHorizontal: 4,
     paddingVertical: 1,

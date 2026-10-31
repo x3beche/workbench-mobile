@@ -109,11 +109,46 @@ export interface WboStrings extends WbcStrings {
   cacheRead: string;
   cacheWrite: string;
   auto: string;
-  showAll: (n: number) => string;
   fewer: string;
   estimated: string;
   textParts: (n: number) => string;
   updateShort: string;
+  /** The run's own section, and the one line above the sections when something waits. */
+  now: string;
+  last: string;
+  permissions: (n: number) => string;
+  questions: (n: number) => string;
+  answerInConversation: string;
+  stoppedUntilAnswered: string;
+  inTok: string;
+  outTok: string;
+  /** The graphs' own few words. */
+  compactionTurns: (n: number) => string;
+  turnNo: (n: number) => string;
+  compacted: string;
+  outputPerMinute: string;
+  nothingNew: (n: number) => string;
+  min15: string;
+  hour1: string;
+  all: string;
+  whichTools: string;
+  hideTools: string;
+  reading: string;
+  editing: string;
+  shellCat: string;
+  webCat: string;
+  subAgent: string;
+  writingCat: string;
+  otherCat: string;
+  mcpNone: string;
+  /** The window this session keeps to (a smaller one compacts OpenCode sooner). */
+  context: string;
+  contextOwn: string;
+  contextTip: string;
+  /** The model picker's own word for the list's grouping. */
+  provider: string;
+  /** The column's "Show all N" link, next to the inherited `showAll` (a plain word). */
+  showAllOf: (n: number) => string;
 }
 
 const wen = wbcStrings('en');
@@ -253,7 +288,8 @@ const en: WboStrings = {
   cacheRead: 'Cache read',
   cacheWrite: 'Cache write',
   auto: 'auto',
-  showAll: (n) => `Show all ${n}`,
+  showAllOf: (n) => `Show all ${n}`,
+  provider: 'Provider',
   fewer: 'fewer',
   estimated: 'estimated from the last call',
   textParts: (n) => `text and thinking: ${n} parts`,
@@ -418,7 +454,8 @@ const tr: WboStrings = {
   cacheRead: 'Cache okuma',
   cacheWrite: 'Cache yazma',
   auto: 'auto',
-  showAll: (n) => `Tümünü göster (${n})`,
+  showAllOf: (n) => `Tümünü göster (${n})`,
+  provider: 'Sağlayıcı',
   fewer: 'daha az',
   estimated: 'son çağrıdan tahmin edildi',
   textParts: (n) => `metin/düşünme: ${n} parça`,

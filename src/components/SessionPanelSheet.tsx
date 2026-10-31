@@ -9,7 +9,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type WorkbenchClient } from '../api/client';
-import type { PanelFile, PanelRecentCall, PanelTool, WboAsk, WboPanel } from '../api/types';
+import type { PanelFile, WboAsk, WboPanel } from '../api/types';
 import {
   baseName,
   ctxLine,
@@ -33,24 +33,14 @@ import { Choice } from './Choice';
 import type { RangeId } from '../lib/sessionFlow';
 import type { WboStrings } from '../lib/wboStrings';
 import { copy as copyToClipboard } from '../lib/feel';
-import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
+import { colors, fonts, gutter, radius, space, type } from '../theme/tokens';
 import { TallSheet } from './TallSheet';
 import { Activity, Check, ChevronDown, ChevronRight, Square, X } from './icons';
-import { Button, ErrorText, Glyph } from './ui';
+import { ErrorText, Glyph } from './ui';
 
 const REFRESH_MS = 5_000;
 
-export function SessionPanelSheet({
-  client,
-  sid,
-  t,
-  onClose,
-  onJump,
-  onAnswer,
-  onModel,
-  onContext,
-  when,
-}: {
+type PanelProps = {
   client: WorkbenchClient | null;
   sid: string;
   t: WboStrings;
@@ -61,29 +51,47 @@ export function SessionPanelSheet({
   onAnswer: (a: WboAsk, decision: 'once' | 'always' | 'reject') => void;
   /** The model's row was tapped: the composer's own picker, the one the app already has. */
   onModel: () => void;
+  /** A window size was picked for the session (null: the model's own). */
+  onContext: (limit: number | null) => void;
   /** "12 min ago" for a row's own time, in the page's language. */
   when: (at: number | null) => string;
-}) {
+};
+
+export function SessionPanelSheet(props: PanelProps) {
+  /* A new session is a new sheet: its own read, its own folds, its own opened rows - the key remounts it. */
+  return <SessionPanel key={props.sid} {...props} />;
+}
+
+function SessionPanel({
+  client,
+  sid,
+  t,
+  onClose,
+  onJump,
+  onAnswer,
+  onModel,
+  onContext,
+  when,
+}: PanelProps) {
   const [panel, setPanel] = useState<WboPanel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [folds, setFolds] = useState<Record<string, boolean>>({});
   const [allFiles, setAllFiles] = useState(false);
   const [allRecent, setAllRecent] = useState(false);
   const [range, setRange] = useState<RangeId>('auto');
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    setPanel(null);
-    setError(null);
-    setAllFiles(false);
-    setAllRecent(false);
-    if (client) {
-      client
-        .side()
-        .then((p) => setFolds(p.panel ?? {}))
-        .catch(() => undefined);
-    }
+    if (!client) return;
+    let live = true;
+    void client
+      .side()
+      .then((p) => live && setFolds(p.panel ?? {}))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
   }, [client, sid]);
 
   useEffect(() => {
@@ -123,7 +131,6 @@ export function SessionPanelSheet({
   const cwd = panel?.session.computer?.cwd || panel?.session.directory || '';
   const dir = titleDir(cwd);
   const sections = panelSections(panel, t);
-  const mayAnswer = panel?.may_answer === true;
   const copy = (v: string) => {
     void copyToClipboard(v);
     setCopied(true);
@@ -358,7 +365,6 @@ function FlowBody({
 
   const step = useMemo(() => {
     if (!lastCall) return null;
-    const end = lastCall.end ?? now;
     const running = working && lastCall.status !== 'completed' && lastCall.status !== 'error';
     return {
       tool: lastCall.tool || catWord(lastCall.cat, t),
@@ -430,7 +436,7 @@ function FlowBody({
           ))}
           {recent.length > 5 ? (
             <Pressable onPress={onAllRecent} accessibilityRole="button" style={s.recentMore}>
-              <Text style={s.link}>{allRecent ? t.fewer : t.showAll(recent.length)}</Text>
+              <Text style={s.link}>{allRecent ? t.fewer : t.showAllOf(recent.length)}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -541,14 +547,15 @@ function FilesBody({
 }) {
   const everything: PanelFile[] = panel.files?.items ?? [];
   const temp = panel.files?.temp?.items ?? [];
-  const rows = everything;
-  let lastWhen = '';
+  // Each row's own time, when it differs from the last row that had one (the same minute is said once).
+  const rows = everything.map((f, i) => {
+    const at = when(f.at);
+    const before = i ? everything.slice(0, i).map((r) => when(r.at)).filter(Boolean).pop() ?? '' : '';
+    return { f, showAt: at && at !== before ? at : '' };
+  });
   return (
     <View>
-      {rows.map((f) => {
-        const at = when(f.at);
-        const showAt = at && at !== lastWhen ? at : '';
-        lastWhen = at || lastWhen;
+      {rows.map(({ f, showAt }) => {
         const est = estOf(f);
         return (
           <Pressable
@@ -627,6 +634,8 @@ const s = StyleSheet.create({
   warn: { color: colors.warn },
   bad: { color: colors.danger },
   ctxWrap: { marginVertical: 4 },
+  ctxPick: { paddingBottom: space.sm, gap: space.xs },
+  rowText: { flex: 1, minWidth: 0, fontFamily: fonts.sans, fontSize: 11, color: colors.inkDim },
   ctx: { fontFamily: fonts.mono, fontSize: 11, color: colors.ink },
   bar: { height: 3, borderRadius: 2, backgroundColor: colors.line, marginTop: 4, overflow: 'hidden' },
   barFill: { height: 3, backgroundColor: colors.inkDim },
