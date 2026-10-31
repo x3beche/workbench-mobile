@@ -61,7 +61,7 @@ import { orchStrings } from '../lib/orchStrings';
 import { ccpoolStrings } from '../lib/ccpoolStrings';
 import { settingsStrings } from '../lib/settingsStrings';
 import { knownRooms } from '../lib/rooms';
-import { SIDE_EMPTY, withDetail, withFold, withPin, withRoomsFold, type RoomsFold } from '../lib/side';
+import { SIDE_EMPTY, withArchived, withDetail, withFold, withPin, withRoomsFold, type RoomsFold } from '../lib/side';
 import { agentStrings } from '../lib/agentStrings';
 import { linkMap, type LinkMap } from '../lib/agents';
 import { countUnder } from '../lib/team';
@@ -399,6 +399,19 @@ export function Workspace({
       tick();
       setSide((now) => withPin(now, g, id, pinned));
       client?.sidePin(g, id, pinned).then(
+        (got) => setSide(withRoomsFold(got, roomsLocal.current)),
+        () => loadSide(),
+      );
+    },
+    [client, loadSide],
+  );
+  /** A session out of the Agents group (true) and into the Archived tab, or back: the pin goes with it (the
+   *  server drops it too); on a server that cannot keep it, the old lists are read again. */
+  const archiveSession = useCallback(
+    (g: SideGroup, id: string, archived: boolean) => {
+      tick();
+      setSide((now) => withArchived(now, g, id, archived));
+      client?.sideArchived(g, id, archived).then(
         (got) => setSide(withRoomsFold(got, roomsLocal.current)),
         () => loadSide(),
       );
@@ -934,6 +947,7 @@ export function Workspace({
       side={side}
       onFold={foldGroup}
       onPin={pinSession}
+      onArchive={archiveSession}
       lang={lang}
     />
   );

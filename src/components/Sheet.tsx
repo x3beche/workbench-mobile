@@ -54,6 +54,9 @@ export interface Action {
   label: string;
   icon: LucideIcon;
   danger?: boolean;
+  /** Not offered (a phone has no hover to say why): dim, with `note` said under it, and nothing on a press. */
+  disabled?: boolean;
+  note?: string;
   onPress: () => void;
 }
 
@@ -64,17 +67,23 @@ export function ActionList({ actions }: { actions: Action[] }) {
         <Pressable
           key={a.id}
           testID={`action-${a.id}`}
-          onPress={a.onPress}
+          onPress={a.disabled ? undefined : a.onPress}
+          disabled={a.disabled}
           accessibilityRole="button"
-          accessibilityLabel={a.label}
+          accessibilityState={a.disabled ? { disabled: true } : undefined}
+          accessibilityLabel={a.note ? `${a.label}. ${a.note}` : a.label}
           style={s.action}
         >
           {({ pressed }) => {
-            const ink = a.danger ? colors.danger : pressed ? colors.inkDim : colors.ink;
+            const off = !!a.disabled;
+            const ink = off ? colors.inkDim : a.danger ? colors.danger : pressed ? colors.inkDim : colors.ink;
             return (
               <>
                 <Glyph icon={a.icon} size={20} color={ink} />
-                <Text style={[s.actionText, { color: ink }, pressed && a.danger && s.dangerPressed]}>{a.label}</Text>
+                <View style={s.actionWords}>
+                  <Text style={[s.actionText, { color: ink }, pressed && a.danger && s.dangerPressed]}>{a.label}</Text>
+                  {a.note ? <Text style={s.actionNote}>{a.note}</Text> : null}
+                </View>
               </>
             );
           }}
@@ -210,7 +219,9 @@ const s = StyleSheet.create({
     gap: 14,
     paddingHorizontal: gutter,
   },
+  actionWords: { flex: 1, paddingVertical: 8 },
   actionText: { fontFamily: fonts.sans, fontSize: type.body },
+  actionNote: { fontFamily: fonts.sans, fontSize: type.micro, lineHeight: type.microLine, color: colors.inkDim, marginTop: 2 },
   dangerPressed: { opacity: 0.7 },
   center: { flex: 1, justifyContent: 'center', backgroundColor: colors.scrim, paddingHorizontal: gutter + 8 },
   dialogWrap: { alignSelf: 'center', width: '100%', maxWidth: 420 },

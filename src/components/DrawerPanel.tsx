@@ -40,7 +40,7 @@ import type {
 import { chatSnippet, filterChats, groupChats, groupOf, rowTime } from '../lib/groups';
 import { ROOM_ICON, roomName, roomSnippet, unread as unreadOf } from '../lib/rooms';
 import { ago } from '../lib/time';
-import { isOpen, isPinned, SIDE_EMPTY } from '../lib/side';
+import { isArchived, isOpen, isPinned, SIDE_EMPTY } from '../lib/side';
 import type { LinkMap } from '../lib/agents';
 import type { AgentStrings } from '../lib/agentStrings';
 import { bridgeLine, isoOf, liveDot, shownSessions, stateWord } from '../lib/wbc';
@@ -61,13 +61,16 @@ import {
   Network,
   RotateCcw,
   Search,
+  SquareCode,
   SquarePen,
+  SquareTerminal,
   Trash,
   X,
   type LucideIcon,
 } from './icons';
 import { DrawerRow } from './DrawerRow';
 import { StateDot } from './StateDot';
+import { ActionList, Sheet } from './Sheet';
 import { GroupHead, SessionGroup, type SessionRowData } from './SessionGroup';
 import { SwipeRow, type SwipeAction } from './SwipeRow';
 import { Button, ErrorText, Glyph } from './ui';
@@ -124,6 +127,7 @@ export function DrawerPanel({
   side = SIDE_EMPTY,
   onFold,
   onPin,
+  onArchive,
   lang = 'auto',
 }: {
   client: WorkbenchClient | null;
@@ -184,6 +188,8 @@ export function DrawerPanel({
   side?: SidePrefs;
   onFold?: (group: FoldGroup, open: boolean) => void;
   onPin?: (group: SideGroup, id: string, pinned: boolean) => void;
+  /** Out of the Agents group and into the Archived tab (true), or back (false); the server drops the pin. */
+  onArchive?: (group: SideGroup, id: string, archived: boolean) => void;
   /** The app's language: the drawer's own words follow it. */
   lang?: VoiceLang;
 }) {
@@ -195,6 +201,8 @@ export function DrawerPanel({
   /** Select: ticking several conversations, and the ones ticked (the web's .tcv-cc-selbar). */
   const [picking, setPicking] = useState(false);
   const [sel, setSel] = useState<ReadonlySet<string>>(() => new Set());
+  /** The archived agent whose menu is open (one action: Unarchive). */
+  const [archivedMenu, setArchivedMenu] = useState<AgentRowData | null>(null);
   // The server's own days once its trash was listed (X-Trash-Days), else its default.
   const trashDays = client?.chatTrashDays ?? CHAT_TRASH_DAYS;
 
@@ -300,28 +308,28 @@ export function DrawerPanel({
     return () => clearInterval(timer);
   }, []);
 
-  const agentRows = useMemo<AgentRowData[]>(() => {
+  /** Every session the drawer knows of - archived ones too, which the group itself does not draw. */
+  const everyAgent = useMemo<AgentRowData[]>(() => {
     if (!agents || !wbc || !onWbc || !wbo || !onWbo) return [];
     const linked = new Set<string>([...agents.links.keys(), ...agents.links.values()]);
     // Doing something, the last day's, pinned, open or in a tree - a connected computer holds every session of it,
-    // so connected alone is not news; a sub-agent OpenCode started itself only when pinned, open or in a tree.
+    // so connected alone is not news; a sub-agent OpenCode started itself only when pinned, open or in a tree (or
+    // archived, so it can still be found and put back).
     const words = q.trim().toLowerCase();
     const day = clock - 86_400_000;
     // The rest are kept too, marked `old`: the group shows them on "Show N older" (and a search finds them).
     const recent = (key: string, last: number, busy: boolean, pin: boolean, open: boolean, child: boolean) =>
       child ? open || pin || linked.has(key) : busy || last > day || open || pin || linked.has(key);
-    const keep = (key: string, last: number, busy: boolean, pin: boolean, open: boolean, child: boolean, name: string,
-                  computer: string, kind: string) =>
-      (!child || recent(key, last, busy, pin, open, child))
-      && (!words || name.toLowerCase().includes(words) || (computer || '').toLowerCase().includes(words) || kind.includes(words));
+    const typed = (name: string, computer: string, kind: string) =>
+      !words || name.toLowerCase().includes(words) || (computer || '').toLowerCase().includes(words) || kind.includes(words);
     const isOld = (key: string, last: number, busy: boolean, pin: boolean, open: boolean, child: boolean) =>
       !words && !recent(key, last, busy, pin, open, child);
-    const c = wbc.rows.filter((x) => keep(`wbc:${x.session_id}`, (x.last_ts ?? 0) * 1000,
-                                          !!x.bridge?.connected && x.bridge.state !== 'idle', isPinned(side, 'claude', x.session_id),
-                                          x.session_id === openWbc, false, x.name, x.computer, 'claude'));
-    const o = wbo.rows.filter((x) => keep(`wbo:${x.session_id}`, x.updated ?? 0,
-                                          !!wboDot(x) && wboDot(x) !== 'idle', isPinned(side, 'opencode', x.session_id),
-                                          x.session_id === openWbo, !!x.parent, x.name, x.computer, 'opencode'));
+    const c = wbc.rows.filter((x) => typed(x.name, x.computer, 'claude'));
+    const o = wbo.rows.filter((x) => (!x.parent
+      || recent(`wbo:${x.session_id}`, x.updated ?? 0, !!wboDot(x) && wboDot(x) !== 'idle',
+                isPinned(side, 'opencode', x.session_id), x.session_id === openWbo, true)
+      || isArchived(side, 'opencode', x.session_id))
+      && typed(x.name, x.computer, 'opencode'));
     return [
       ...c.map((x) => ({
         key: `wbc:${x.session_id}`, group: 'claude' as const, id: x.session_id, name: x.name, child: false,
@@ -349,6 +357,16 @@ export function DrawerPanel({
       })),
     ];
   }, [agents, wbc, onWbc, wbo, onWbo, q, openWbc, openWbo, side, lang, clock]);
+  /** The group's rows: every session that is not in the archive. */
+  const agentRows = useMemo(
+    () => everyAgent.filter((r) => !isArchived(side, r.group, r.id)),
+    [everyAgent, side],
+  );
+  /** The Archived tab's agents: what the person took out of the group, newest first. */
+  const archivedRows = useMemo(
+    () => everyAgent.filter((r) => isArchived(side, r.group, r.id)).sort((a, b) => b.last - a.last),
+    [everyAgent, side],
+  );
   const fold = onFold ?? (() => undefined);
   // The rooms are open until folded by hand (kept as the session groups' folds); folded, their unread is on the header.
   const roomsOpen = isOpen(side, 'rooms', true);
@@ -558,6 +576,30 @@ export function DrawerPanel({
         }
         ListHeaderComponent={
           <>
+            {/* The Agents group's archive (the web's Archived tab): what was taken out of the group, newest
+                first, each with the one action that matters - put it back. */}
+            {!picking && scope === 'archived' && agents && archivedRows.length && (onWbc || onWbo) ? (
+              <View testID="drawer-archived-agents">
+                <Text style={s.group}>{agents.t.archivedGroup(archivedRows.length)}</Text>
+                {archivedRows.map((r) => (
+                  <DrawerRow
+                    key={r.key}
+                    title={r.name}
+                    when={r.when}
+                    sub={r.says}
+                    icon={r.group === 'claude' ? SquareTerminal : SquareCode}
+                    live={r.live}
+                    on={false}
+                    onPress={() => (r.group === 'claude' ? onWbc?.(r.id) : onWbo?.(r.id))}
+                    onMore={() => setArchivedMenu(r)}
+                    moreLabel={agents.t.unarchive}
+                    actionsLabel={agents.t.unarchive}
+                    label={`${r.name}, ${r.says}`}
+                    testID={`archived-agent-${r.key}`}
+                  />
+                ))}
+              </View>
+            ) : null}
             {/* The rooms lead the list, as they do on the web: the workspace's own
                 threads, above the conversations. */}
             {/* The rooms, the Claude sessions and the OpenCode sessions are what is
@@ -610,6 +652,7 @@ export function DrawerPanel({
                 onFold={fold}
                 onPin={pin}
                 onLink={agents.onLink}
+                onArchive={onArchive ? (r) => onArchive(r.group, r.id, true) : undefined}
                 onRename={
                   client
                     ? async (key, title) => {
@@ -672,7 +715,7 @@ export function DrawerPanel({
             <ActivityIndicator style={s.wait} color={colors.inkDim} accessibilityLabel={t.searching} />
           ) : q.trim() ? (
             <Text style={s.empty}>{t.nothingFound(q.trim())}</Text>
-          ) : !error ? (
+          ) : !error && !(scope === 'archived' && archivedRows.length) ? (
             <Text style={s.empty}>
               {scope === 'trash'
                 ? t.emptyTrashDays(trashDays)
@@ -749,6 +792,24 @@ export function DrawerPanel({
           </>
         )}
       </Pressable>
+      {archivedMenu ? (
+        <Sheet onClose={() => setArchivedMenu(null)} title={archivedMenu.name} testID="archived-agent-menu">
+          <ActionList
+            actions={[
+              {
+                id: 'archived-agent-unarchive',
+                label: agents?.t.unarchive ?? 'Unarchive',
+                icon: ArchiveRestore,
+                onPress: () => {
+                  const r = archivedMenu;
+                  setArchivedMenu(null);
+                  if (r) onArchive?.(r.group, r.id, false);
+                },
+              },
+            ]}
+          />
+        </Sheet>
+      ) : null}
     </SafeAreaView>
   );
 }

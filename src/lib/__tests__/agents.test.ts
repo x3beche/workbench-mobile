@@ -1,4 +1,4 @@
-import { heightOf, linkMap, managersOf, treeOf, whyNot } from '../agents';
+import { archiveWhy, heightOf, linkMap, managersOf, treeOf, whyNot } from '../agents';
 
 const map = linkMap([
   { worker: 'wbo:b', manager: 'wbc:a' },
@@ -71,5 +71,16 @@ describe('agents: who manages whom', () => {
   it('puts a worker whose manager is not shown at the top', () => {
     const got = treeOf([{ k: 'wbo:d', t: 1 }], (r) => r.k, (r) => r.t, map, () => 0, 3);
     expect(got.map((x) => x.depth)).toEqual([0]);
+  });
+});
+
+describe('the archive', () => {
+  it('refuses a manager and one that is at work, and takes the rest', () => {
+    const map = linkMap([{ worker: 'wbo:ses_a', manager: 'wbc:m' }]);
+    expect(archiveWhy(map, 'wbc:m', null)).toBe('manager');
+    expect(archiveWhy(map, 'wbo:ses_a', 'running')).toBe('working');
+    expect(archiveWhy(map, 'wbo:ses_a', 'retry')).toBe('waiting');
+    expect(archiveWhy(map, 'wbo:ses_b', 'idle')).toBeNull();
+    expect(archiveWhy(map, 'wbo:ses_b', 'stopped')).toBeNull();
   });
 });

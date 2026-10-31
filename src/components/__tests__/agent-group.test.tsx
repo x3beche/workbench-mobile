@@ -39,7 +39,7 @@ const LINKS = linkMap([
 ]);
 
 (canRender ? describe : describe.skip)('the drawer\'s Agents group', () => {
-  const draw = (onLink = jest.fn(), onOpen = jest.fn()) =>
+  const draw = (onLink = jest.fn(), onOpen = jest.fn(), onArchive?: jest.Mock) =>
     render(
       <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 390, height: 800 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } }}>
       <AgentGroup
@@ -55,6 +55,7 @@ const LINKS = linkMap([
         onFold={jest.fn()}
         onPin={jest.fn()}
         onLink={onLink}
+        onArchive={onArchive}
       />
       </SafeAreaProvider>,
     );
@@ -136,6 +137,25 @@ const LINKS = linkMap([
     await draw(jest.fn(), onOpen);
     await fireEvent.press(screen.getByTestId('agent-wbo:ses_worker2'));
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ group: 'opencode', id: 'ses_worker2' }));
+  });
+
+  it('archives an idle session from its menu, and says why a working one or a manager cannot go', async () => {
+    const onArchive = jest.fn();
+    await draw(jest.fn(), jest.fn(), onArchive);
+    // Alone is idle and has nobody under it.
+    await fireEvent.press(screen.getByTestId('agent-wbo:ses_alone1-more'));
+    await fireEvent.press(screen.getByTestId('action-agent-archive'));
+    expect(onArchive).toHaveBeenCalledWith(ROWS.find((r) => r.key === 'wbo:ses_alone1'));
+    // A session at work is not one to hide: the action is there, dimmed, with the reason under it.
+    await fireEvent.press(screen.getByTestId('agent-wbo:ses_worker1-more'));
+    expect(screen.getByTestId('action-agent-archive')).toBeDisabled();
+    expect(screen.getByText('It is working.')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('action-agent-archive'));
+    expect(onArchive).toHaveBeenCalledTimes(1);
+    // Nor is a manager: its agents would go with it.
+    await fireEvent.press(screen.getByTestId('agent-wbc:boss01-more'));
+    expect(screen.getByTestId('action-agent-archive')).toBeDisabled();
+    expect(screen.getByText('Its agents are under it - move them out first.')).toBeTruthy();
   });
 
   it('renames an OpenCode session from its menu, and only where one may write to it', async () => {

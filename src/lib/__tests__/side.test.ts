@@ -13,6 +13,8 @@ import {
   withPanel,
   panelOpen,
   withRoomsFold,
+  isArchived,
+  withArchived,
 } from '../side';
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `s${i}`);
@@ -68,6 +70,7 @@ describe('folding and pins', () => {
     expect(withPin(compact, 'claude', 's1', true).chat.detail).toBe('compact');
     expect(withDetail(withFold(SIDE_EMPTY, 'rooms', false), 'detailed')).toEqual({
       pins: { claude: [], opencode: [] },
+      archived: { claude: [], opencode: [] },
       folds: { claude: null, opencode: null, rooms: false, agents: null },
       chat: { detail: 'detailed' },
       panel: {},
@@ -76,5 +79,18 @@ describe('folding and pins', () => {
     expect(panelOpen(SIDE_EMPTY, 'files')).toBe(true);
     expect(panelOpen(withPanel(SIDE_EMPTY, 'files', false), 'files')).toBe(false);
     expect(withPanel(SIDE_EMPTY, 'files', false).chat.detail).toBe('normal');
+  });
+});
+
+describe('the archive', () => {
+  it('takes a session out of the group and drops its pin, and puts it back', () => {
+    let prefs = withPin(SIDE_EMPTY, 'opencode', 'ses_a', true);
+    prefs = withArchived(prefs, 'opencode', 'ses_a', true);
+    expect(isArchived(prefs, 'opencode', 'ses_a')).toBe(true);
+    expect(prefs.pins.opencode).toEqual([]);
+    // Another kind is untouched.
+    expect(isArchived(prefs, 'claude', 'ses_a')).toBe(false);
+    prefs = withArchived(prefs, 'opencode', 'ses_a', false);
+    expect(isArchived(prefs, 'opencode', 'ses_a')).toBe(false);
   });
 });

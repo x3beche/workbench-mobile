@@ -1004,6 +1004,9 @@ export type ChatDetail = 'compact' | 'normal' | 'detailed';
 /** Pinned sessions per group (newest pin first) and each group folded or not (null: never chosen). */
 export interface SidePrefs {
   pins: Record<SideGroup, string[]>;
+  /** Sessions out of the Agents group and listed in the Archived tab, per kind, newest first; the person's own on
+   *  the server, so the web and the phone agree. Archiving drops the pin (an archived row is not drawn). */
+  archived: Record<SideGroup, string[]>;
   folds: Record<FoldGroup, boolean | null>;
   /** How much of an answer's work the Chat shows: the same on every device, as the server keeps it. */
   chat: { detail: ChatDetail; files?: boolean };

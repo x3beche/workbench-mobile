@@ -6,6 +6,8 @@
  * not offered).
  */
 
+import type { Dot } from './orchestrator';
+
 /** worker key ("wbc:<id>" / "wbo:<id>") -> manager key */
 export type LinkMap = ReadonlyMap<string, string>;
 
@@ -42,6 +44,17 @@ export function whyNot(map: LinkMap, worker: string, manager: string, maxDepth: 
   const above = managersOf(map, manager, maxDepth);
   if (above.includes(worker)) return 'circle';
   if (above.length + 2 + heightOf(map, worker, maxDepth) > maxDepth) return 'deep';
+  return null;
+}
+
+/** Why an agent may not go to the archive, or null: a manager would take its agents with it, and one that is
+ *  working (or waiting for the person) is not one to hide - the web's archiveWhy (agents-list.ts). */
+export type ArchiveWhy = 'manager' | 'working' | 'waiting';
+
+export function archiveWhy(map: LinkMap, key: string, dot: Dot | null): ArchiveWhy | null {
+  for (const manager of map.values()) if (manager === key) return 'manager';
+  if (dot === 'running') return 'working';
+  if (dot === 'retry') return 'waiting';
   return null;
 }
 

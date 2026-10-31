@@ -10,13 +10,13 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { SideGroup, SidePrefs } from '../api/types';
-import { type LinkMap, treeOf, whyNot } from '../lib/agents';
+import { archiveWhy, type LinkMap, treeOf, whyNot } from '../lib/agents';
 import type { AgentStrings } from '../lib/agentStrings';
 import { FOLD_FIRST, isOpen, isPinned } from '../lib/side';
 import type { WbcStrings } from '../lib/wbcStrings';
 import { colors, fonts, gutter, type } from '../theme/tokens';
 import { DrawerRow } from './DrawerRow';
-import { ExternalLink, FolderInput, LogOut, Pencil, Pin, PinOff, SquareCode, SquareTerminal } from './icons';
+import { Archive, ExternalLink, FolderInput, LogOut, Pencil, Pin, PinOff, SquareCode, SquareTerminal } from './icons';
 import { GroupHead, type SessionRowData } from './SessionGroup';
 import { ActionList, Dialog, Sheet } from './Sheet';
 
@@ -54,6 +54,7 @@ export function AgentGroup({
   onPin,
   onLink,
   onRename,
+  onArchive,
   testID = 'drawer-agents',
 }: {
   rows: AgentRowData[];
@@ -73,6 +74,8 @@ export function AgentGroup({
   onLink: (worker: string, manager: string | null) => void;
   /** Rename an OpenCode session: its own title, changed on that computer too. */
   onRename?: (key: string, title: string) => Promise<void>;
+  /** Out of the group and into the drawer's Archived tab (the web's Archive); the server drops its pin. */
+  onArchive?: (row: AgentRowData) => void;
   testID?: string;
 }) {
   const [more, setMore] = useState(false);
@@ -248,6 +251,20 @@ export function AgentGroup({
               pinned(menu)
                 ? { id: 'agent-unpin', label: t.unpin, icon: PinOff, onPress: () => { setMenu(null); onPin(menu.group, menu.id, false); } }
                 : { id: 'agent-pin', label: t.pin, icon: Pin, onPress: () => { setMenu(null); onPin(menu.group, menu.id, true); } },
+              // A manager or one that is working is not one to hide: the action is said, dimmed, with the reason.
+              ...(onArchive
+                ? [{
+                    id: 'agent-archive',
+                    label: a.archive,
+                    icon: Archive,
+                    disabled: !!archiveWhy(links, menu.key, menu.dot),
+                    note: (() => {
+                      const why = archiveWhy(links, menu.key, menu.dot);
+                      return why ? a.whyArchive[why] : undefined;
+                    })(),
+                    onPress: () => { setMenu(null); onArchive(menu); },
+                  }]
+                : []),
             ]}
           />
         </Sheet>

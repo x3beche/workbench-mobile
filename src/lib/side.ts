@@ -17,6 +17,7 @@ export const FOLD_FIRST = 5;
 
 export const SIDE_EMPTY: SidePrefs = {
   pins: { claude: [], opencode: [] },
+  archived: { claude: [], opencode: [] },
   folds: { claude: null, opencode: null, rooms: null, agents: null },
   chat: { detail: 'normal' },
   panel: {},
@@ -65,6 +66,22 @@ export function visibleRows<T>(
 export function withPin(prefs: SidePrefs, g: SideGroup, id: string, pinned: boolean): SidePrefs {
   const list = prefs.pins[g].filter((x) => x !== id);
   return { ...prefs, pins: { ...prefs.pins, [g]: pinned ? [id, ...list] : list } };
+}
+
+/** Out of the Agents group (true) or back (false): listed in the Archived tab. Out drops the pin, as the server
+ *  does - an archived row is not drawn, so a pin would point at nothing. */
+export function withArchived(prefs: SidePrefs, g: SideGroup, id: string, archived: boolean): SidePrefs {
+  const list = prefs.archived[g].filter((x) => x !== id);
+  return {
+    ...prefs,
+    archived: { ...prefs.archived, [g]: archived ? [id, ...list] : list },
+    pins: archived ? { ...prefs.pins, [g]: prefs.pins[g].filter((x) => x !== id) } : prefs.pins,
+  };
+}
+
+/** A session out of the Agents group: drawn in the Archived tab instead. */
+export function isArchived(prefs: SidePrefs, g: SideGroup, id: string): boolean {
+  return prefs.archived[g].includes(id);
 }
 
 export function withFold(prefs: SidePrefs, g: FoldGroup, open: boolean | null): SidePrefs {

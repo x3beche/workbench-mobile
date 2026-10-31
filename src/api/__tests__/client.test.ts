@@ -28,6 +28,30 @@ describe('errorMessage', () => {
   });
 });
 
+describe('the side prefs', () => {
+  it("puts a session in the archive with the person's own PUT, and reads it back", async () => {
+    const f = fakeFetch(() => jsonResponse(200, {
+      pins: { claude: [], opencode: [] },
+      archived: { claude: [], opencode: ['ses_a'] },
+      folds: { claude: null, opencode: null, rooms: null, agents: null },
+      chat: { detail: 'normal' },
+      panel: {},
+    }));
+    const c = new WorkbenchClient(BASE, { fetch: f.fetch });
+    const got = await c.sideArchived('opencode', 'ses_a', true);
+    expect(f.calls.at(-1)?.url).toBe(`${BASE}/api/me/side/archived`);
+    expect(f.calls.at(-1)?.init.method).toBe('PUT');
+    expect(JSON.parse(String(f.calls.at(-1)?.init.body))).toEqual({ group: 'opencode', id: 'ses_a', archived: true });
+    expect(got.archived.opencode).toEqual(['ses_a']);
+  });
+
+  it('fills the archive in when an older server does not send it', async () => {
+    const f = fakeFetch(() => jsonResponse(200, { pins: { claude: [], opencode: [] } }));
+    const c = new WorkbenchClient(BASE, { fetch: f.fetch });
+    expect((await c.side()).archived).toEqual({ claude: [], opencode: [] });
+  });
+});
+
 describe('WorkbenchClient.request', () => {
   it('sends GETs with credentials and without the CSRF header', async () => {
     const f = fakeFetch(() => jsonResponse(200, []));

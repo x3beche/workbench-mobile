@@ -852,6 +852,12 @@ export class WorkbenchClient {
     return sideOf(await this.request<Partial<SidePrefs>>('PUT', '/api/me/side/pins', { group, id, pinned }));
   }
 
+  /** A session out of the Agents group (true) or back in it (false): the Archived tab, on every device. The
+   *  server drops its pin on the way out - an archived row is not drawn. */
+  async sideArchived(group: SideGroup, id: string, archived: boolean): Promise<SidePrefs> {
+    return sideOf(await this.request<Partial<SidePrefs>>('PUT', '/api/me/side/archived', { group, id, archived }));
+  }
+
   /** A group folded (false) or open (true); null goes back to the default rule. */
   async sideFold(group: FoldGroup, open: boolean | null): Promise<SidePrefs> {
     return sideOf(await this.request<Partial<SidePrefs>>('PUT', '/api/me/side/folds', { group, open }));
@@ -1146,12 +1152,14 @@ function detailOf(x: unknown): ChatDetail {
 /** The side prefs as the server says them, with what an older answer leaves out filled in. */
 export function sideOf(v: Partial<SidePrefs> | null | undefined): SidePrefs {
   const pins = v?.pins ?? ({} as Partial<SidePrefs['pins']>);
+  const archived = v?.archived ?? ({} as Partial<SidePrefs['archived']>);
   const folds = v?.folds ?? ({} as Partial<SidePrefs['folds']>);
   const chat = (v as Partial<SidePrefs> | null | undefined)?.chat ?? null;
   const list = (x: unknown) => (Array.isArray(x) ? x.filter((y): y is string => typeof y === 'string') : []);
   const fold = (x: unknown) => (typeof x === 'boolean' ? x : null);
   return {
     pins: { claude: list(pins.claude), opencode: list(pins.opencode) },
+    archived: { claude: list(archived.claude), opencode: list(archived.opencode) },
     folds: { claude: fold(folds.claude), opencode: fold(folds.opencode), rooms: fold(folds.rooms), agents: fold(folds.agents) },
     chat: { detail: detailOf(chat?.detail) },
     panel: Object.fromEntries(

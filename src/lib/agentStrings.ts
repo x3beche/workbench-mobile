@@ -3,7 +3,7 @@
  * (frontend/src/app/rooms/agents-list.ts) and its Turkish, from its i18n.ts.
  */
 import type { UiLang } from '../update/strings';
-import type { WhyNot } from './agents';
+import type { ArchiveWhy, WhyNot } from './agents';
 
 export interface AgentStrings {
   group: string;
@@ -25,6 +25,13 @@ export interface AgentStrings {
   renameFailed: string;
   why: Record<WhyNot, string>;
   moveFailed: string;
+  /** Out of the Agents group and into the Archived tab, and back (the web's Archive / Unarchive). */
+  archive: string;
+  unarchive: string;
+  /** The Archived tab's group of sessions taken out of the Agents group: "Archived agents · 3". */
+  archivedGroup: (n: number) => string;
+  /** Why a row cannot be archived (the web's archiveWhy): said under the Archive action. */
+  whyArchive: Record<ArchiveWhy, string>;
 }
 
 const en: AgentStrings = {
@@ -48,6 +55,14 @@ const en: AgentStrings = {
     deep: 'A tree of agents is at most 3 levels deep.',
   },
   moveFailed: 'It could not be moved.',
+  archive: 'Archive',
+  unarchive: 'Unarchive',
+  archivedGroup: (n) => `Archived agents · ${n}`,
+  whyArchive: {
+    manager: 'Its agents are under it - move them out first.',
+    working: 'It is working.',
+    waiting: 'It is waiting for you.',
+  },
 };
 
 const tr: AgentStrings = {
@@ -71,6 +86,14 @@ const tr: AgentStrings = {
     deep: 'Bir ajan ağacı en fazla 3 kademe olabilir.',
   },
   moveFailed: 'Taşınamadı.',
+  archive: 'Arşivle',
+  unarchive: 'Arşivden çıkar',
+  archivedGroup: (n) => `Arşivlenen ajanlar · ${n}`,
+  whyArchive: {
+    manager: 'Ajanları bunun altında - önce onları çıkar.',
+    working: 'Çalışıyor.',
+    waiting: 'Seni bekliyor.',
+  },
 };
 
 export function agentStrings(lang: UiLang): AgentStrings {
