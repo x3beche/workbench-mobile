@@ -318,7 +318,7 @@ async function open(p: WboPanel) {
             { start: NOW - 120_000, end: NOW - 60_000, cat: 'text', tool: 'text', title: 'thinking', status: 'completed', part: 'msg_a' },
           ],
           recent: [
-            { tool: 'shell', cat: 'shell', title: 'npm test', status: 'completed', start: NOW - 60_000, end: NOW - 30_000, part: 'msg_b', add: 3, del: 1 },
+            { tool: 'shell', cat: 'shell', title: 'npm test', status: 'completed', start: NOW - 60_000, end: NOW - 30_000, part: 'msg_b', add: 3, del: 1, more: 2 },
           ],
           rate: null,
           diff_series: null,
@@ -332,6 +332,7 @@ async function open(p: WboPanel) {
     // Recent list item is rendered with diff
     const recentRow = await screen.findByTestId('wbo-panel-recent');
     expect(recentRow).toHaveTextContent(/npm test/);
+    expect(recentRow).toHaveTextContent(/\(2 commands\)/);
     expect(recentRow).toHaveTextContent(/\+3 −1/);
     await fireEvent.press(recentRow);
     await act(async () => undefined);
@@ -348,7 +349,9 @@ async function open(p: WboPanel) {
         },
         series: {
           context: [],
-          spans: [],
+          spans: [
+            { start: NOW - 190_000, end: NOW - 20_000, cat: 'shell', tool: 'shell', title: 'long command', status: 'running', part: 'msg_s' },
+          ],
           recent: [
             { tool: 'shell', cat: 'shell', title: 'long command', status: 'running', start: NOW - 190_000, end: null, part: 'msg_s' },
           ],
@@ -357,7 +360,8 @@ async function open(p: WboPanel) {
         },
       }),
     );
-    expect(screen.getByText(/nothing new for 3 min/i)).toBeTruthy();
+    // Once: the sheet's own line above the strip, not drawn again under the strip's clocks.
+    expect(screen.getAllByText(/nothing new for 3 min/i)).toHaveLength(1);
   });
 });
 

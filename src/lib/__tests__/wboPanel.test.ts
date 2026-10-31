@@ -3,7 +3,8 @@
  * way in the middle - the project and the folder the session is in, as the web's title bar writes it
  * (redline-studio f80e4af, opencode-sessions.ts `dirShort`).
  */
-import { titleDir } from '../wboPanel';
+import { wboStrings } from '../wboStrings';
+import { recentTitle, titleDir } from '../wboPanel';
 
 describe('titleDir', () => {
   it('leaves a short folder as it is', () => {
@@ -22,5 +23,19 @@ describe('titleDir', () => {
 
   it('says a home of one name as ~', () => {
     expect(titleDir('/home/x3')).toBe('~');
+  });
+});
+
+describe('recentTitle', () => {
+  const en = wboStrings('en');
+  const call = { tool: 'shell', cat: 'shell', title: 'npm test', status: 'completed', start: 1, end: 2, part: 'm' };
+
+  it('says what ran, and the calls a chained one carried', () => {
+    expect(recentTitle(call, en)).toBe('npm test');
+    expect(recentTitle({ ...call, more: 2 }, en)).toBe('npm test (2 commands)');
+  });
+
+  it('falls back to the tool when it has no title', () => {
+    expect(recentTitle({ ...call, title: '' }, en)).toBe('shell');
   });
 });

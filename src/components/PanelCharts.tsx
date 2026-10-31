@@ -114,7 +114,6 @@ export function FlowStrip({
   range = 'auto',
   onRange,
   onJump,
-  stall,
   testID,
 }: {
   series: PanelSeries | undefined;
@@ -123,7 +122,6 @@ export function FlowStrip({
   range: RangeId;
   onRange: (id: RangeId) => void;
   onJump: (message: string) => void;
-  stall: string;
   testID?: string;
 }) {
   const W = 300;
@@ -327,7 +325,6 @@ export function FlowStrip({
         <Text style={s.axisTime}>{clock(win.to)}</Text>
       </View>
 
-      {stall ? <Text style={s.stall}>{stall}</Text> : null}
     </View>
   );
 }
@@ -380,5 +377,4 @@ const s = StyleSheet.create({
              fontFamily: fonts.mono, fontSize: 8.5, color: colors.inkDim },
   axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
   axisTime: { fontFamily: fonts.mono, fontSize: 9, color: colors.inkDim },
-  stall: { fontFamily: fonts.sans, fontSize: 10.5, color: colors.warn, marginTop: 3 },
 });

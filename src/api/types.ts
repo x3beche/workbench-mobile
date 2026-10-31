@@ -1019,6 +1019,8 @@ export interface PanelRecentCall {
   part: string;
   add?: number | null;
   del?: number | null;
+  /** Calls this one carried with it (a chained shell command): the web's "(+2 commands)". */
+  more?: number;
   error_head?: string;
 }
 

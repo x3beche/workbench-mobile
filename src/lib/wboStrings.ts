@@ -92,6 +92,8 @@ export interface WboStrings extends WbcStrings {
   /** What it spent, where the numbers came from, and the window's own line. */
   editsTimes: (n: number) => string;
   callsTimes: (n: number) => string;
+  /** How many calls a chained one carried: "(2 commands)". */
+  commands: (n: number) => string;
   ofItsWindow: string;
   leftOfWindow: string;
   compactsItself: string;
@@ -272,6 +274,7 @@ const en: WboStrings = {
   sessions: 'Sessions',
   editsTimes: (n) => `${n} edits`,
   callsTimes: (n) => `${n} calls`,
+  commands: (n) => `(${n} commands)`,
   ofItsWindow: 'of its window',
   leftOfWindow: 'left',
   compactsItself: 'OpenCode compacts a session by itself when the window is nearly full',
@@ -438,6 +441,7 @@ const tr: WboStrings = {
   sessions: 'Oturumlar',
   editsTimes: (n) => `${n} düzenleme`,
   callsTimes: (n) => `${n} çağrı`,
+  commands: (n) => `(${n} komut)`,
   ofItsWindow: 'penceresinin',
   leftOfWindow: 'kaldı',
   compactsItself: 'OpenCode pencere dolmak üzereyken oturumu kendi sıkıştırır (compaction)',

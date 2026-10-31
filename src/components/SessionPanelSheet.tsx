@@ -20,6 +20,7 @@ import {
   titleDir,
   kfmt,
   panelSections,
+  recentTitle,
   stallNote,
   stateWord,
   toolLine,
@@ -369,7 +370,7 @@ function FlowBody({
     const running = working && lastCall.status !== 'completed' && lastCall.status !== 'error';
     return {
       tool: lastCall.tool || catWord(lastCall.cat, t),
-      title: lastCall.title,
+      title: recentTitle(lastCall, t),
       took: running ? workedFor(lastCall.start ?? now, now) : tookFor(lastCall, now),
       color: catColor(lastCall.cat),
     };
@@ -407,7 +408,6 @@ function FlowBody({
         range={range}
         onRange={onRange}
         onJump={onJump}
-        stall={stall}
         testID="wbo-panel-strip"
       />
       {recent.length ? (
@@ -425,7 +425,7 @@ function FlowBody({
               </Text>
               <View style={[s.recentDot, { backgroundColor: catColor(r.cat) }]} />
               <Text style={s.recentTitle} numberOfLines={1}>
-                {r.title || r.tool}
+                {recentTitle(r, t)}
               </Text>
               {r.add != null ? (
                 <Text style={s.recentDiff}>

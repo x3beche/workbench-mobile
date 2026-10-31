@@ -208,6 +208,12 @@ export function took(ms: number): string {
   return `${m}m ${Math.round(s % 60)}s`;
 }
 
+/** What a recent call says: its own line, and how many calls it carried ("npm test (+2 commands)"). */
+export function recentTitle(r: PanelRecentCall, t: WboStrings): string {
+  const what = r.title || r.tool;
+  return r.more ? `${what} ${t.commands(r.more)}` : what;
+}
+
 export function tookFor(r: PanelRecentCall, now: number): string {
   if (r.start == null) return '';
   const startMs = r.start < 1e11 ? r.start * 1000 : r.start;
