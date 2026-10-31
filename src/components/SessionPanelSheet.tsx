@@ -211,8 +211,7 @@ function SessionPanel({
               {isOpen(sec.id) && panel ? (
                 <View style={s.body}>
                   {sec.id === 'model' ? (
-                    <ModelBody panel={panel} t={t} now={now} onModel={onModel} onContext={onContext}
-                               copied={copied} />
+                    <ModelBody panel={panel} t={t} now={now} onModel={onModel} onContext={onContext} />
                   ) : null}
                   {sec.id === 'flow' ? (
                     <FlowBody
@@ -265,16 +264,14 @@ function ModelBody({
   now,
   onModel,
   onContext,
-  copied,
 }: {
   panel: WboPanel;
   t: WboStrings;
   now: number;
   onModel: () => void;
   onContext: (limit: number | null) => void;
-  copied: boolean;
 }) {
-  void copied;
+  const [spendOpen, setSpendOpen] = useState(false);
   const m = panel.session.model;
   const c = panel.session.context;
   const pct = c?.pct ?? null;
@@ -326,17 +323,28 @@ function ModelBody({
       {/* the window over the turns: the line says when this session is to be left */}
       <ContextChart points={panel.series?.context ?? []} limit={c?.limit ?? 0} tone={tone} testID="wbo-panel-ctxchart" />
       {estimate(panel, t) ? <Text style={s.estimate}>{estimate(panel, t)}</Text> : null}
-      {/* one line of spending: what it cost and what it moved, the caches above it when opened */}
-      <Text style={s.spend} numberOfLines={1}>
-        {`${panel.tokens.cost != null ? `$${panel.tokens.cost.toFixed(2)}` : '–'} · ${kfmt(panel.tokens.input)} ${t.inTok} · ${kfmt(panel.tokens.output)} ${t.outTok}`}
-      </Text>
-      <View style={s.grid}>
-        <Row k={t.input} v={kfmt(panel.tokens.input)} />
-        <Row k={t.output} v={kfmt(panel.tokens.output)} />
-        {panel.tokens.cache_read != null ? <Row k={t.cacheRead} v={kfmt(panel.tokens.cache_read)} /> : null}
-        {panel.tokens.cache_write != null ? <Row k={t.cacheWrite} v={panel.tokens.cache_write ? kfmt(panel.tokens.cache_write) : '—'} /> : null}
-      </View>
-      {panel.tokens.source === 'messages' ? <Text style={s.dim}>{t.lastMessages(panel.tokens.messages)}</Text> : null}
+      {/* one line of spending: what it cost and what it moved, the caches under it when it is opened */}
+      <Pressable
+        onPress={() => setSpendOpen(!spendOpen)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: spendOpen }}
+        testID="wbo-panel-spend"
+      >
+        <Text style={s.spend} numberOfLines={1}>
+          {`${panel.tokens.cost != null ? `$${panel.tokens.cost.toFixed(2)}` : '–'} · ${kfmt(panel.tokens.input)} ${t.inTok} · ${kfmt(panel.tokens.output)} ${t.outTok}`}
+        </Text>
+      </Pressable>
+      {spendOpen ? (
+        <View style={s.grid}>
+          <Row k={t.input} v={kfmt(panel.tokens.input)} />
+          <Row k={t.output} v={kfmt(panel.tokens.output)} />
+          {panel.tokens.cache_read != null ? <Row k={t.cacheRead} v={kfmt(panel.tokens.cache_read)} /> : null}
+          {panel.tokens.cache_write != null ? <Row k={t.cacheWrite} v={panel.tokens.cache_write ? kfmt(panel.tokens.cache_write) : '—'} /> : null}
+        </View>
+      ) : null}
+      {spendOpen && panel.tokens.source === 'messages' ? (
+        <Text style={s.dim}>{t.lastMessages(panel.tokens.messages)}</Text>
+      ) : null}
     </View>
   );
 }

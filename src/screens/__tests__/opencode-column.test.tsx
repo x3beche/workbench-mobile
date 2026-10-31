@@ -204,8 +204,10 @@ async function open(p: WboPanel) {
     expect(screen.getByTestId('wbo-panel-model')).toHaveTextContent('Qwen3.8 Flash');
     expect(screen.getByText('Command Code · thinking: low')).toBeTruthy();
     expect(screen.getByTestId('wbo-panel-context')).toHaveTextContent('500k / 1M · 50%');
-    // what it spent, in one line (the numbers whole in the grid under it, caches included)
+    // what it spent, in one line; the numbers whole, the caches included, open under a tap
     expect(screen.getByText(/\$0\.30 · 3\.1M in · 133\.00k out/)).toBeTruthy();
+    expect(screen.queryByText('180.1M')).toBeNull();
+    await fireEvent.press(screen.getByTestId('wbo-panel-spend'));
     expect(screen.getByText('180.1M')).toBeTruthy();
     // the state is under the sheet's title, once - never a line under the cost
     expect(screen.getByText('Rail sag · idle')).toBeTruthy();
