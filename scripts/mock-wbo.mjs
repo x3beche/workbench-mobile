@@ -618,7 +618,7 @@ export function handleWbo(req, res, p, url, body) {
     const one = bySid(decodeURIComponent(mp[1]));
     if (!one) return (json(res, 404, { detail: 'no such session' }), true);
     const now = Date.now();
-    return (json(res, 200, {
+    const body = {
       session: { id: one.row.session_id, title: one.row.title, status: 'busy', asking: false, since: now - 14 * 60_000,
                  model: { providerID: 'commandcode', providerName: 'Command Code', modelID: 'deepseek/deepseek-v4.1-flash',
                           name: 'DeepSeek V4.1 Flash' },
@@ -672,7 +672,68 @@ export function handleWbo(req, res, p, url, body) {
       })(),
       tokens: { input: 640000, output: 88000, cache_read: 910000, cache_write: 0, cost: 1.24, source: 'session' },
       pending: [], may_answer: true, why: '', messages: 12, live_s: 45, at: Date.now() / 1000,
-    }), true);
+    };
+    // The Now section's four states the shots owe (docs/CONTINUE-HERE rounds 5-7): a working call with a
+    // long command, a run waiting for an answer, one that went quiet, and a failed last step.
+    const mk = (tool, cat, title, status, start, end, extra = {}) => ({
+      tool, cat, title, status, start, end, part: 'm1', ...extra,
+    });
+    const recent = [
+      mk('write', 'edit', 'src/app/panel.ts', 'completed', now - 620_000, now - 610_000, { add: 12, del: 3 }),
+      mk('shell', 'shell', 'npm test', 'completed', now - 590_000, now - 560_000, { add: 3, del: 1, more: 2 }),
+      mk('read', 'read', 'src/lib/side.ts', 'completed', now - 540_000, now - 535_000),
+      mk('grep', 'read', 'panelSections', 'completed', now - 500_000, now - 495_000),
+      mk('edit', 'edit', 'src/components/SessionPanelSheet.tsx', 'completed', now - 460_000, now - 430_000, { add: 20, del: 4 }),
+    ];
+    body.series.recent = recent;
+    const variant = {
+      ses_rail0000a1: 'working',
+      ses_ota00000b2: 'waiting',
+      ses_pwr00000f1: 'stalled',
+      ses_off00000e5: 'failed',
+    }[one.row.session_id] ?? '';
+    if (variant === 'working') {
+      body.session.since = now - 60_000;
+      body.series.recent = [
+        ...recent.slice(0, 4),
+        mk('shell', 'shell',
+           'cd ~/projects/redline-studio/frontend && npm run build -- --configuration production',
+           'running', now - 40_000, null),
+      ];
+      body.series.spans = [
+        ...body.series.spans,
+        { start: now - 40_000, end: now, cat: 'shell', tool: 'shell', title: 'cd … && npm run build',
+          status: 'running', part: 'm1' },
+      ];
+    } else if (variant === 'waiting') {
+      body.session.status = 'waiting';
+      body.session.asking = true;
+      body.pending = [
+        { id: 'per_shot01', kind: 'permission', action: 'shell', resources: ['npm run deploy'],
+          status: 'pending', at: now / 1000, settled_at: null, message: 'm1' },
+      ];
+    } else if (variant === 'stalled') {
+      body.session.since = now - 25 * 60_000;
+      body.series.spans = body.series.spans.filter((x) => x.end < now - 240_000);
+      body.series.rate.items = body.series.rate.items.filter((x) => x.at < now - 240_000);
+      body.series.recent = [
+        ...recent.slice(0, 4),
+        mk('shell', 'shell', 'npm run test -- --watch=false', 'running', now - 250_000, null),
+      ];
+    } else if (variant === 'failed') {
+      body.session.status = 'error';
+      body.series.recent = [
+        ...recent.slice(0, 4),
+        mk('shell', 'shell', 'npm run build', 'error', now - 120_000, now - 90_000,
+           { add: 0, del: 0, error_head: 'error TS2322: Type is not assignable to type WboStrings' }),
+      ];
+      body.series.spans = [
+        ...body.series.spans,
+        { start: now - 120_000, end: now - 90_000, cat: 'shell', tool: 'shell', title: 'npm run build',
+          status: 'error', part: 'm1' },
+      ];
+    }
+    return (json(res, 200, body), true);
   }
   const m = /^\/api\/wbo\/sessions\/([^/]+)(\/.*)?$/.exec(p);
   const s = m && bySid(decodeURIComponent(m[1]));
