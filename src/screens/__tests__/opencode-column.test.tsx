@@ -8,10 +8,11 @@
  * the line under the sheet's title, from its start, tap to copy.
  */
 import * as Clipboard from 'expo-clipboard';
+import { AppState } from 'react-native';
 import * as React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
-import type { WorkbenchClient } from '../../api/client';
+import { ApiError, type WorkbenchClient } from '../../api/client';
 import type { WboDetail, WboPanel } from '../../api/types';
 import { LiveContext } from '../../live/LiveContext';
 import type { LiveHub } from '../../live/hub';
@@ -341,6 +342,72 @@ async function open(p: WboPanel) {
     await fireEvent.press(recentRow);
     await act(async () => undefined);
     expect(client.wboSession).toHaveBeenCalled();
+  });
+
+  it('says one calm line while the server restarts, keeps the panel, and clears it', async () => {
+    jest.useFakeTimers();
+    const client = await open(panel());
+    (client.wboPanel as jest.Mock).mockRejectedValue(new ApiError(503, 'The server had a problem (HTTP 503).'));
+    try {
+      await act(async () => {
+        jest.advanceTimersByTime(5_000);
+      });
+      expect(screen.getAllByText('The server had a problem (HTTP 503).')).toHaveLength(1);
+      // The panel read before the restart stays: the numbers are not replaced by an error.
+      expect(screen.getByTestId('wbo-panel-model')).toBeTruthy();
+      await act(async () => {
+        jest.advanceTimersByTime(5_000);
+      });
+      expect(screen.getAllByText('The server had a problem (HTTP 503).')).toHaveLength(1);
+      (client.wboPanel as jest.Mock).mockResolvedValue(panel());
+      await act(async () => {
+        jest.advanceTimersByTime(5_000);
+      });
+      expect(screen.queryByText('The server had a problem (HTTP 503).')).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('asks one question at a time when the server is slow', async () => {
+    jest.useFakeTimers();
+    const client = await open(panel());
+    const waits: ((v: WboPanel) => void)[] = [];
+    (client.wboPanel as jest.Mock).mockImplementation(() => new Promise((res) => waits.push(res)));
+    try {
+      await act(async () => {
+        jest.advanceTimersByTime(15_000);
+      });
+      expect(waits.length).toBe(1);
+      await act(async () => {
+        waits[0](panel());
+        await Promise.resolve();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(5_000);
+      });
+      expect(waits.length).toBe(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('reads nothing while the phone is in the background, and reads again in front', async () => {
+    jest.useFakeTimers();
+    const client = await open(panel());
+    const panelCalls = () => (client.wboPanel as jest.Mock).mock.calls.length;
+    const first = panelCalls();
+    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'background' });
+    await act(async () => {
+      jest.advanceTimersByTime(15_000);
+    });
+    expect(panelCalls()).toBe(first);
+    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
+    await act(async () => {
+      jest.advanceTimersByTime(5_000);
+    });
+    expect(panelCalls()).toBe(first + 1);
+    jest.useRealTimers();
   });
 
   it('shows stall warning when quiet for longer than stall threshold', async () => {

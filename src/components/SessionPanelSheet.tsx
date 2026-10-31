@@ -9,6 +9,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type WorkbenchClient } from '../api/client';
+import { inFront } from '../live/hub';
 import type { PanelFile, WboAsk, WboPanel } from '../api/types';
 import {
   baseName,
@@ -101,18 +102,33 @@ function SessionPanel({
   useEffect(() => {
     if (!client) return;
     let live = true;
-    const read = () =>
-      client.wboPanel(sid).then(
+    // One read at a time: a server that takes ten seconds gets one question in ten seconds, not
+    // two every five (and no older answer can land on a newer one).
+    let busy = false;
+    const read = () => {
+      if (busy) return;
+      busy = true;
+      return client.wboPanel(sid).then(
         (got) => {
+          busy = false;
           if (!live) return;
           setPanel(got);
           setError(null);
           setNow(Date.now());
         },
-        (e) => live && setError(e instanceof ApiError ? e.message : t.columnFailed),
+        (e) => {
+          busy = false;
+          if (!live) return;
+          setError(e instanceof ApiError ? e.message : t.columnFailed);
+        },
       );
+    };
     void read();
-    const timer = setInterval(() => void read(), REFRESH_MS);
+    const timer = setInterval(() => {
+      // A phone in a pocket reads nothing: the sheet's five-second tick waits for the front.
+      if (!inFront()) return;
+      void read();
+    }, REFRESH_MS);
     return () => {
       live = false;
       clearInterval(timer);

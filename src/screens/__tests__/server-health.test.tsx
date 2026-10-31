@@ -2,6 +2,7 @@
  *  verdict, the figures, the events with what they broke - and the server's answer that it
  *  cannot read a source is said, not hidden. */
 import * as React from 'react';
+import { AppState } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { WorkbenchClient } from '../../api/client';
@@ -78,6 +79,31 @@ function client() {
     await fireEvent.press(screen.getByTestId('server-health-range-24h'));
     await act(async () => undefined);
     expect(c.serverHealth).toHaveBeenLastCalledWith('24h', 1);
+  });
+
+  it('stops its minute in the background, and starts again in the front', async () => {
+    jest.useFakeTimers();
+    const c = client();
+    try {
+      await render(
+        <ServerHealthPage client={c} lang="en" onBack={() => undefined} backLabel="Back"
+                          title="Server health" about="The server itself" />,
+      );
+      await act(async () => undefined);
+      expect(c.serverHealth).toHaveBeenCalledTimes(1);
+      Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'background' });
+      await act(async () => {
+        jest.advanceTimersByTime(180_000);
+      });
+      expect(c.serverHealth).toHaveBeenCalledTimes(1);
+      Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
+      await act(async () => {
+        jest.advanceTimersByTime(60_000);
+      });
+      expect(c.serverHealth).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('speaks Turkish, and says so when nothing went wrong', async () => {
