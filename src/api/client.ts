@@ -688,6 +688,11 @@ export class WorkbenchClient {
     return this.request<WbcTurnsPage>('GET', `/api/wbc/sessions/${encodeURIComponent(sid)}/turns?limit=${limit}${back}`);
   }
 
+  /** The window this session keeps to: a number of tokens, or null for the model's own. */
+  wboContext(sid: string, limit: number | null): Promise<{ ok: boolean; limit: number | null; scope: string }> {
+    return this.request('PUT', `/api/wbo/sessions/${encodeURIComponent(sid)}/context`, { limit });
+  }
+
   /** The whole of one turn - the rest of a long answer or a long paste (its own route: a page cannot carry
    *  megabytes). `available` false when only the first characters of it are kept. */
   wbcTurnText(sid: string, rid: string, role: 'user' | 'assistant'): Promise<WbcTurnText> {

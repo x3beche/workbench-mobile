@@ -945,6 +945,22 @@ export interface PanelFile {
   /** The run's own line counts, when it reported a diff (wb-opencode 0.3.0 on). */
   additions?: number;
   deletions?: number;
+  est_add?: number | null;
+  est_del?: number | null;
+}
+
+export interface PanelRecentCall {
+  tool: string;
+  cat: string;
+  title: string;
+  full?: string;
+  status: 'pending' | 'running' | 'completed' | 'error' | string;
+  start: number;
+  end: number | null;
+  part: string;
+  add?: number | null;
+  del?: number | null;
+  error_head?: string;
 }
 
 export interface PanelTool {
@@ -966,6 +982,9 @@ export interface PanelSeries {
   context: { turn: number; at: number | null; used: number; limit: number; drop?: boolean }[];
   spans: { start: number; end: number; cat: string; tool: string; title: string; status: string; part: string;
            n?: number; server?: string }[];
+  bands?: { start: number; end: number; cat: string; tool: string; title: string; status: string; part: string;
+            n?: number; server?: string }[];
+  recent?: PanelRecentCall[];
   rate: { step: number; items: { at: number; n: number }[] } | null;
   diff_series: { at: number; add: number; del: number }[] | null;
 }
@@ -983,6 +1002,9 @@ export interface WboPanel {
     computer: (WboBridge & { name?: string }) | null;
     /** The directory it runs in, as the column says it (`~` in home); the computer's own `cwd` is whole. */
     directory?: string;
+    /** The window this session keeps to (null: the model's own) and the sizes it may pick. */
+    context_limit?: number | null;
+    context_options?: { limit: number | null; max: number | null; steps: number[]; min: number; can: boolean };
   };
   todos: { items: PanelTodo[]; done: number; total: number; at: number | null } | null;
   files: { items: PanelFile[]; more: number; temp?: { items: PanelFile[]; more: number } } | null;

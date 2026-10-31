@@ -97,6 +97,8 @@ const panel = (over: Partial<WboPanel> = {}): WboPanel => ({
     since: null,
     model: { providerID: 'commandcode', providerName: 'Command Code', modelID: 'qwen', name: 'Qwen3.8 Flash', variant: 'low' },
     context: { used: 500_000, limit: 1_000_000, model: 'qwen', pct: 50 },
+    context_limit: null,
+    context_options: { limit: null, max: 1_000_000, steps: [64_000, 128_000, 256_000, 512_000], min: 16_000, can: true },
     computer: {
       id: 'b1',
       name: 'ada-laptop',
@@ -192,7 +194,7 @@ async function open(p: WboPanel) {
     expect(screen.getByTestId('wbo-panel-strip')).toBeTruthy();
     expect(screen.getByTestId('wbo-diff-spark')).toBeTruthy();
     // the computer is one line at the foot, and its details are under it
-    expect(screen.getByTestId('wbo-panel-foot')).toHaveTextContent(/ada-laptop · wb-opencode 0\.3\.0/);
+    expect(screen.getByTestId('wbo-panel-foot')).toHaveTextContent(/ada-laptop · connected/);
     expect(screen.getByTestId('wbo-panel-model')).toHaveTextContent('Qwen3.8 Flash');
     expect(screen.getByText('Command Code · thinking: low')).toBeTruthy();
     expect(screen.getByTestId('wbo-panel-context')).toHaveTextContent('500k / 1M · 50%');
@@ -282,5 +284,82 @@ async function open(p: WboPanel) {
     expect(screen.getByTestId('wbo-panel-waiting')).toHaveTextContent(/Waiting: 1 permission/);
     expect(screen.queryByText(t.allowOnce)).toBeNull();
     expect(client.wboAnswer).not.toHaveBeenCalled();
+  });
+
+  it('draws the recent calls list under the strip and jumps to message on tap', async () => {
+    const client = await open(
+      panel({
+        series: {
+          context: [],
+          spans: [
+            { start: NOW - 60_000, end: NOW - 30_000, cat: 'shell', tool: 'shell', title: 'npm test', status: 'completed', part: 'msg_b' },
+          ],
+          bands: [
+            { start: NOW - 120_000, end: NOW - 60_000, cat: 'text', tool: 'text', title: 'thinking', status: 'completed', part: 'msg_a' },
+          ],
+          recent: [
+            { tool: 'shell', cat: 'shell', title: 'npm test', status: 'completed', start: NOW - 60_000, end: NOW - 30_000, part: 'msg_b', add: 3, del: 1 },
+          ],
+          rate: null,
+          diff_series: null,
+        },
+      }),
+    );
+    // Writing is never in the legend
+    expect(screen.queryByText(/writing/i)).toBeNull();
+    // Tool call is in legend
+    expect(screen.getAllByText(/shell/i).length).toBeGreaterThan(0);
+    // Recent list item is rendered with diff
+    const recentRow = await screen.findByTestId('wbo-panel-recent');
+    expect(recentRow).toHaveTextContent(/npm test/);
+    expect(recentRow).toHaveTextContent(/\+3 −1/);
+    await fireEvent.press(recentRow);
+    await act(async () => undefined);
+    expect(client.wboSession).toHaveBeenCalled();
+  });
+
+  it('shows stall warning when quiet for longer than stall threshold', async () => {
+    await open(
+      panel({
+        session: {
+          ...panel().session,
+          status: 'busy',
+          since: NOW - 200_000,
+        },
+        series: {
+          context: [],
+          spans: [],
+          recent: [
+            { tool: 'shell', cat: 'shell', title: 'long command', status: 'running', start: NOW - 190_000, end: null, part: 'msg_s' },
+          ],
+          rate: null,
+          diff_series: null,
+        },
+      }),
+    );
+    expect(screen.getByText(/nothing new for 3 min/i)).toBeTruthy();
+  });
+});
+
+describe('the window a session keeps to', () => {
+  it('offers the sizes below the model\'s own, and sends the one picked', async () => {
+    const p = panel();
+    const client = {
+      ...fakeClient(p),
+      wboContext: jest.fn(async () => ({ ok: true, limit: 128_000, scope: 'session' })),
+    } as unknown as WorkbenchClient & { wboContext: jest.Mock };
+    await render(
+      <LiveContext.Provider value={hub}>
+        <OpencodeSessionScreen sid={SID} client={client} t={t} lang="en" />
+      </LiveContext.Provider>,
+    );
+    await act(async () => undefined);
+    await fireEvent.press(screen.getByTestId('wbo-column'));
+    await act(async () => undefined);
+    expect(screen.getByTestId('wbo-panel-ctxpick')).toBeTruthy();
+    expect(screen.getByText(/the model's own · 1M/)).toBeTruthy();
+    await fireEvent.press(screen.getByText('128k'));
+    await act(async () => undefined);
+    expect(client.wboContext).toHaveBeenCalledWith(SID, 128_000);
   });
 });

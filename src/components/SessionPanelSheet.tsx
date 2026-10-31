@@ -3,37 +3,35 @@
  * (rooms/session-panel.ts; backend/wb_panel.py): what it is waiting for, its todo list, the files it changed,
  * the model and its window, the computer it runs on and the tools it used - in that order, the things that
  * need a person first.
- *
- * The same rules as the web: a section with nothing in it is not drawn, a section's fold is the person's (kept
- * on the server, /api/me/side `panel`, so it is the same on the phone and in the browser), a file or a tool row
- * scrolls the conversation to the call it happened in, and a permission is answered from here (once / always /
- * reject) - a question's own form is answered in the conversation, where the fields are. The head's number sits
- * at the same place on every row, and a folded tools head says which tools did the work rather than how many
- * calls there were.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type WorkbenchClient } from '../api/client';
-import type { PanelFile, PanelTool, WboAsk, WboPanel } from '../api/types';
+import type { PanelFile, PanelRecentCall, PanelTool, WboAsk, WboPanel } from '../api/types';
 import {
   baseName,
   ctxLine,
   ctxTip,
   ctxTone,
   dirName,
-  TOOLS_SHOWN,
-  fileLine,
+  estOf,
+  footDir,
+  footFlag,
   kfmt,
   panelSections,
+  stallNote,
   stateWord,
   toolLine,
+  tookFor,
   waitingLine,
   workedFor,
   type PanelSectionId,
 } from '../lib/wboPanel';
-import { ContextChart, DiffSpark, FlowStrip } from './PanelCharts';
+import { catColor, ContextChart, DiffSpark, FlowStrip } from './PanelCharts';
+import { Choice } from './Choice';
+import type { RangeId } from '../lib/sessionFlow';
 import type { WboStrings } from '../lib/wboStrings';
 import { copy as copyToClipboard } from '../lib/feel';
 import { colors, fonts, gutter, radius, space, touch, type } from '../theme/tokens';
@@ -51,6 +49,7 @@ export function SessionPanelSheet({
   onJump,
   onAnswer,
   onModel,
+  onContext,
   when,
 }: {
   client: WorkbenchClient | null;
@@ -70,9 +69,8 @@ export function SessionPanelSheet({
   const [error, setError] = useState<string | null>(null);
   const [folds, setFolds] = useState<Record<string, boolean>>({});
   const [allFiles, setAllFiles] = useState(false);
-  const [allTools, setAllTools] = useState(false);
-  /** The strip's range: the last quarter of an hour, unless the person asked for more. */
-  const [range, setRange] = useState<'15m' | '1h' | 'all'>('15m');
+  const [allRecent, setAllRecent] = useState(false);
+  const [range, setRange] = useState<RangeId>('auto');
   const [now, setNow] = useState(Date.now());
   const [copied, setCopied] = useState(false);
 
@@ -80,6 +78,7 @@ export function SessionPanelSheet({
     setPanel(null);
     setError(null);
     setAllFiles(false);
+    setAllRecent(false);
     if (client) {
       client
         .side()
@@ -88,7 +87,6 @@ export function SessionPanelSheet({
     }
   }, [client, sid]);
 
-  // One answer, read again while the sheet is open: it is a moment of the session, and the session moves.
   useEffect(() => {
     if (!client) return;
     let live = true;
@@ -117,7 +115,6 @@ export function SessionPanelSheet({
   };
   const isOpen = (id: PanelSectionId) => folds[id] !== false;
 
-  // the state, once: under the sheet's own title, where the web's column head keeps it
   const state = panel
     ? panel.session.status === 'busy'
       ? `${t.working} ${workedFor(panel.session.since, now)}`
@@ -175,7 +172,7 @@ export function SessionPanelSheet({
                 style={s.head}
                 testID={`wbo-sec-${sec.id}`}
               >
-                <Glyph icon={isOpen(sec.id) ? ChevronDown : ChevronRight} size={13} color={colors.inkDim} />
+                <Glyph icon={isOpen(sec.id) ? ChevronDown : ChevronRight} size={11} color={colors.inkDim} />
                 <Text style={[s.headText, sec.warn ? s.warn : null]} numberOfLines={1}>
                   {sec.label}
                 </Text>
@@ -189,7 +186,8 @@ export function SessionPanelSheet({
               {isOpen(sec.id) && panel ? (
                 <View style={s.body}>
                   {sec.id === 'model' ? (
-                    <ModelBody panel={panel} t={t} now={now} onModel={onModel} copied={copied} />
+                    <ModelBody panel={panel} t={t} now={now} onModel={onModel} onContext={onContext}
+                               copied={copied} />
                   ) : null}
                   {sec.id === 'flow' ? (
                     <FlowBody
@@ -199,8 +197,8 @@ export function SessionPanelSheet({
                       range={range}
                       onRange={setRange}
                       onJump={onJump}
-                      all={allTools}
-                      onMore={() => setAllTools(true)}
+                      allRecent={allRecent}
+                      onAllRecent={() => setAllRecent(!allRecent)}
                     />
                   ) : null}
                   {sec.id === 'files' ? (
@@ -242,12 +240,14 @@ function ModelBody({
   t,
   now,
   onModel,
+  onContext,
   copied,
 }: {
   panel: WboPanel;
   t: WboStrings;
   now: number;
   onModel: () => void;
+  onContext: (limit: number | null) => void;
   copied: boolean;
 }) {
   void copied;
@@ -261,11 +261,11 @@ function ModelBody({
   return (
     <View>
       <Pressable onPress={onModel} accessibilityRole="button" accessibilityHint={t.pickModel} testID="wbo-panel-modelrow">
-        <Text style={s.model} numberOfLines={2} testID="wbo-panel-model">
+        <Text style={s.modelName} numberOfLines={2} testID="wbo-panel-model">
           {m?.name || m?.modelID || t.model}
         </Text>
         {sub ? (
-          <Text style={s.sub} numberOfLines={1}>
+          <Text style={s.modelSub} numberOfLines={1}>
             {sub}
           </Text>
         ) : null}
@@ -282,9 +282,26 @@ function ModelBody({
           </View>
         </View>
       ) : null}
+      {/* the window it keeps to: a smaller one makes OpenCode compact sooner (the bar above is read against
+          it), and the sizes are the ones the model's own window allows */}
+      {panel.session.context_options?.can && panel.session.context_options.steps?.length ? (
+        <View style={s.ctxPick} testID="wbo-panel-ctxpick">
+          <Text style={s.dim}>{t.context}</Text>
+          <Choice
+            label={t.context}
+            value={panel.session.context_limit ? String(panel.session.context_limit) : ''}
+            options={[
+              { id: '', label: panel.session.context_options.max
+                  ? `${t.contextOwn} · ${sizeWord(panel.session.context_options.max)}` : t.contextOwn },
+              ...panel.session.context_options.steps.map((n) => ({ id: String(n), label: sizeWord(n) })),
+            ]}
+            onChange={(v) => onContext(v ? Number(v) : null)}
+          />
+        </View>
+      ) : null}
       {/* the window over the turns: the line says when this session is to be left */}
       <ContextChart points={panel.series?.context ?? []} limit={c?.limit ?? 0} tone={tone} testID="wbo-panel-ctxchart" />
-      {estimate(panel, t) ? <Text style={s.dim}>{estimate(panel, t)}</Text> : null}
+      {estimate(panel, t) ? <Text style={s.estimate}>{estimate(panel, t)}</Text> : null}
       {/* one line of spending: what it cost and what it moved, the caches above it when opened */}
       <Text style={s.spend} numberOfLines={1}>
         {`${panel.tokens.cost != null ? `$${panel.tokens.cost.toFixed(2)}` : '–'} · ${kfmt(panel.tokens.input)} ${t.inTok} · ${kfmt(panel.tokens.output)} ${t.outTok}`}
@@ -300,11 +317,6 @@ function ModelBody({
   );
 }
 
-/**
- * What the run is doing now: one line (the call and how long it has been on it, or the last thing it did), the
- * strip of the last quarter of an hour, the output-token rate under it, the todo list's bar and the tools'
- * share - the same three things the web's column has, in the same order.
- */
 function FlowBody({
   panel,
   t,
@@ -312,38 +324,59 @@ function FlowBody({
   range,
   onRange,
   onJump,
-  all,
-  onMore,
+  allRecent,
+  onAllRecent,
 }: {
   panel: WboPanel;
   t: WboStrings;
   now: number;
-  range: '15m' | '1h' | 'all';
-  onRange: (id: '15m' | '1h' | 'all') => void;
+  range: RangeId;
+  onRange: (id: RangeId) => void;
   onJump: (message: string) => void;
-  all: boolean;
-  onMore: () => void;
+  allRecent: boolean;
+  onAllRecent: () => void;
 }) {
-  const spans = panel.series?.spans ?? [];
   const working = panel.session.status === 'busy' || panel.session.status === 'retry';
-  // a call that does work says what the run is on: a todo list written is bookkeeping
-  const work = spans.filter((x) => x.cat !== 'other');
-  const last = (work.length ? work : spans)[(work.length ? work : spans).length - 1];
-  const rows = panel.tools?.items ?? [];
-  const total = rows.reduce((n, r) => n + r.count, 0);
-  const [open, setOpen] = useState(false);
-  const [todoOpen, setTodoOpen] = useState(false);
+  const recent = panel.series?.recent ?? [];
+  const lastCall = recent[recent.length - 1];
+
+  const step = useMemo(() => {
+    if (!lastCall) return null;
+    const end = lastCall.end ?? now;
+    const running = working && lastCall.status !== 'completed' && lastCall.status !== 'error';
+    return {
+      tool: lastCall.tool || catWord(lastCall.cat, t),
+      title: lastCall.title,
+      took: running ? workedFor(lastCall.start ?? now, now) : tookFor(lastCall, now),
+      color: catColor(lastCall.cat),
+    };
+  }, [lastCall, working, now, t]);
+
+  const stall = stallNote(panel, t, now);
+  const recentShown = useMemo(() => {
+    const list = [...recent].reverse();
+    return allRecent ? list : list.slice(0, 5);
+  }, [recent, allRecent]);
+
   const todos = panel.todos;
+  const [todoOpen, setTodoOpen] = useState(false);
   const current =
     todos?.items.find((r) => r.status === 'in_progress')?.content ?? todos?.items.find((r) => r.status === 'pending')?.content ?? '';
+
   return (
     <View>
-      {last ? (
-        <Text style={s.nowLine} numberOfLines={1} testID="wbo-panel-now">
-          <Text style={s.nowKey}>{working ? t.now : t.last}</Text>
-          {` ${last.server ? `${last.server} · ${last.tool}` : last.tool || catWord(last.cat, t)}${last.title ? ` · ${last.title}` : ''}`}
-        </Text>
+      {step ? (
+        <View style={s.stepBox} testID="wbo-panel-now">
+          <View style={s.stepRow}>
+            <Text style={[s.stepTool, { color: step.color }]}>{step.tool}</Text>
+            <Text style={s.stepTook}>{step.took}</Text>
+          </View>
+          <Text style={s.stepTitle} numberOfLines={1} ellipsizeMode="tail">
+            {step.title}
+          </Text>
+        </View>
       ) : null}
+      {stall ? <Text style={s.stall}>{stall}</Text> : null}
       <FlowStrip
         series={panel.series}
         now={now}
@@ -351,9 +384,54 @@ function FlowBody({
         range={range}
         onRange={onRange}
         onJump={onJump}
-        stall={stallNote(panel, t, now)}
+        stall={stall}
         testID="wbo-panel-strip"
       />
+      {recent.length ? (
+        <View style={s.recentBox}>
+          {recentShown.map((r, i) => (
+            <Pressable
+              key={`${r.part}:${r.start}:${i}`}
+              style={s.recentRow}
+              onPress={() => onJump(r.part)}
+              accessibilityRole="button"
+              testID="wbo-panel-recent"
+            >
+              <Text style={[s.stateMark, r.status === 'completed' && s.stateOk, r.status === 'error' && s.stateErr]}>
+                {r.status === 'completed' ? '✓' : r.status === 'error' ? '✕' : '●'}
+              </Text>
+              <View style={[s.recentDot, { backgroundColor: catColor(r.cat) }]} />
+              <Text style={s.recentTitle} numberOfLines={1}>
+                {r.title || r.tool}
+              </Text>
+              {r.add != null ? (
+                <Text style={s.recentDiff}>
+                  <Text style={s.diffAdd}>+{r.add}</Text> <Text style={s.diffDel}>−{r.del}</Text>
+                </Text>
+              ) : null}
+              <Text style={s.recentTook}>{tookFor(r, now)}</Text>
+            </Pressable>
+          ))}
+          {recent.length > 5 ? (
+            <Pressable onPress={onAllRecent} accessibilityRole="button" style={s.recentMore}>
+              <Text style={s.link}>{allRecent ? t.fewer : t.showAll(recent.length)}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : !recent.length && panel.tools?.items.length ? (
+        <View style={s.recentBox}>
+          <Pressable accessibilityRole="button" testID="wbo-panel-tools">
+            <Text style={s.link}>{t.whichTools}</Text>
+          </Pressable>
+          {panel.tools.items.slice(0, 5).map((r) => (
+            <Pressable key={`${r.server}:${r.name}`} onPress={() => onJump(r.message)} accessibilityRole="button"
+                       style={s.recentRow} testID="wbo-panel-tool">
+              <Text style={s.recentTitle} numberOfLines={1}>{r.name}</Text>
+              <Text style={s.recentTook}>{toolLine(r, t)}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
       {todos ? (
         <Pressable onPress={() => setTodoOpen(!todoOpen)} accessibilityRole="button" style={s.todosLine}
                    accessibilityState={{ expanded: todoOpen }} testID="wbo-panel-todos">
@@ -369,40 +447,15 @@ function FlowBody({
         </Pressable>
       ) : null}
       {todoOpen ? <TodosBody panel={panel} /> : null}
-      {rows.length ? (
-        <>
-          <Pressable onPress={() => setOpen(!open)} accessibilityRole="button" accessibilityState={{ expanded: open }}
-                     testID="wbo-panel-tools">
-            <Text style={s.link}>{open ? t.hideTools : t.whichTools}</Text>
-          </Pressable>
-          {open
-            ? (all ? rows : rows.slice(0, TOOLS_SHOWN)).map((r) => (
-                <Pressable key={`${r.server}:${r.name}`} onPress={() => onJump(r.message)} accessibilityRole="button"
-                           style={s.row} testID="wbo-panel-tool">
-                  <Text style={s.rowText} numberOfLines={1}>
-                    {r.server ? `${r.server} · ${r.name}` : r.name}
-                  </Text>
-                  <Text style={s.rowMeta} numberOfLines={1}>
-                    {toolLine(r, t)}
-                  </Text>
-                </Pressable>
-              ))
-            : null}
-          {open && rows.length > TOOLS_SHOWN && !all ? (
-            <Pressable onPress={onMore} accessibilityRole="button">
-              <Text style={s.link}>{t.moreTools(rows.length - TOOLS_SHOWN)}</Text>
-            </Pressable>
-          ) : null}
-        </>
-      ) : null}
-      {!open && total ? (
-        <Text style={s.dim} numberOfLines={1}>{`${total} ${t.tools.toLowerCase()}`}</Text>
-      ) : null}
     </View>
   );
 }
 
-/** A category in the person's words: what the run is writing when it has called nothing. */
+/** A window in the few words the sheet has room for: 64k, 256k, 1M. */
+function sizeWord(n: number): string {
+  return n >= 1_000_000 ? `${Math.round(n / 100_000) / 10}M` : `${Math.round(n / 1000)}k`;
+}
+
 function catWord(cat: string, t: WboStrings): string {
   switch (cat) {
     case 'read': return t.reading;
@@ -416,7 +469,6 @@ function catWord(cat: string, t: WboStrings): string {
   }
 }
 
-/** "at this pace, compaction in ~6 turns" - from the last few turns, and only when they grew. */
 function estimate(panel: WboPanel, t: WboStrings): string {
   const rows = (panel.series?.context ?? []).filter((p) => p.used > 0);
   const limit = rows[rows.length - 1]?.limit ?? 0;
@@ -431,25 +483,6 @@ function estimate(panel: WboPanel, t: WboStrings): string {
   return turns > 0 && turns < 10_000 ? t.compactionTurns(turns) : '';
 }
 
-/** Working, and nothing new for a couple of minutes: said, because a flat rate is easy to miss. */
-function stallNote(panel: WboPanel, t: WboStrings, now: number): string {
-  const working = panel.session.status === 'busy' || panel.session.status === 'retry';
-  if (!working) return '';
-  const spans = panel.series?.spans ?? [];
-  const lastCall = spans.reduce((p, x) => Math.max(p, x.end), 0);
-  const rate = panel.series?.rate;
-  const lastTokens = rate?.items.reduce((p, b) => Math.max(p, b.at + rate.step), 0) ?? 0;
-  const last = Math.max(lastCall, lastTokens, panel.session.since ?? 0);
-  const quiet = now - last;
-  if (!last || quiet < 120_000) return '';
-  return t.nothingNew(Math.round(quiet / 60_000));
-}
-
-/**
- * The foot, in one dim line: the computer, the wb-opencode on it, the directory the session runs in and its MCP
- * servers. Its own details - the platform, the OpenCode version, the full path, each server by name, the device
- * key - are the sheet's older Computer section, and they are here, not repeated above.
- */
 function FootLine({
   panel,
   t,
@@ -464,36 +497,37 @@ function FootLine({
   const c = panel.session.computer;
   const [open, setOpen] = useState(false);
   if (!c) return null;
-  const mcp = c.mcp ?? [];
-  const ok = mcp.filter((m) => m.status === 'connected').length;
-  const mcpText = Array.isArray(c.mcp) ? (mcp.length ? `MCP ${ok}/${mcp.length}` : t.mcpNone) : '';
-  const dir = shortDir(panel.session.directory || '');
+  const flag = footFlag(c);
+  const dir = footDir(c.cwd || panel.session.directory || '');
   return (
-    <View>
+    <View style={s.footBox}>
       <Pressable onPress={() => setOpen(!open)} accessibilityRole="button" accessibilityState={{ expanded: open }}
-                 style={s.foot} testID="wbo-panel-foot">
+                 style={s.footRow} testID="wbo-panel-foot">
         <View style={[s.footDot, { backgroundColor: c.connected ? colors.ok : colors.inkDim }]} />
-        <Text style={s.footText} numberOfLines={1}>
-          {`${c.host || c.name || 'OpenCode'} · wb-opencode ${c.version || '?'} · ${dir || '—'}${mcpText ? ` · ${mcpText}` : ''}`}
+        <Text style={s.footComp} numberOfLines={1}>
+          {`${c.host || c.name || 'OpenCode'} · ${c.connected ? t.connectedShort : t.notConnectedShort}`}
         </Text>
+        {flag ? (
+          <View style={s.footBadge}>
+            <Text style={s.footBadgeText}>{flag.text}</Text>
+          </View>
+        ) : null}
       </Pressable>
+      {dir ? (
+        <Pressable onPress={() => onCopy(c.cwd || panel.session.directory || '')} accessibilityRole="button"
+                   style={s.dirRow} testID="wbo-panel-cwd">
+          <Text style={s.footDir} numberOfLines={1}>
+            {dir}
+          </Text>
+          {copied ? <Text style={s.copiedTag}>{t.copied}</Text> : null}
+        </Pressable>
+      ) : null}
       {open ? (
-        <View testID="wbo-panel-footmore">
+        <View style={s.footMore} testID="wbo-panel-footmore">
           <Text style={s.dim} numberOfLines={1}>{`${c.platform || ''} · OpenCode ${c.opencode || '?'}`}</Text>
           {c.outdated && !c.self_updates ? <Text style={s.warn}>{t.updateWboLong}</Text> : null}
-          {c.cwd ? (
-            <Pressable onPress={() => onCopy(c.cwd)} accessibilityRole="button" accessibilityHint={t.copy}
-                       testID="wbo-panel-cwd">
-              <Text style={s.cwd} numberOfLines={2}>
-                {c.cwd}
-              </Text>
-              <Text style={s.dim} numberOfLines={1}>
-                {copied ? t.copied : t.copy}
-              </Text>
-            </Pressable>
-          ) : null}
-          {mcp.length
-            ? mcp.map((srv) => (
+          {(c.mcp ?? []).length
+            ? c.mcp!.map((srv) => (
                 <Text key={srv.name} style={s.dim} numberOfLines={1}>
                   {`MCP · ${srv.name} · ${srv.status || '?'}`}
                 </Text>
@@ -505,58 +539,12 @@ function FootLine({
   );
 }
 
-/** The directory as the foot has room for it: its last two segments, the whole path under the line. */
-function shortDir(path: string): string {
-  const one = (path || '').replace(/\/+$/, '');
-  if (!one || one === '~') return one;
-  const parts = one.split('/').filter(Boolean);
-  return parts.length <= 2 ? one : `…/${parts.slice(-2).join('/')}`;
-}
-
-function ComputerBody({
-  panel,
-  t,
-  onCopy,
-  copied,
-}: {
-  panel: WboPanel;
-  t: WboStrings;
-  onCopy: (v: string) => string;
-  copied: boolean;
-}) {
-  const c = panel.session.computer;
-  if (!c) return null;
-  return (
-    <View>
-      <Text style={s.model} numberOfLines={1}>
-        {c.host || c.name || t.opencode}
-        <Text style={s.dim}>{` · ${c.connected ? t.connectedShort : t.notConnectedShort}`}</Text>
-      </Text>
-      {/* the device key's name is not a line of its own any more: it is in Settings > OpenCode */}
-      <Text style={s.dim} numberOfLines={1}>
-        {`wb-opencode ${c.version || '?'}`}
-      </Text>
-      {c.outdated && !c.self_updates ? <Text style={s.warn}>{t.updateWboLong}</Text> : null}
-      {c.cwd ? (
-        <Pressable onPress={() => onCopy(c.cwd)} accessibilityRole="button" accessibilityHint={t.copy} testID="wbo-panel-cwd">
-          <Text style={s.cwd} numberOfLines={2}>
-            {c.cwd}
-          </Text>
-          <Text style={s.dim} numberOfLines={1}>
-            {copied ? t.copied : t.copy}
-          </Text>
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
-
 const TODO_ICON = { pending: Square, in_progress: Activity, completed: Check, cancelled: X } as const;
 
 function TodosBody({ panel }: { panel: WboPanel }) {
   const rows = panel.todos?.items ?? [];
   return (
-    <View>
+    <View style={s.todoList}>
       {rows.map((r, i) => {
         const done = r.status === 'completed' || r.status === 'cancelled';
         return (
@@ -601,32 +589,43 @@ function FilesBody({
         const at = when(f.at);
         const showAt = at && at !== lastWhen ? at : '';
         lastWhen = at || lastWhen;
+        const est = estOf(f);
         return (
           <Pressable
             key={f.path}
             onPress={() => onJump(f.message)}
             accessibilityRole="button"
             accessibilityHint={t.showInConversation}
-            style={s.row}
+            style={s.fileRow}
             testID="wbo-panel-file"
           >
             <View style={s.filecol}>
-              <Text style={s.rowText} numberOfLines={1}>
-                {baseName(f.path)}
+              <View style={s.fileTop}>
+                <Text style={s.fileName} numberOfLines={1}>
+                  {baseName(f.path)}
+                </Text>
                 {f.additions != null ? (
-                  <Text style={s.diff}>{`  +${f.additions} −${f.deletions}`}</Text>
+                  <Text style={s.diff}>
+                    <Text style={s.diffAdd}>+{f.additions}</Text> <Text style={s.diffDel}>−{f.deletions}</Text>
+                  </Text>
+                ) : est ? (
+                  <Text style={[s.diff, s.estDiff]} accessibilityLabel={t.estimated}>
+                    <Text style={s.diffAdd}>+{est.add}</Text> <Text style={s.diffDel}>−{est.del}</Text>
+                  </Text>
                 ) : null}
-                {f.outside ? <Text style={s.out}>{'  ↗'}</Text> : null}
-              </Text>
+                {f.outside ? <Text style={s.out}>↗</Text> : null}
+              </View>
               {dirName(f.path) ? (
                 <Text style={s.dir} numberOfLines={1} ellipsizeMode="head">
                   {dirName(f.path)}
                 </Text>
               ) : null}
             </View>
-            <Text style={s.rowMeta} numberOfLines={1}>
-              {fileLine(f, showAt, t)}
-            </Text>
+            {showAt ? (
+              <Text style={s.fileWhen} numberOfLines={1}>
+                {showAt}
+              </Text>
+            ) : null}
             {f.error ? <Text style={s.warn}>⚠</Text> : null}
           </Pressable>
         );
@@ -640,10 +639,9 @@ function FilesBody({
           {all
             ? temp.map((f) => (
                 <Pressable key={f.path} onPress={() => onJump(f.message)} accessibilityRole="button"
-                           style={[s.row, s.tempRow]} testID="wbo-panel-tempfile">
-                  <Text style={s.rowText} numberOfLines={1}>
+                           style={[s.fileRow, s.tempRow]} testID="wbo-panel-tempfile">
+                  <Text style={s.fileName} numberOfLines={1}>
                     {baseName(f.path)}
-                    {f.additions != null ? <Text style={s.diff}>{`  +${f.additions} −${f.deletions}`}</Text> : null}
                   </Text>
                 </Pressable>
               ))
@@ -654,181 +652,81 @@ function FilesBody({
   );
 }
 
-function PendingBody({
-  panel,
-  t,
-  mayAnswer,
-  onAnswer,
-  onJump,
-}: {
-  panel: WboPanel;
-  t: WboStrings;
-  mayAnswer: boolean;
-  onAnswer: (a: WboAsk, decision: 'once' | 'always' | 'reject') => void;
-  onJump: (message: string) => void;
-}) {
-  return (
-    <View>
-      {panel.pending.map((a) => (
-        <View key={a.id} style={s.ask} testID="wbo-panel-ask">
-          <Text style={s.askHead} numberOfLines={2}>
-            {a.kind === 'permission' ? t.asksToRun(a.action || '') : a.title || t.asks}
-          </Text>
-          {a.kind === 'permission' ? (
-            <>
-              {(a.resources ?? []).slice(0, 2).map((r, i) => (
-                <Text key={`${a.id}:${i}`} style={s.res} numberOfLines={2}>
-                  {r}
-                </Text>
-              ))}
-              {a.cut ? <Text style={s.warn}>{t.answerItOnComputer}</Text> : null}
-              <View style={s.acts}>
-                <Button label={t.allowOnce} onPress={() => onAnswer(a, 'once')} disabled={!mayAnswer || a.cut} />
-                <Button label={t.alwaysAllow} onPress={() => onAnswer(a, 'always')} disabled={!mayAnswer || a.cut} />
-                <Button label={t.reject} onPress={() => onAnswer(a, 'reject')} disabled={!mayAnswer || a.cut} />
-              </View>
-            </>
-          ) : (
-            <Text style={s.dim}>{t.answerOnComputer}</Text>
-          )}
-          {a.message ? (
-            <Pressable onPress={() => onJump(a.message!)} accessibilityRole="button" style={s.jump}>
-              <Text style={s.link}>{t.showInConversation}</Text>
-            </Pressable>
-          ) : null}
-          {!mayAnswer ? <Text style={s.dim}>{t.onlyOwnerAnswers}</Text> : null}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function ToolsBody({
-  panel,
-  t,
-  onJump,
-  all,
-  onMore,
-}: {
-  panel: WboPanel;
-  t: WboStrings;
-  onJump: (message: string) => void;
-  all: boolean;
-  onMore: () => void;
-}) {
-  const everything: PanelTool[] = panel.tools?.items ?? [];
-  const rows = all ? everything : everything.slice(0, TOOLS_SHOWN);
-  const total = everything.reduce((n, r) => n + r.count, 0);
-  return (
-    <View>
-      {rows.map((r) => (
-        <Pressable
-          key={`${r.server}:${r.name}`}
-          onPress={() => onJump(r.message)}
-          accessibilityRole="button"
-          accessibilityHint={t.showInConversation}
-          style={s.row}
-          accessibilityLabel={toolLine(r, t)}
-          testID="wbo-panel-tool"
-        >
-          {/* how much of the session's calls this tool was: a thin bar behind the row, not a box beside it */}
-          <View style={[s.ratio, { width: `${total ? Math.max(2, Math.round((r.count / total) * 100)) : 0}%` }]} />
-          <Text style={[s.rowText, s.toolName]} numberOfLines={1}>
-            {r.name}
-          </Text>
-          <Text style={[s.rowMeta, r.errors ? s.warn : null]} numberOfLines={1}>
-            {r.errors ? `⚠${r.errors} · ${r.count}` : String(r.count)}
-          </Text>
-        </Pressable>
-      ))}
-      {everything.length > TOOLS_SHOWN && !all ? (
-        <Pressable onPress={onMore} accessibilityRole="button" testID="wbo-panel-moretools">
-          <Text style={s.link}>{t.moreTools(everything.length - TOOLS_SHOWN)}</Text>
-        </Pressable>
-      ) : null}
-      {panel.tools?.more ? <Text style={s.dim}>{t.moreTools(panel.tools.more)}</Text> : null}
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
   scroll: { paddingBottom: space.xl },
   wrap: { paddingHorizontal: gutter },
   center: { paddingVertical: space.xl, alignItems: 'center' },
   sec: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
-  head: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: touch, paddingVertical: space.xs },
-  headText: { flex: 1, fontFamily: fonts.sansSemi, fontSize: type.small, color: colors.ink, letterSpacing: 0.3 },
-  count: { maxWidth: '64%', fontFamily: fonts.mono, fontSize: type.small, color: colors.inkDim, textAlign: 'right' },
-  body: { paddingBottom: space.md, gap: space.xs },
-  model: { fontFamily: fonts.sansSemi, fontSize: type.body, color: colors.inkBright, lineHeight: 21 },
-  sub: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim, marginBottom: space.xs },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32, paddingVertical: 6 },
+  headText: { flex: 1, fontFamily: fonts.sansSemi, fontSize: 11, fontWeight: '600', letterSpacing: 0.6, textTransform: 'uppercase', color: colors.ink },
+  count: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim, textAlign: 'right' },
+  body: { paddingBottom: space.sm, gap: space.xs },
+  modelName: { fontFamily: fonts.sansMedium, fontSize: 13, color: colors.inkBright, lineHeight: 18 },
+  modelSub: { fontFamily: fonts.sans, fontSize: 11, color: colors.inkDim, marginTop: 2, marginBottom: 4 },
   dim: { fontFamily: fonts.sans, fontSize: type.small, color: colors.inkDim },
   warn: { color: colors.warn },
   bad: { color: colors.danger },
-  ctxWrap: { marginVertical: space.sm },
-  ctx: { fontFamily: fonts.mono, fontSize: type.small, color: colors.ink },
+  ctxWrap: { marginVertical: 4 },
+  ctx: { fontFamily: fonts.mono, fontSize: 11, color: colors.ink },
   bar: { height: 3, borderRadius: 2, backgroundColor: colors.line, marginTop: 4, overflow: 'hidden' },
   barFill: { height: 3, backgroundColor: colors.inkDim },
   barWarn: { backgroundColor: colors.warn },
   barBad: { backgroundColor: colors.danger },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  estimate: { fontFamily: fonts.sans, fontSize: 10.5, color: colors.inkDim, marginTop: 2 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 4 },
   kv: { flexDirection: 'row', alignItems: 'baseline', width: '48%', paddingVertical: 1 },
-  kvKey: { flex: 1, fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
-  kvVal: { fontFamily: fonts.mono, fontSize: type.tiny, color: colors.ink },
-  cost: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.line,
-    marginTop: space.xs,
-    paddingTop: space.xs,
-  },
-  cwd: { fontFamily: fonts.mono, fontSize: type.tiny, color: colors.inkDim, marginTop: 2 },
+  kvKey: { flex: 1, fontFamily: fonts.sans, fontSize: 10.5, color: colors.inkDim },
+  kvVal: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.ink },
+  todoList: { marginTop: 4 },
   todo: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm, paddingVertical: 3 },
-  todoText: { flex: 1, fontFamily: fonts.sans, fontSize: type.small, color: colors.ink },
+  todoText: { flex: 1, fontFamily: fonts.sans, fontSize: 11, color: colors.ink },
   todoDone: { color: colors.inkDim, textDecorationLine: 'line-through' },
-  row: { paddingVertical: space.xs, flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  stepBox: { paddingVertical: 2, marginBottom: 4 },
+  stepRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  stepTool: { fontFamily: fonts.sansMedium, fontSize: 12, fontWeight: '500' },
+  stepTook: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
+  stepTitle: { fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, marginTop: 1 },
+  stall: { fontFamily: fonts.sans, fontSize: 10.5, color: colors.warn, marginVertical: 3 },
+  recentBox: { marginTop: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, paddingTop: 4 },
+  recentRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 },
+  stateMark: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim, width: 10 },
+  stateOk: { color: colors.ok },
+  stateErr: { color: colors.danger },
+  recentDot: { width: 6, height: 6, borderRadius: 2 },
+  recentTitle: { flex: 1, fontFamily: fonts.mono, fontSize: 11, color: colors.ink },
+  recentDiff: { fontFamily: fonts.mono, fontSize: 10.5 },
+  recentTook: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
+  recentMore: { paddingVertical: 4 },
+  fileRow: { paddingVertical: 4, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   filecol: { flex: 1, minWidth: 0 },
-  rowText: { flex: 1, fontFamily: fonts.sans, fontSize: type.small, color: colors.ink },
-  dir: { fontFamily: fonts.sans, fontSize: type.micro, color: colors.inkDim, marginTop: 1 },
-  rowMeta: { maxWidth: '52%', fontFamily: fonts.mono, fontSize: type.micro, color: colors.inkDim, textAlign: 'right' },
-  ask: { paddingVertical: space.sm, gap: space.xs },
-  askHead: { fontFamily: fonts.sansSemi, fontSize: type.small, color: colors.ink },
-  res: {
-    fontFamily: fonts.mono,
-    fontSize: type.micro,
-    color: colors.ink,
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
-    paddingHorizontal: space.sm,
-    paddingVertical: 4,
-  },
-  acts: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.xs },
-  jump: { paddingTop: space.xs },
-  link: { fontFamily: fonts.sans, fontSize: type.small, color: colors.accent, paddingVertical: space.xs },
-  /* the one line above the sections: a question stops the run, so it is not a section that can be folded */
+  fileTop: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
+  fileName: { fontFamily: fonts.sans, fontSize: 12, color: colors.ink },
+  fileDir: { fontFamily: fonts.mono, fontSize: 10, color: colors.inkDim, marginTop: 1 },
+  fileWhen: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim, marginLeft: 8 },
+  diff: { fontFamily: fonts.mono, fontSize: 10.5 },
+  diffAdd: { color: colors.ok, fontWeight: '600' },
+  diffDel: { color: colors.danger, fontWeight: '600' },
+  estDiff: { opacity: 0.55 },
+  out: { fontFamily: fonts.sans, fontSize: 10, color: colors.inkDim },
+  dir: { fontFamily: fonts.mono, fontSize: 10, color: colors.inkDim, marginTop: 1 },
+  link: { fontFamily: fonts.sans, fontSize: 11, color: colors.inkDim, paddingVertical: 2 },
   wait: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.xs, paddingHorizontal: space.xs,
           borderWidth: 1, borderColor: colors.warn, borderRadius: radius.sm, marginBottom: space.sm },
   waitDot: { width: 6, height: 6, borderRadius: 3 },
-  waitText: { flex: 1, fontFamily: fonts.sans, fontSize: type.small, color: colors.ink },
-  /* what it spent, on one line; the numbers whole in the grid under it */
-  spend: { fontFamily: fonts.mono, fontSize: type.small, color: colors.ink, marginTop: space.xs },
-  /* what the run is on, right now */
-  nowLine: { fontFamily: fonts.sans, fontSize: type.small, color: colors.ink, marginBottom: space.xs },
-  nowKey: { fontFamily: fonts.sans, fontSize: type.micro, color: colors.inkDim, textTransform: 'uppercase' },
-  /* the todo list's bar and the one item under way */
-  todosLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.xs, minHeight: 32 },
+  waitText: { flex: 1, fontFamily: fonts.sans, fontSize: 11, color: colors.ink },
+  spend: { fontFamily: fonts.mono, fontSize: 11, color: colors.inkDim, marginTop: 4 },
+  todosLine: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.xs, minHeight: 28 },
   todoBar: { width: 64, height: 3, borderRadius: 2, backgroundColor: colors.line, overflow: 'hidden' },
   todoBarFill: { height: 3, borderRadius: 2, backgroundColor: colors.accent },
-  /* the foot: one dim line, its details under a tap */
-  foot: { flexDirection: 'row', alignItems: 'center', gap: space.sm, borderTopWidth: 1, borderTopColor: colors.line,
-          marginTop: space.sm, paddingTop: space.sm, minHeight: 32 },
+  footBox: { borderTopWidth: 1, borderTopColor: colors.line, marginTop: space.sm, paddingTop: 6, gap: 2 },
+  footRow: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 24 },
   footDot: { width: 6, height: 6, borderRadius: 3 },
-  footText: { flex: 1, fontFamily: fonts.mono, fontSize: type.micro, color: colors.inkDim },
-  diff: { fontFamily: fonts.mono, fontSize: type.tiny, color: colors.inkDim },
-  out: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  footComp: { flex: 1, fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
+  footBadge: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 8, borderWidth: 1, borderColor: colors.line },
+  footBadgeText: { fontFamily: fonts.mono, fontSize: 9.5, color: colors.warn },
+  dirRow: { paddingLeft: 12 },
+  footDir: { fontFamily: fonts.mono, fontSize: 10, color: colors.inkDim },
+  copiedTag: { fontFamily: fonts.sans, fontSize: 9.5, color: colors.ok, marginLeft: 4 },
+  footMore: { paddingLeft: 12, paddingTop: 2, gap: 2 },
   tempRow: { opacity: 0.8 },
-  ratio: { position: 'absolute', left: 0, top: 3, bottom: 3, borderRadius: 4, backgroundColor: colors.surface },
-  toolName: { flex: 1 },
-
 });

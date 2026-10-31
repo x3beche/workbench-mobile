@@ -106,6 +106,12 @@ export interface WboStrings extends WbcStrings {
   output: string;
   cacheRead: string;
   cacheWrite: string;
+  auto: string;
+  showAll: (n: number) => string;
+  fewer: string;
+  estimated: string;
+  textParts: (n: number) => string;
+  updateShort: string;
 }
 
 const wen = wbcStrings('en');
@@ -207,6 +213,10 @@ const en: WboStrings = {
   writingCat: 'writing',
   otherCat: 'other',
   mcpNone: 'MCP none',
+  /** The window this session keeps to (a smaller one compacts OpenCode sooner). */
+  context: 'Context',
+  contextOwn: 'the model\'s own',
+  contextTip: 'Smaller windows make OpenCode compact sooner: a long session stays cheaper and quicker.',
   idle: 'idle',
   errorWord: 'error',
   doneOf: (done, total) => `${done}/${total} done`,
@@ -239,6 +249,12 @@ const en: WboStrings = {
   output: 'Output',
   cacheRead: 'Cache read',
   cacheWrite: 'Cache write',
+  auto: 'auto',
+  showAll: (n) => `Show all ${n}`,
+  fewer: 'fewer',
+  estimated: 'estimated from the last call',
+  textParts: (n) => `text and thinking: ${n} parts`,
+  updateShort: 'update',
   run: {
     details: 'Details',
     sent: 'Sent',
@@ -362,6 +378,9 @@ const tr: WboStrings = {
   writingCat: 'yazma',
   otherCat: 'diğer',
   mcpNone: 'MCP yok',
+  context: 'Bağlam',
+  contextOwn: 'modelin kendisi',
+  contextTip: 'Küçük pencere OpenCode\'un daha erken sıkıştırmasını sağlar: uzun oturum daha ucuza ve daha hızlı çalışır.',
   idle: 'boşta',
   errorWord: 'hata',
   doneOf: (done, total) => `${done}/${total} tamam`,
@@ -394,6 +413,12 @@ const tr: WboStrings = {
   output: 'Çıkış',
   cacheRead: 'Cache okuma',
   cacheWrite: 'Cache yazma',
+  auto: 'auto',
+  showAll: (n) => `Tümünü göster (${n})`,
+  fewer: 'daha az',
+  estimated: 'son çağrıdan tahmin edildi',
+  textParts: (n) => `metin/düşünme: ${n} parça`,
+  updateShort: 'güncelle',
   // The web app's i18n.ts, in Turkish, for the stats under an answer.
   run: {
     details: 'Ayrıntılar',

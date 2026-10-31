@@ -483,6 +483,18 @@ export function OpencodeSessionScreen({
     return t.model;
   }, [selectedModel, t.model]);
 
+  /** The window this session keeps to (a smaller one makes OpenCode compact sooner): its own route, the same
+   *  one the web's column uses; the sheet reads the session again and the bar is drawn against it. */
+  const pickContext = async (limit: number | null) => {
+    if (!client) return;
+    try {
+      await client.wboContext(sid, limit);
+      if (s?.status === 'busy') setNotice(t.appliesNextMessage);
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : 'The context window could not be changed.');
+    }
+  };
+
   const pickModel = async (providerID: string, modelID: string, variant?: string) => {
     if (!client) return;
     const match = allModels.find((m) => m.providerID === providerID && m.modelID === modelID);
@@ -875,6 +887,7 @@ export function OpencodeSessionScreen({
             setColumn(false);
             setModelSheet(true);
           }}
+          onContext={(limit) => void pickContext(limit)}
           when={(at) => (at ? ago(new Date(at).toISOString(), new Date(), uiLang(lang)) : '')}
         />
       ) : null}
