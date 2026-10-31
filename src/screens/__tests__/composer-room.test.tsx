@@ -118,7 +118,7 @@ function fakeClient(d: WboDetail) {
     models: jest.fn(async () => []),
     wboMessageImagePath: () => '',
     wboPanel: jest.fn(async () => null),
-    side: jest.fn(async () => ({ pins: { claude: [], opencode: [] }, folds: { claude: null, opencode: null, rooms: null }, chat: { detail: 'normal' }, panel: {} })),
+    side: jest.fn(async () => ({ pins: { claude: [], opencode: [] }, folds: { claude: null, opencode: null, rooms: null, agents: null }, chat: { detail: 'normal' }, panel: {} })),
   };
 }
 

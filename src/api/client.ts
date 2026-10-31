@@ -10,6 +10,7 @@
  */
 import { streamRawSse, streamSse, type RawEvent, type StreamResult, type XhrLike } from './sse';
 import type {
+  AgentLinks,
   ActivityData,
   ActivityNow,
   AdminPool,
@@ -753,6 +754,18 @@ export class WorkbenchClient {
     return got?.sessions ?? [];
   }
 
+  // ---- one's own agents: who manages whom (backend/agents.py) ---------------------
+
+  /** The links; an older server without them answers 404 (the drawer then keeps its two groups). */
+  agentLinks(): Promise<AgentLinks> {
+    return this.request<AgentLinks>('GET', '/api/agents/links');
+  }
+
+  /** Put `worker` under `manager` (null: on its own again). The server's 409 says why it may not. */
+  setAgentLink(worker: string, manager: string | null): Promise<AgentLinks> {
+    return this.request<AgentLinks>('PUT', '/api/agents/links', { worker, manager });
+  }
+
   /** One session: its last messages, the lines sent from Workbench, what it asks, who may write. */
   wboSession(sid: string): Promise<WboDetail> {
     return this.request<WboDetail>('GET', `/api/wbo/sessions/${encodeURIComponent(sid)}`);
@@ -1124,7 +1137,7 @@ export function sideOf(v: Partial<SidePrefs> | null | undefined): SidePrefs {
   const fold = (x: unknown) => (typeof x === 'boolean' ? x : null);
   return {
     pins: { claude: list(pins.claude), opencode: list(pins.opencode) },
-    folds: { claude: fold(folds.claude), opencode: fold(folds.opencode), rooms: fold(folds.rooms) },
+    folds: { claude: fold(folds.claude), opencode: fold(folds.opencode), rooms: fold(folds.rooms), agents: fold(folds.agents) },
     chat: { detail: detailOf(chat?.detail) },
     panel: Object.fromEntries(
       Object.entries((v as Partial<SidePrefs> | null | undefined)?.panel ?? {}).filter(

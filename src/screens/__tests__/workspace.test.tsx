@@ -107,7 +107,7 @@ const mockClient = {
   /** How much of an answer the Chat shows (Settings > Chat): kept for the person. */
   sideChat: jest.fn(async (detail: 'compact' | 'normal' | 'detailed') => ({
     pins: { claude: [], opencode: [] },
-    folds: { claude: null, opencode: null, rooms: null },
+    folds: { claude: null, opencode: null, rooms: null, agents: null },
     chat: { detail },
   })),
   // Settings > Claude pool (1.6.2): not set up here - no row; ccpool.test.tsx covers it.

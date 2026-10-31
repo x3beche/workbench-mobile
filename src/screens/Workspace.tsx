@@ -62,6 +62,8 @@ import { ccpoolStrings } from '../lib/ccpoolStrings';
 import { settingsStrings } from '../lib/settingsStrings';
 import { knownRooms } from '../lib/rooms';
 import { SIDE_EMPTY, withDetail, withFold, withPin, withRoomsFold, type RoomsFold } from '../lib/side';
+import { agentStrings } from '../lib/agentStrings';
+import { linkMap, type LinkMap } from '../lib/agents';
 import { wbcStrings } from '../lib/wbcStrings';
 import { wboStrings } from '../lib/wboStrings';
 import { inFront } from '../live/hub';
@@ -183,6 +185,8 @@ export function Workspace({
   const [wbcOpen, setWbcOpen] = useState<string | null>(null);
   /** One's own OpenCode sessions, the same way. */
   const [wboRows, setWboRows] = useState<WboSession[] | null>(null);
+  /** Who manages whom among one's agents (GET /api/agents/links); null: a server without it, two groups. */
+  const [agentLinks, setAgentLinks] = useState<{ links: LinkMap; max: number } | null>(null);
   const [wboOpen, setWboOpen] = useState<string | null>(null);
   /** The session groups' pins and folds, the person's own on the server (the web's, the same on every device). */
   const [side, setSide] = useState<SidePrefs>(SIDE_EMPTY);
@@ -205,6 +209,7 @@ export function Workspace({
   const stt = useMemo(() => settingsStrings(ui), [ui]);
   const wt = useMemo(() => wbcStrings(ui), [ui]);
   const ct = useMemo(() => wboStrings(ui), [ui]);
+  const at = useMemo(() => agentStrings(ui), [ui]);
   const wst = useMemo(() => workspaceStrings(ui), [ui]);
   const updateNote =
     update.check.state === 'available' ? updateStrings(uiLang(lang)).drawer(update.check.release.version) : null;
@@ -295,6 +300,38 @@ export function Workspace({
   useEffect(() => {
     loadWbo();
   }, [loadWbo]);
+
+  /** The agents' links; an older server answers 404 and the drawer keeps its two session groups. */
+  const loadLinks = useCallback((): Promise<void> => {
+    if (!client?.agentLinks) return Promise.resolve();
+    return client.agentLinks().then(
+      (got) => setAgentLinks({ links: linkMap(got.links ?? []), max: got.max_depth || 3 }),
+      () => setAgentLinks(null),
+    );
+  }, [client]);
+
+  useEffect(() => {
+    loadLinks();
+  }, [loadLinks]);
+
+  /** One put under another (null: on its own), at once; the server's answer is the truth, and a refusal goes back. */
+  const linkAgent = useCallback(
+    (worker: string, manager: string | null) => {
+      tick();
+      setAgentLinks((now) => {
+        if (!now) return now;
+        const next = new Map(now.links);
+        if (manager) next.set(worker, manager);
+        else next.delete(worker);
+        return { ...now, links: next };
+      });
+      client?.setAgentLink(worker, manager).then(
+        (got) => setAgentLinks({ links: linkMap(got.links ?? []), max: got.max_depth || 3 }),
+        () => loadLinks(),
+      );
+    },
+    [client, loadLinks],
+  );
 
   /** The rooms' fold as kept on the phone, until the server keeps it (an older one answers 422). */
   const roomsLocal = useRef<RoomsFold | null>(null);
@@ -455,7 +492,8 @@ export function Workspace({
       fn();
     }, ms);
   }, []);
-  useBus(['line', 'orch', 'cc', 'wbc', 'wbo', 'side'], (e) => {
+  useBus(['line', 'orch', 'cc', 'wbc', 'wbo', 'side', 'agents'], (e) => {
+    if (e.k === 'agents' || e.k === '$open') later('agents', 150, loadLinks);
     if (e.k === '$down') return;
     if (e.k === 'wbc' || e.k === '$open') {
       wbcPace?.mark();
@@ -887,6 +925,7 @@ export function Workspace({
       openWbc={wbcOpen}
       onWbc={openWbc}
       wbo={wboRows ? { t: ct, rows: wboRows } : null}
+      agents={agentLinks ? { t: at, links: agentLinks.links, maxDepth: agentLinks.max, onLink: linkAgent } : null}
       openWbo={wboOpen}
       onWbo={openWbo}
       side={side}

@@ -68,7 +68,7 @@ describe('folding and pins', () => {
     expect(withPin(compact, 'claude', 's1', true).chat.detail).toBe('compact');
     expect(withDetail(withFold(SIDE_EMPTY, 'rooms', false), 'detailed')).toEqual({
       pins: { claude: [], opencode: [] },
-      folds: { claude: null, opencode: null, rooms: false },
+      folds: { claude: null, opencode: null, rooms: false, agents: null },
       chat: { detail: 'detailed' },
       panel: {},
     });

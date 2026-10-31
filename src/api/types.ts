@@ -896,8 +896,15 @@ export type WboAnswer =
 // ---- the Chat list's own choices (backend/session_prefs.py: /api/me/side) ------
 
 export type SideGroup = 'claude' | 'opencode';
-/** What folds in the drawer: the session groups, and the rooms (open until folded). */
-export type FoldGroup = SideGroup | 'rooms';
+/** What folds in the drawer: the session groups, the rooms (open until folded), and the Agents group that puts
+ *  both kinds of session in one (a server that has GET /api/agents/links). */
+export type FoldGroup = SideGroup | 'rooms' | 'agents';
+
+/** Who manages whom among one's own agents (backend/agents.py): "wbc:<id>" / "wbo:<id>" keys. */
+export interface AgentLinks {
+  links: { worker: string; manager: string | null; at: number | null }[];
+  max_depth: number;
+}
 
 /** How much of an answer's work a conversation shows (lib/chatDetail.ts, Settings > Chat). */
 export type ChatDetail = 'compact' | 'normal' | 'detailed';

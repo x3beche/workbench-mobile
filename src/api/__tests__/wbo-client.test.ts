@@ -77,7 +77,7 @@ describe('the side prefs through the client', () => {
   it('fills in what an answer leaves out', () => {
     expect(sideOf(null)).toEqual({
       pins: { claude: [], opencode: [] },
-      folds: { claude: null, opencode: null, rooms: null },
+      folds: { claude: null, opencode: null, rooms: null, agents: null },
       chat: { detail: 'normal' },
       panel: {},
     });

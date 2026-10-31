@@ -506,7 +506,7 @@ async function show(d: WboDetail, t = en) {
 
   it('folds by the header, keeping the pinned in sight, as the person chose', async () => {
     const onFold = jest.fn();
-    const side = { ...withPin(SIDE_EMPTY, 'opencode', 'ses_row00006', true), folds: { claude: null, opencode: false, rooms: null } };
+    const side = { ...withPin(SIDE_EMPTY, 'opencode', 'ses_row00006', true), folds: { claude: null, opencode: false, rooms: null, agents: null } };
     await render(draw(side, { onFold }));
     expect(screen.getByText('Run 6')).toBeTruthy();
     expect(screen.queryByText('Run 0')).toBeNull();

@@ -41,11 +41,14 @@ import { chatSnippet, filterChats, groupChats, groupOf, rowTime } from '../lib/g
 import { ROOM_ICON, roomName, roomSnippet, unread as unreadOf } from '../lib/rooms';
 import { ago } from '../lib/time';
 import { isOpen, isPinned, SIDE_EMPTY } from '../lib/side';
+import type { LinkMap } from '../lib/agents';
+import type { AgentStrings } from '../lib/agentStrings';
 import { bridgeLine, isoOf, liveDot, shownSessions, stateWord } from '../lib/wbc';
 import type { WbcStrings } from '../lib/wbcStrings';
 import { shownWbo, wboDot, wboLine, wboWord } from '../lib/wbo';
 import type { WboStrings } from '../lib/wboStrings';
 import { colors, fonts, gutter, indicatorStyle, radius, space, touch, type } from '../theme/tokens';
+import { AgentGroup, type AgentRowData } from './AgentGroup';
 import { Avatar } from './Avatar';
 import {
   Archive,
@@ -117,6 +120,7 @@ export function DrawerPanel({
   wbo = null,
   openWbo = null,
   onWbo,
+  agents = null,
   side = SIDE_EMPTY,
   onFold,
   onPin,
@@ -173,6 +177,9 @@ export function DrawerPanel({
   wbo?: { t: WboStrings; rows: WboSession[] } | null;
   openWbo?: string | null;
   onWbo?: (sid: string) => void;
+  /** One's agents as one group (GET /api/agents/links): who manages whom, and what moves one. Absent (an
+   *  older server), the Claude and OpenCode sessions keep their own two groups. */
+  agents?: { t: AgentStrings; links: LinkMap; maxDepth: number; onLink: (worker: string, manager: string | null) => void } | null;
   /** The groups' pins and folds (GET /api/me/side), and what changes them. */
   side?: SidePrefs;
   onFold?: (group: FoldGroup, open: boolean) => void;
@@ -284,6 +291,54 @@ export function DrawerPanel({
       live: !!x.bridge?.connected,
     }));
   }, [wbo, onWbo, q, openWbo, side, lang]);
+  // Both kinds as the Agents group's rows: the same ones the two groups show, and any in a tree.
+  const agentRows = useMemo<AgentRowData[]>(() => {
+    if (!agents || !wbc || !onWbc || !wbo || !onWbo) return [];
+    const linked = new Set<string>([...agents.links.keys(), ...agents.links.values()]);
+    // Doing something, the last day's, pinned, open or in a tree - a connected computer holds every session of it,
+    // so connected alone is not news; a sub-agent OpenCode started itself only when pinned, open or in a tree.
+    const words = q.trim().toLowerCase();
+    const day = Date.now() - 86_400_000;
+    // The rest are kept too, marked `old`: the group shows them on "Show N older" (and a search finds them).
+    const recent = (key: string, last: number, busy: boolean, pin: boolean, open: boolean, child: boolean) =>
+      child ? open || pin || linked.has(key) : busy || last > day || open || pin || linked.has(key);
+    const keep = (key: string, last: number, busy: boolean, pin: boolean, open: boolean, child: boolean, name: string,
+                  computer: string, kind: string) =>
+      (!child || recent(key, last, busy, pin, open, child))
+      && (!words || name.toLowerCase().includes(words) || (computer || '').toLowerCase().includes(words) || kind.includes(words));
+    const isOld = (key: string, last: number, busy: boolean, pin: boolean, open: boolean, child: boolean) =>
+      !words && !recent(key, last, busy, pin, open, child);
+    const c = wbc.rows.filter((x) => keep(`wbc:${x.session_id}`, (x.last_ts ?? 0) * 1000,
+                                          !!x.bridge?.connected && x.bridge.state !== 'idle', isPinned(side, 'claude', x.session_id),
+                                          x.session_id === openWbc, false, x.name, x.computer, 'claude'));
+    const o = wbo.rows.filter((x) => keep(`wbo:${x.session_id}`, x.updated ?? 0,
+                                          !!wboDot(x) && wboDot(x) !== 'idle', isPinned(side, 'opencode', x.session_id),
+                                          x.session_id === openWbo, !!x.parent, x.name, x.computer, 'opencode'));
+    return [
+      ...c.map((x) => ({
+        key: `wbc:${x.session_id}`, group: 'claude' as const, id: x.session_id, name: x.name, child: false,
+        old: isOld(`wbc:${x.session_id}`, (x.last_ts ?? 0) * 1000, !!x.bridge?.connected && x.bridge.state !== 'idle',
+                   isPinned(side, 'claude', x.session_id), x.session_id === openWbc, false),
+        last: (x.last_ts ?? 0) * 1000,
+        note: bridgeLine(x.bridge, wbc.t),
+        says: [stateWord(x, wbc.t), x.computer].filter(Boolean).join(' · '),
+        when: x.last_ts ? ago(isoOf(x.last_ts), new Date(), uiLang(lang)) : '',
+        dot: liveDot(x.bridge),
+        live: !!x.bridge?.connected,
+      })),
+      ...o.map((x) => ({
+        key: `wbo:${x.session_id}`, group: 'opencode' as const, id: x.session_id, name: x.name, child: !!x.parent,
+        old: isOld(`wbo:${x.session_id}`, x.updated ?? 0, !!wboDot(x) && wboDot(x) !== 'idle',
+                   isPinned(side, 'opencode', x.session_id), x.session_id === openWbo, !!x.parent),
+        last: x.updated ?? 0,
+        note: wboLine(x, wbo.t),
+        says: [wboWord(x, wbo.t), x.computer].filter(Boolean).join(' · '),
+        when: x.updated ? ago(new Date(x.updated).toISOString(), new Date(), uiLang(lang)) : '',
+        dot: wboDot(x),
+        live: !!x.bridge?.connected,
+      })),
+    ];
+  }, [agents, wbc, onWbc, wbo, onWbo, q, openWbc, openWbo, side, lang]);
   const fold = onFold ?? (() => undefined);
   // The rooms are open until folded by hand (kept as the session groups' folds); folded, their unread is on the header.
   const roomsOpen = isOpen(side, 'rooms', true);
@@ -531,7 +586,23 @@ export function DrawerPanel({
                 ))}
               </View>
             ) : null}
-            {!picking && scope === 'live' && wbc && onWbc ? (
+            {!picking && scope === 'live' && agents && agentRows.length && wbc && onWbc && onWbo ? (
+              <AgentGroup
+                rows={agentRows}
+                links={agents.links}
+                maxDepth={agents.maxDepth}
+                prefs={side}
+                selected={openWbc ? `wbc:${openWbc}` : openWbo ? `wbo:${openWbo}` : null}
+                searching={!!q.trim()}
+                t={wbc.t}
+                a={agents.t}
+                onOpen={(r) => (r.group === 'claude' ? onWbc(r.id) : onWbo(r.id))}
+                onFold={fold}
+                onPin={pin}
+                onLink={agents.onLink}
+              />
+            ) : null}
+            {!picking && scope === 'live' && !agents && wbc && onWbc ? (
               <SessionGroup
                 group="claude"
                 label={wbc.t.group}
@@ -547,7 +618,7 @@ export function DrawerPanel({
                 prefix="wbc"
               />
             ) : null}
-            {!picking && scope === 'live' && wbo && onWbo ? (
+            {!picking && scope === 'live' && !agents && wbo && onWbo ? (
               <SessionGroup
                 group="opencode"
                 label={wbo.t.group}

@@ -17,7 +17,7 @@ export const FOLD_FIRST = 5;
 
 export const SIDE_EMPTY: SidePrefs = {
   pins: { claude: [], opencode: [] },
-  folds: { claude: null, opencode: null, rooms: null },
+  folds: { claude: null, opencode: null, rooms: null, agents: null },
   chat: { detail: 'normal' },
   panel: {},
 };
