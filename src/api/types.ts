@@ -939,6 +939,13 @@ export interface TeamTask {
   updated: number;
   outcome?: string | null;
   note?: string | null;
+  /** What its own agent said of the task (task_report, and any manager report): the newest last. */
+  reports?: { status: string; summary: string; at: number | null; by: string; by_name?: string; key?: string }[] | null;
+  /** Where its agent was when the reading was made ("working", "waiting for the person", "offline"). */
+  agent_state?: string;
+  agent_last?: number | null;
+  /** Why the line could not be delivered, when it could not. */
+  error?: string;
 }
 
 /** A manager session's whole team, as its right-hand column reads it. */

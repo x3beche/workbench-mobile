@@ -65,9 +65,9 @@ function release(): void {
   breath.setValue(1);
 }
 
-export function StateDot({ s, size = 7, testID }: { s: Dot; size?: number; testID?: string }) {
+export function StateDot({ s, size = 7, testID, pulse: breathe }: { s: Dot; size?: number; testID?: string; pulse?: boolean }) {
   const reduce = useReduceMotion();
-  const pulse = s === 'running' && !reduce;
+  const pulse = (s === 'running' || breathe) && !reduce;
   const [on, setOn] = useState(false);
 
   useEffect(() => {

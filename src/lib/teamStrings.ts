@@ -8,18 +8,19 @@ export interface TeamStrings {
   /** The sheet's title and the header button that opens it. */
   title: string;
   openTeam: string;
-  /** The Agents section: the agents under the session. */
-  agents: string;
-  tasks: string;
-  /** One agent's line: how much work it holds, or that it holds none. */
-  open: (n: number) => string;
+  /** The one line at the top: how many are under it, and how many work. */
+  agentsLine: (n: number) => string;
+  workingLine: (n: number) => string;
   idle: string;
+  /** A task's own last word: "reported progress · ...", else "answered · ...". */
+  reported: string;
+  /** The line an agent holding nothing gets: "idle · last task #a1b2c3 closed 5m". */
+  lastTask: string;
+  noTaskYet: string;
   /** The folded foot of the task list. */
   closed: (n: number) => string;
-  noAnswer: string;
   /** Nothing under this session yet, and nothing given to it yet. */
   none: string;
-  noTasks: string;
   /** The sheet could not be read. */
   failed: string;
   reading: string;
@@ -32,14 +33,14 @@ export interface TeamStrings {
 const en: TeamStrings = {
   title: 'Team',
   openTeam: 'Team',
-  agents: 'Agents',
-  tasks: 'Tasks',
-  open: (n) => (n === 1 ? '1 open' : `${n} open`),
+  agentsLine: (n) => (n === 1 ? '1 agent' : `${n} agents`),
+  workingLine: (n) => `${n} working`,
   idle: 'idle',
+  reported: 'reported',
+  lastTask: 'last task',
+  noTaskYet: 'no task yet',
   closed: (n) => `${n} closed`,
-  noAnswer: 'No answer yet',
   none: 'No agents under this session yet.',
-  noTasks: 'No tasks yet.',
   failed: 'Its team could not be read.',
   reading: 'Reading its team',
   retry: 'Try again',
@@ -60,14 +61,14 @@ const en: TeamStrings = {
 const tr: TeamStrings = {
   title: 'Ekip',
   openTeam: 'Ekip',
-  agents: 'Ajanlar',
-  tasks: 'Görevler',
-  open: (n) => `${n} açık`,
+  agentsLine: (n) => (n === 1 ? '1 ajan' : `${n} ajan`),
+  workingLine: (n) => `${n} çalışıyor`,
   idle: 'boşta',
+  reported: 'bildirdi',
+  lastTask: 'son görev',
+  noTaskYet: 'henüz görev yok',
   closed: (n) => `${n} kapalı`,
-  noAnswer: 'Henüz cevap yok',
   none: 'Bu oturumun altında henüz ajan yok.',
-  noTasks: 'Henüz görev yok.',
   failed: 'Ekibi okunamadı.',
   reading: 'Ekip okunuyor',
   retry: 'Yeniden dene',
