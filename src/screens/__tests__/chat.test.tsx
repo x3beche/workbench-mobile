@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { FlatList } from 'react-native';
 
+import { ApiError } from '../../api/client';
 import type { Chat } from '../../api/types';
 import { ChatScreen, END_SLACK } from '../ChatScreen';
 
@@ -93,6 +94,21 @@ describe('chat screen', () => {
     expect(toEnd).toHaveBeenCalledWith({ animated: true });
     expect(screen.queryByTestId('jump-to-latest')).toBeNull();
     toEnd.mockRestore();
+  });
+
+  it('a line sent with no network comes back to the box, with one calm line', async () => {
+    (mockClient.say as jest.Mock).mockRejectedValueOnce(
+      new ApiError(0, 'The server could not be reached.'),
+    );
+    await render(<ChatScreen initial={chat} lang="auto" />);
+    await fireEvent.changeText(screen.getByTestId('composer-input'), 'Offline question');
+    await fireEvent.press(screen.getByTestId('send'));
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+    expect(screen.getAllByText('The server could not be reached.')).toHaveLength(1);
+    // The line is not lost: it is back in the box, ready to go when the network is.
+    expect(screen.getByTestId('composer-input')).toHaveDisplayValue('Offline question');
   });
 
   it('counts as at the end within the slack, and sending goes back to the end', async () => {

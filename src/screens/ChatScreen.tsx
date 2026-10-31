@@ -319,12 +319,14 @@ export function ChatScreen({
     void refreshWidget('chat');
     const ctl = new AbortController();
     streams.current.add(ctl);
+    let sent = false;
     try {
       const got = await client.say(
         cid,
         { text, provider: model.provider || undefined, model: model.model || undefined, client: CLIENT },
         { onEvent, signal: ctl.signal },
       );
+      sent = true;
       if (got.queued) {
         setNotice(t.answerWaiting);
         load();
@@ -332,8 +334,14 @@ export function ChatScreen({
       return true;
     } catch (e) {
       if ((e as Error).name === 'AbortError') return true;
-      setError(e instanceof ApiError ? e.message : t.couldNotSend);
-      load();
+      const said = e instanceof ApiError ? e.message : t.couldNotSend;
+      setError(said);
+      // Read what the server has - the line may have landed before the network went - but that read
+      // clears the error on its way in, so the send's own line is said again after it.
+      void load().then(
+        () => mounted.current && setError(said),
+        () => undefined,
+      );
       return false;
     } finally {
       streams.current.delete(ctl);
@@ -341,7 +349,8 @@ export function ChatScreen({
       void refreshWidget('chat');
       if (mounted.current) {
         setPending(null);
-        setTimeout(() => mounted.current && !streams.current.size && load(), 300);
+        // A line that did not go is not followed by a read that would wipe the line saying why.
+        if (sent) setTimeout(() => mounted.current && !streams.current.size && load(), 300);
         onChanged?.();
       }
     }
