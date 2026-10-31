@@ -31,6 +31,7 @@ import {
 } from '../wbo';
 import { wboStrings } from '../wboStrings';
 import { stepLabel } from '../steps';
+import { took, tookFor, workedFor } from '../wboPanel';
 
 const en = wboStrings('en');
 const tr = wboStrings('tr');
@@ -535,5 +536,29 @@ describe('how the run came', () => {
     expect(came([step('m2', { time: 1000, done: null })])).toBeNull();
     // A provider this app does not name is its own id; the named one reads as a person says it.
     expect(came([step('m3', { time: 1, first: 2, done: 3, provider: 'opencode-go' })])!.provider).toBe('OpenCode Go');
+  });
+});
+
+describe('wboPanel workedFor and tookFor elapsed times', () => {
+  it('formats elapsed time correctly when since is in milliseconds', () => {
+    const since = 1_800_000_000_000;
+    const now = since + 165_000; // 2 min 45 sec
+    expect(workedFor(since, now)).toBe('2:45');
+  });
+
+  it('formats elapsed time correctly when since is in seconds (guards seconds vs ms mixup)', () => {
+    const sinceSec = 1_800_000_000;
+    const nowMs = sinceSec * 1000 + 165_000; // 2 min 45 sec
+    expect(workedFor(sinceSec, nowMs)).toBe('2:45');
+  });
+
+  it('returns empty string when since is null or 0', () => {
+    expect(workedFor(null, 1_800_000_000_000)).toBe('');
+    expect(workedFor(0, 1_800_000_000_000)).toBe('');
+  });
+
+  it('took formats durations concisely', () => {
+    expect(took(45_000)).toBe('45s');
+    expect(took(165_000)).toBe('2m 45s');
   });
 });

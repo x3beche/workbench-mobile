@@ -104,10 +104,13 @@ export function stateWord(p: WboPanel, t: WboStrings): string {
   return t.idle;
 }
 
-/** "2:41" while it works: minutes and seconds, unbounded minutes. */
+/** "2:41" while it works: minutes and seconds, unbounded minutes.
+ * Handles `since` in either epoch milliseconds or epoch seconds, and ignores zero/invalid values. */
 export function workedFor(since: number | null, now: number): string {
-  if (!since) return '';
-  const s = Math.max(0, Math.round((now - since) / 1000));
+  if (!since || since <= 0) return '';
+  const sinceMs = since < 1e11 ? since * 1000 : since;
+  const nowMs = now < 1e11 ? now * 1000 : now;
+  const s = Math.max(0, Math.round((nowMs - sinceMs) / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
@@ -206,7 +209,9 @@ export function took(ms: number): string {
 
 export function tookFor(r: PanelRecentCall, now: number): string {
   if (r.start == null) return '';
-  return took((r.end ?? now) - r.start);
+  const startMs = r.start < 1e11 ? r.start * 1000 : r.start;
+  const endMs = r.end == null ? (now < 1e11 ? now * 1000 : now) : (r.end < 1e11 ? r.end * 1000 : r.end);
+  return took(endMs - startMs);
 }
 
 export const STALL_CALL_MS = 180_000;
