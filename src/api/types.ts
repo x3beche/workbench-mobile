@@ -906,6 +906,45 @@ export interface AgentLinks {
   max_depth: number;
 }
 
+/** One agent under a manager (backend/agents_mcp.py, GET /api/agents/team/{manager}): the state the Chat's
+ *  drawer already shows it by, its window and the work it holds. `context` and `open_tasks` arrive in more than
+ *  one shape and lib/team.ts reads either. */
+export interface TeamAgent {
+  agent: string;
+  kind: string;
+  name: string;
+  computer: string | null;
+  directory: string | null;
+  state: string;
+  last: number | null;
+  context: unknown;
+  /** 1 directly under the manager, 2 under one of those. */
+  level: number;
+  open_tasks: unknown;
+}
+
+/** One task the manager gave one of its agents: worked out from the line it sent and the agent's state. */
+export interface TeamTask {
+  task: string;
+  agent: string;
+  agent_name: string;
+  title: string;
+  status: string;
+  answer?: string | null;
+  answer_at?: number | null;
+  created: number;
+  updated: number;
+  outcome?: string | null;
+  note?: string | null;
+}
+
+/** A manager session's whole team, as its right-hand column reads it. */
+export interface TeamAnswer {
+  manager?: string;
+  agents: TeamAgent[];
+  tasks: TeamTask[];
+}
+
 /** How much of an answer's work a conversation shows (lib/chatDetail.ts, Settings > Chat). */
 export type ChatDetail = 'compact' | 'normal' | 'detailed';
 

@@ -49,9 +49,11 @@ import { Markdown } from '../components/Markdown';
 import { NewBelow } from '../components/NewBelow';
 import { ActionList, Sheet } from '../components/Sheet';
 import { StateDot } from '../components/StateDot';
+import { TeamSheet } from '../components/TeamSheet';
 import { EmptyState, ErrorText, Glyph, IconButton, LoadError, wrapAnywhere } from '../components/ui';
 import { PictureViewer, WbcThumb } from '../components/WbcPicture';
 import { bottomReader, followBottom, KEEP_PLACE } from '../lib/stickBottom';
+import { teamStrings } from '../lib/teamStrings';
 import {
   admit,
   IMAGE_RULES,
@@ -75,7 +77,8 @@ import { readPictureHead } from '../lib/pictureFile';
 import type { WbcStrings } from '../lib/wbcStrings';
 import { inFront } from '../live/hub';
 import { useBus, useLive } from '../live/LiveContext';
-import { colors, fonts, gutter, indicatorStyle, motion, radius, space, type } from '../theme/tokens';
+import { colors, fonts, gutter, indicatorStyle, motion, radius, space, touch, type } from '../theme/tokens';
+import { uiLang } from '../update/strings';
 import type { VoiceMode } from '../voice/voice';
 
 /** While a session is active (or wb-claude holds it), it is read this often: the gateway tells nobody of a new turn. */
@@ -96,9 +99,11 @@ export function ClaudeSessionScreen({
   lang,
   voiceMode = 'record',
   wide = false,
+  teamCount = 0,
   onMenu,
   onClose,
   onChanged,
+  onOpenAgent,
 }: {
   sid: string;
   client: WorkbenchClient | null;
@@ -109,11 +114,18 @@ export function ClaudeSessionScreen({
   lang: VoiceLang;
   voiceMode?: VoiceMode;
   wide?: boolean;
+  /** How many sessions are under this one: the Team button is there only for a manager (docs/AGENTS.md). */
+  teamCount?: number;
   onMenu?: () => void;
   onClose?: () => void;
   /** Its state changed (the drawer's row). */
   onChanged?: () => void;
+  /** A row of its Team was tapped: that agent's own session ("wbc:<id>" / "wbo:<id>") takes the screen. */
+  onOpenAgent?: (key: string) => void;
 }) {
+  /** Its Team, in a sheet: the agents under it and the tasks it gave them. */
+  const [team, setTeam] = useState(false);
+  const teamT = useMemo(() => teamStrings(uiLang(lang)), [lang]);
   const [s, setS] = useState<WbcDetail | null>(() => (initial ? { ...initial, messages: [], mark: MARK } : null));
   const [turns, setTurns] = useState<WbcTurn[] | null>(null);
   const [more, setMore] = useState(false);
@@ -400,7 +412,25 @@ export function ClaudeSessionScreen({
         onMenu={onMenu}
         menuTestID="wbc-open-drawer"
         titleTestID="wbc-title"
-        right={<IconButton icon={X} label={t.back} onPress={() => onClose?.()} testID="wbc-close" />}
+        right={
+          <>
+            {/* Only a manager has a team: the agents it was given, and the work it gave them. */}
+            {teamCount > 0 ? (
+              <Pressable
+                onPress={() => setTeam(true)}
+                accessibilityRole="button"
+                accessibilityLabel={teamT.openTeam}
+                accessibilityHint={teamT.agents}
+                hitSlop={8}
+                style={st.teamBtn}
+                testID="wbc-team"
+              >
+                <Text style={st.teamText}>{teamT.openTeam}</Text>
+              </Pressable>
+            ) : null}
+            <IconButton icon={X} label={t.back} onPress={() => onClose?.()} testID="wbc-close" />
+          </>
+        }
         sub={
           <>
             {dot ? <StateDot s={dot} /> : null}
@@ -560,6 +590,19 @@ export function ClaudeSessionScreen({
       ) : null}
       {zoom ? (
         <PictureViewer uri={zoom} label={t.showWhole} closeLabel={t.close} onClose={() => setZoom(null)} />
+      ) : null}
+      {team ? (
+        <TeamSheet
+          client={client}
+          sid={sid}
+          t={teamT}
+          sub={s?.name || undefined}
+          onClose={() => setTeam(false)}
+          onOpenAgent={(key) => {
+            setTeam(false);
+            onOpenAgent?.(key);
+          }}
+        />
       ) : null}
     </SafeAreaView>
   );
@@ -740,6 +783,8 @@ const st = StyleSheet.create({
   moreText: { flexShrink: 1, fontSize: type.micro, color: colors.inkDim },
   moreOpen: { fontSize: type.micro, color: colors.accent },
   moreGone: { marginTop: space.xs, fontSize: type.micro, color: colors.warn },
+  teamBtn: { minHeight: touch, justifyContent: 'center', paddingHorizontal: space.sm },
+  teamText: { fontFamily: fonts.sansMedium, fontSize: type.small, color: colors.inkDim },
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
   state: { fontFamily: fonts.sansMedium, color: colors.ink },

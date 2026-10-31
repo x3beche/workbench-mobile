@@ -64,6 +64,7 @@ import { knownRooms } from '../lib/rooms';
 import { SIDE_EMPTY, withDetail, withFold, withPin, withRoomsFold, type RoomsFold } from '../lib/side';
 import { agentStrings } from '../lib/agentStrings';
 import { linkMap, type LinkMap } from '../lib/agents';
+import { countUnder } from '../lib/team';
 import { wbcStrings } from '../lib/wbcStrings';
 import { wboStrings } from '../lib/wboStrings';
 import { inFront } from '../live/hub';
@@ -883,6 +884,8 @@ export function Workspace({
 
   const suggestions = useMemo(() => suggestionsFrom(ideas), [ideas]);
   const start = ideas?.start ?? (chats?.[0] ? { provider: chats[0].provider, model: chats[0].model } : null);
+  /** How many agents hang under the open Claude session: only a manager's bar has the Team button. */
+  const teamCount = agentLinks && wbcOpen ? countUnder(agentLinks.links, `wbc:${wbcOpen}`) : 0;
 
   const shown = scope === 'live' ? chats : scoped?.scope === scope ? scoped.chats : null;
 
@@ -962,8 +965,15 @@ export function Workspace({
               lang={lang}
               voiceMode={voiceMode}
               wide={wide}
+              teamCount={teamCount}
               onMenu={() => setDrawer(true)}
               onClose={() => setWbcOpen(null)}
+              onOpenAgent={(key) => {
+                const [kind, id] = key.split(':');
+                if (!id) return;
+                if (kind === 'wbo') openWbo(id);
+                else openWbc(id);
+              }}
             />
           </Appear>
         ) : wboOpen ? (

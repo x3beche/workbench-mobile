@@ -52,6 +52,7 @@ import type {
   SideGroup,
   SidePrefs,
   ChatDetail,
+  TeamAnswer,
   WbcDetail,
   WbcMessage,
   WboAnswer,
@@ -769,6 +770,12 @@ export class WorkbenchClient {
   /** Put `worker` under `manager` (null: on its own again). The server's 409 says why it may not. */
   setAgentLink(worker: string, manager: string | null): Promise<AgentLinks> {
     return this.request<AgentLinks>('PUT', '/api/agents/links', { worker, manager });
+  }
+
+  /** A manager session's team: the agents under it and the tasks it gave them, as its tools see them
+   *  (GET /api/agents/team/{manager}, backend/agents_mcp.py). Only one's own session is answered. */
+  agentTeam(manager: string): Promise<TeamAnswer> {
+    return this.request<TeamAnswer>('GET', `/api/agents/team/${encodeURIComponent(manager)}`);
   }
 
   /** One session: its last messages, the lines sent from Workbench, what it asks, who may write. */
