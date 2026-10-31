@@ -344,6 +344,26 @@ async function open(p: WboPanel) {
     expect(client.wboSession).toHaveBeenCalled();
   });
 
+  it('asks one question at a time when the server is slow', async () => {
+    jest.useFakeTimers();
+    const client = await open(panel());
+    const waits: ((v: WboPanel) => void)[] = [];
+    (client.wboPanel as jest.Mock).mockImplementation(() => new Promise((res) => waits.push(res)));
+    await act(async () => {
+      jest.advanceTimersByTime(15_000);
+    });
+    expect(waits.length).toBe(1);
+    await act(async () => {
+      waits[0](panel());
+      await Promise.resolve();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(5_000);
+    });
+    expect(waits.length).toBe(2);
+    jest.useRealTimers();
+  });
+
   it('reads nothing while the phone is in the background, and reads again in front', async () => {
     jest.useFakeTimers();
     const client = await open(panel());

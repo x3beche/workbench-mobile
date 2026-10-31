@@ -114,6 +114,42 @@ describe('WorkbenchClient.request', () => {
     expect(lost).toHaveBeenCalledTimes(1);
   });
 
+  it('takes a slow answer - ten seconds - without a word', async () => {
+    jest.useFakeTimers();
+    const f = fakeFetch(
+      (_url, init) =>
+        new Promise((resolve, reject) => {
+          const t = setTimeout(() => resolve(jsonResponse(200, [])), 10_000);
+          init.signal?.addEventListener('abort', () => {
+            clearTimeout(t);
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          });
+        }),
+    );
+    const c = new WorkbenchClient(BASE, { fetch: f.fetch });
+    const p = c.listChats();
+    jest.advanceTimersByTime(10_000);
+    await expect(p).resolves.toEqual([]);
+    jest.useRealTimers();
+  });
+
+  it('gives up at twenty seconds with a calm line, not a crash', async () => {
+    jest.useFakeTimers();
+    const f = fakeFetch(
+      (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () =>
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+          );
+        }),
+    );
+    const c = new WorkbenchClient(BASE, { fetch: f.fetch });
+    const p = c.listChats().catch((e) => e);
+    jest.advanceTimersByTime(20_000);
+    expect(await p).toMatchObject({ status: 0, message: 'The server took too long to answer.' });
+    jest.useRealTimers();
+  });
+
   it('says when the server cannot be reached', async () => {
     const c = new WorkbenchClient(BASE, {
       fetch: async () => {

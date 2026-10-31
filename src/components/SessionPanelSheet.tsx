@@ -102,16 +102,27 @@ function SessionPanel({
   useEffect(() => {
     if (!client) return;
     let live = true;
-    const read = () =>
-      client.wboPanel(sid).then(
+    // One read at a time: a server that takes ten seconds gets one question in ten seconds, not
+    // two every five (and no older answer can land on a newer one).
+    let busy = false;
+    const read = () => {
+      if (busy) return;
+      busy = true;
+      return client.wboPanel(sid).then(
         (got) => {
+          busy = false;
           if (!live) return;
           setPanel(got);
           setError(null);
           setNow(Date.now());
         },
-        (e) => live && setError(e instanceof ApiError ? e.message : t.columnFailed),
+        (e) => {
+          busy = false;
+          if (!live) return;
+          setError(e instanceof ApiError ? e.message : t.columnFailed);
+        },
       );
+    };
     void read();
     const timer = setInterval(() => {
       // A phone in a pocket reads nothing: the sheet's five-second tick waits for the front.
