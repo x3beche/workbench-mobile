@@ -62,6 +62,7 @@ import type {
   WboSend,
   WboSession,
   WbcSession,
+  WbcTurnText,
   WbcTurnsPage,
 } from './types';
 
@@ -684,6 +685,15 @@ export class WorkbenchClient {
   wbcTurns(sid: string, limit: number, before?: number | null): Promise<WbcTurnsPage> {
     const back = before ? `&before=${encodeURIComponent(String(before))}` : '';
     return this.request<WbcTurnsPage>('GET', `/api/wbc/sessions/${encodeURIComponent(sid)}/turns?limit=${limit}${back}`);
+  }
+
+  /** The whole of one turn - the rest of a long answer or a long paste (its own route: a page cannot carry
+   *  megabytes). `available` false when only the first characters of it are kept. */
+  wbcTurnText(sid: string, rid: string, role: 'user' | 'assistant'): Promise<WbcTurnText> {
+    return this.request<WbcTurnText>(
+      'GET',
+      `/api/wbc/sessions/${encodeURIComponent(sid)}/turns/${encodeURIComponent(rid)}/text?role=${role}`,
+    );
   }
 
   /**

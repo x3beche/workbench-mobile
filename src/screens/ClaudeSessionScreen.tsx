@@ -627,8 +627,50 @@ function TurnRow({
   onZoom: (uri: string) => void;
 }) {
   const paths = (turn.images ?? []).map((p) => client?.wbcTurnImagePath(sid, p.req, p.n) ?? '');
+  // The whole of it, once somebody asked: a page of turns carries the first part of a long one and says how
+  // much more there is (backend/wbclaude.py) - the answer is never cut in silence.
+  const [full, setFull] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [gone, setGone] = useState<number | null>(null);
+  useEffect(() => {
+    setFull(null);
+    setGone(null);
+    setBusy(false);
+  }, [turn.id, turn.role, turn.text]);
+  const more = Math.max(0, (turn.full_len ?? turn.text.length) - turn.text.length);
+  const openable = !!turn.truncated && more > 0 && full === null && gone === null;
+  const open = async () => {
+    if (!client || busy) return;
+    setBusy(true);
+    try {
+      const got = await client.wbcTurnText(sid, turn.id, turn.role);
+      if (got.text) setFull(got.text);
+      if (!got.available) setGone(got.kept || got.text.length || turn.text.length);
+    } catch {
+      setGone(turn.text.length);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const words = full ?? turn.text;
+  const moreLine = openable ? (
+    <Pressable onPress={open} disabled={busy} accessibilityRole="button" style={st.more} testID="wbc-more">
+      <Text style={st.moreText} numberOfLines={1}>
+        {busy ? t.readingWhole : t.moreChars(more.toLocaleString())}
+      </Text>
+      {busy ? null : <Text style={st.moreOpen}>{t.showAll}</Text>}
+    </Pressable>
+  ) : gone !== null ? (
+    <Text style={st.moreGone} testID="wbc-more-gone">
+      {t.onlyFirst(gone.toLocaleString())}
+    </Text>
+  ) : turn.maybe ? (
+    <Text style={st.moreGone} testID="wbc-more-maybe">
+      {t.maybeCut}
+    </Text>
+  ) : null;
   if (turn.role === 'user') {
-    const words = unmark(turn.text, mark);
+    const shown = unmark(words, mark);
     return (
       <View style={[st.msgRow, st.user]} testID="wbc-turn-user">
         {turn.remote ? (
@@ -636,19 +678,21 @@ function TurnRow({
             {t.fromWorkbench}
           </Text>
         ) : null}
-        {words ? (
+        {shown ? (
           <Text style={[st.userText, wrapAnywhere]} selectable>
-            {words}
+            {shown}
           </Text>
         ) : null}
+        {moreLine}
         {paths.length ? <Pics paths={paths} client={client} t={t} onZoom={onZoom} right /> : null}
       </View>
     );
   }
   return (
     <View style={[st.msgRow, same && st.sameRow]} testID="wbc-turn-answer">
-      <Markdown text={turn.text} />
+      <Markdown text={words} />
       {turn.cut ? <Text style={st.headText}>{t.cut}</Text> : null}
+      {moreLine}
       {paths.length ? <Pics paths={paths} client={client} small t={t} onZoom={onZoom} note={t.readByTool} /> : null}
     </View>
   );
@@ -689,6 +733,13 @@ function PendingRow({
 }
 
 const st = StyleSheet.create({
+  /* the line under a text that is longer than the page carried: how much more there is, and the way to it */
+  more: { flexDirection: 'row', alignItems: 'baseline', gap: space.sm, alignSelf: 'flex-start', marginTop: space.xs,
+          paddingHorizontal: space.sm, paddingVertical: 2, borderWidth: 1, borderStyle: 'dashed',
+          borderColor: colors.line, borderRadius: radius.sm },
+  moreText: { flexShrink: 1, fontSize: type.micro, color: colors.inkDim },
+  moreOpen: { fontSize: type.micro, color: colors.accent },
+  moreGone: { marginTop: space.xs, fontSize: type.micro, color: colors.warn },
   safe: { flex: 1, backgroundColor: colors.surface },
   flex: { flex: 1 },
   state: { fontFamily: fonts.sansMedium, color: colors.ink },

@@ -674,6 +674,23 @@ export interface WbcTurn {
   model?: string;
   cut?: boolean;
   images?: WbcPic[];
+  /** The text here is the first part of a longer one (`full_len` characters): the rest is asked for on its own
+   *  (backend/wbclaude.py, GET .../turns/{id}/text) - never cut in silence. */
+  truncated?: boolean;
+  full_len?: number;
+  /** An older gateway that says nothing about a text of exactly its old bound may have cut it. */
+  maybe?: boolean;
+}
+
+/** GET /api/wbc/sessions/{sid}/turns/{rid}/text: the whole of one turn; `available` false when only the
+ *  first characters of it are kept (`kept`). */
+export interface WbcTurnText {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  full_len: number;
+  available: boolean;
+  kept: number;
 }
 
 /** GET /api/wbc/sessions/{sid}/turns: a page, newest last; `before` asks for the page above. */

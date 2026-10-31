@@ -31,6 +31,12 @@ export interface WbcStrings {
   picturesGone: string;
   pictureGone: string;
   showWhole: string;
+  /** A text longer than the page carried: how much more there is, and what is left when nothing more is kept. */
+  moreChars: (n: string) => string;
+  showAll: string;
+  onlyFirst: (n: string) => string;
+  maybeCut: string;
+  readingWhole: string;
   picture: (n: number) => string;
   close: string;
   nothingYet: string;
@@ -114,6 +120,11 @@ const en: WbcStrings = {
   picturesGone: 'pictures no longer kept',
   pictureGone: 'That picture is no longer kept.',
   showWhole: 'Show the whole picture',
+  moreChars: (n) => `… ${n} more characters`,
+  showAll: 'Show all',
+  onlyFirst: (n) => `Only the first ${n} characters of this one were kept.`,
+  maybeCut: 'It may be cut short: the gateway that sent it kept only a part.',
+  readingWhole: 'Reading the whole of it…',
   picture: (n) => `Picture ${n}`,
   close: 'Close',
   nothingYet: 'Nothing recorded yet: prompts and answers appear here as the session uses the Claude pool.',
@@ -189,6 +200,11 @@ const tr: WbcStrings = {
   picturesGone: 'resimler artık saklanmıyor',
   pictureGone: 'Bu resim artık saklanmıyor.',
   showWhole: 'Resmin tamamını göster',
+  moreChars: (n) => `… ${n} karakter daha`,
+  showAll: 'Tamamını göster',
+  onlyFirst: (n) => `Bunun sadece ilk ${n} karakteri saklanmış.`,
+  maybeCut: 'Kesilmiş olabilir: gönderen gateway yalnızca bir kısmını saklamış.',
+  readingWhole: 'Tamamı okunuyor…',
   picture: (n) => `Resim ${n}`,
   close: 'Kapat',
   nothingYet: 'Henüz kayıt yok: oturum Claude havuzunu kullandıkça istemler ve yanıtlar burada görünür.',

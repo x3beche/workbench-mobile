@@ -397,3 +397,51 @@ const scrollOf = (y: number) => ({
     expect(onWbc).toHaveBeenCalledWith('s2');
   });
 });
+
+// ---------------------------------------------------------------- a text longer than the page carried
+
+describe('a long answer on the phone', () => {
+  const LONG: WbcTurn[] = [
+    { id: 'r9', role: 'user', text: 'write the whole plan', at: NOW - 60 },
+    { id: 'r10', role: 'assistant', text: 'A'.repeat(12_000), at: NOW - 50, model: 'claude-opus-5-5',
+      truncated: true, full_len: 30_000 },
+  ];
+
+  const withTurns = (turns: WbcTurn[], text: jest.Mock) => {
+    const c = client();
+    c.wbcTurns.mockImplementation(async () => ({ turns, more: false, before: null }));
+    (c as unknown as { wbcTurnText: jest.Mock }).wbcTurnText = text;
+    return c;
+  };
+
+  it('says how much more there is, and puts the whole of it where the part was', async () => {
+    const text = jest.fn(async () => ({ id: 'r10', role: 'assistant' as const, text: 'B'.repeat(30_000),
+                                        full_len: 30_000, available: true, kept: 30_000 }));
+    const c = withTurns(LONG, text);
+    await open(c);
+    const more = screen.getByTestId('wbc-more');
+    expect(more).toHaveTextContent(/18,000 more characters/);
+    await fireEvent.press(more);
+    await act(async () => undefined);
+    expect(text).toHaveBeenCalledWith('s1', 'r10', 'assistant');
+    expect(screen.queryByTestId('wbc-more')).toBeNull();
+    expect(screen.getByText(/^B+$/)).toBeTruthy();
+  });
+
+  it('says what is left when the whole of it is no longer kept', async () => {
+    const text = jest.fn(async () => ({ id: 'r10', role: 'assistant' as const, text: 'A'.repeat(4000),
+                                        full_len: 30_000, available: false, kept: 4000 }));
+    const c = withTurns(LONG, text);
+    await open(c);
+    await fireEvent.press(screen.getByTestId('wbc-more'));
+    await act(async () => undefined);
+    expect(screen.getByTestId('wbc-more-gone')).toHaveTextContent(/only the first 4,000 characters/i);
+  });
+
+  it('draws nothing under a text that is whole', async () => {
+    const c = withTurns([{ id: 'r1', role: 'assistant', text: 'short', at: NOW }], jest.fn());
+    await open(c);
+    expect(screen.queryByTestId('wbc-more')).toBeNull();
+    expect(screen.queryByTestId('wbc-more-gone')).toBeNull();
+  });
+});
