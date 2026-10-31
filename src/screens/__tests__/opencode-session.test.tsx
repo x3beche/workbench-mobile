@@ -341,6 +341,26 @@ async function show(d: WboDetail, t = en) {
     expect(screen.getByTestId('wbo-state')).toHaveTextContent(/OpenCode · ada-laptop/);
   });
 
+  it('says nothing about an old wb-opencode that keeps itself current', async () => {
+    await show(detail({ bridge: { ...row().bridge!, outdated: true, latest: '0.3.0', self_updates: true } }));
+    expect(screen.queryByTestId('wbo-flag')).toBeNull();
+  });
+
+  it('says an MCP server of that computer that is down beside it', async () => {
+    await show(
+      detail({
+        bridge: {
+          ...row().bridge!,
+          mcp: [
+            { name: 'workbench', status: 'connected' },
+            { name: 'files', status: 'failed' },
+          ],
+        },
+      }),
+    );
+    expect(screen.getByTestId('wbo-flag')).toHaveTextContent('MCP 1/2');
+  });
+
   it('answers what OpenCode asks from the phone', async () => {
     const { client } = await show(detail());
     expect(screen.getByText('Which fix?')).toBeTruthy();

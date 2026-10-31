@@ -432,12 +432,14 @@ export function OpencodeSessionScreen({
 
   /** The detail setting's words, in the app's language. */
   const dw = chatDetailStrings(uiLang(lang));
-  const dot = wboDot(s);
+  /** The dot's colour is the connection as well as the run: a hairline grey while that computer is away. */
+  const dot = wboDot(s) ?? (s?.bridge && !s.bridge.connected ? 'stopped' : null);
   // Where it runs is the header's business now (the sheet keeps the folder): "OpenCode · x33-workstation".
   const computerName = s?.bridge?.host || s?.computer || '';
   const sub = [t.opencode, computerName].filter(Boolean).join(' · ');
-  /** A newer wb-opencode (connected or not), or an MCP server that fell off: one small warn word in the line. */
-  const subFlag = s?.bridge?.outdated
+  /** A newer wb-opencode (connected or not; one that updates itself says nothing), or an MCP server that fell
+   *  off: one small warn word in the line. */
+  const subFlag = s?.bridge?.outdated && !s.bridge.self_updates
     ? { text: t.updateShort, tip: t.updateWboLong }
     : s?.bridge ? footFlag(s.bridge) : null;
   const canAnswer = (a: WboAsk) => a.status === 'pending' && !a.local && !!s?.may_send;
