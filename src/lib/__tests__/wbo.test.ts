@@ -31,7 +31,7 @@ import {
 } from '../wbo';
 import { wboStrings } from '../wboStrings';
 import { stepLabel } from '../steps';
-import { took, tookFor, workedFor } from '../wboPanel';
+import { took, workedFor } from '../wboPanel';
 
 const en = wboStrings('en');
 const tr = wboStrings('tr');

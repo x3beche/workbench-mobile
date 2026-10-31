@@ -6,6 +6,7 @@
  * under an old wb-claude, one that cannot be written to, and the wide layout.
  * Run by scripts/shots.sh with SHOTS=claude.
  */
+const { Buffer } = require('node:buffer');
 const fs = require('fs');
 const puppeteer = require('puppeteer');
 

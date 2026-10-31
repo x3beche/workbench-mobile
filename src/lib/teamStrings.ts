@@ -8,6 +8,8 @@ export interface TeamStrings {
   /** The sheet's title and the header button that opens it. */
   title: string;
   openTeam: string;
+  /** The Team button's own word (its accessibility hint). */
+  agents: string;
   /** The one line at the top: how many are under it, and how many work. */
   agentsLine: (n: number) => string;
   workingLine: (n: number) => string;
@@ -37,6 +39,7 @@ export interface TeamStrings {
 const en: TeamStrings = {
   title: 'Team',
   openTeam: 'Team',
+  agents: 'Agents',
   agentsLine: (n) => (n === 1 ? '1 agent' : `${n} agents`),
   workingLine: (n) => `${n} working`,
   idle: 'idle',
@@ -67,6 +70,7 @@ const en: TeamStrings = {
 const tr: TeamStrings = {
   title: 'Ekip',
   openTeam: 'Ekip',
+  agents: 'Ajanlar',
   agentsLine: (n) => (n === 1 ? '1 ajan' : `${n} ajan`),
   workingLine: (n) => `${n} çalışıyor`,
   idle: 'boşta',

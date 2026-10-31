@@ -7,6 +7,7 @@
  * then waits while "Claude works", is delivered and shows as a remote prompt
  * with an answer, each step told on the bus (`wbc`).
  */
+import { Buffer } from 'node:buffer';
 import { deflateSync } from 'node:zlib';
 
 import { publish } from './mock-s2.mjs';

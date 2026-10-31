@@ -53,6 +53,7 @@ export const widgetTaskHandler: WidgetTaskHandler = async ({ widgetAction, widge
       lang={lang}
       state={state}
       staleAfter={STALE_MS}
+      now={Date.now()}
     />,
   );
 };

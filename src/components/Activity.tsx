@@ -39,7 +39,6 @@ import {
   METRICS,
   RANGES,
   SOURCES,
-  actSpan,
   cpu,
   everyMs,
   isActRange,

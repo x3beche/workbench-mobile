@@ -765,7 +765,6 @@ const TOOL_SOURCES = [
   { id: 'opencode', label: 'OpenCode', color: colors.series6 },
 ] as const;
 type ExtId = 'claude' | 'opencode';
-const extWeek = (x: ExtToolUses | null | undefined) => (x ? Object.values(x.tools).reduce((a, v) => a + v.week, 0) : 0);
 const bucketSum = (by: Record<string, number> | undefined) => Object.values(by ?? {}).reduce((a, n) => a + n, 0);
 
 /**

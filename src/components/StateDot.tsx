@@ -10,7 +10,7 @@
  * always in the same phase - a dot given its own loop started whenever its row
  * was drawn, and two rows side by side were in opposite halves of the breath.
  */
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Animated, Easing, StyleSheet } from 'react-native';
 
 import type { Dot } from '../lib/orchestrator';
@@ -68,16 +68,10 @@ function release(): void {
 export function StateDot({ s, size = 7, testID, pulse: breathe }: { s: Dot; size?: number; testID?: string; pulse?: boolean }) {
   const reduce = useReduceMotion();
   const pulse = (s === 'running' || breathe) && !reduce;
-  const [on, setOn] = useState(false);
-
   useEffect(() => {
     if (!pulse) return;
     acquire();
-    setOn(true);
-    return () => {
-      setOn(false);
-      release();
-    };
+    return release;
   }, [pulse]);
 
   return (
@@ -87,7 +81,7 @@ export function StateDot({ s, size = 7, testID, pulse: breathe }: { s: Dot; size
       style={[
         s_.dot,
         { width: size, height: size, borderRadius: size / 2, backgroundColor: INK[s] },
-        on ? { opacity, transform: [{ scale }] } : null,
+        pulse ? { opacity, transform: [{ scale }] } : null,
       ]}
     />
   );

@@ -813,11 +813,13 @@ export interface WboMsg {
   id: string;
   role: 'user' | 'assistant' | 'system';
   agent?: string | null;
-  model?: string | null;
+  /** The model a message ran on: its id, or the whole selected model on a `model-switched` system line. */
+  model?: string | WboSelectedModel | null;
   /** The model's provider as OpenCode names it ("workbench", "opencode"...). */
   provider?: string | null;
   type?: string;
-  previous?: WboSelectedModel | null;
+  /** On a `model-switched` line: the model it was on, and who switched it. */
+  previous?: string | WboSelectedModel | null;
   by?: string;
   time: number | null;
   /** When its first token (thinking or text) came. */

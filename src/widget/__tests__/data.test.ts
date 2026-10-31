@@ -1,6 +1,6 @@
 /** What the home screen widget counts: the web Chat tab's two cards, from the same two routes. */
 import type { LlmSummary, ToolsUsage } from '../../api/types';
-import { modelDays, snapshotOf, toolDays, toolKinds, toolSwitchboard, toolWeek, toolMonth, hasToolMonth } from '../data';
+import { modelDays, snapshotOf, toolDays, toolKinds, toolSwitchboard, toolWeek } from '../data';
 import { widgetTexts } from '../StatsWidget';
 import { settingsStrings } from '../../lib/settingsStrings';
 

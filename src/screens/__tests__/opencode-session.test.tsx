@@ -185,6 +185,10 @@ function fakeClient(d: WboDetail) {
       inbox: null,
     })),
     wboMessageImagePath: (s: string, m: string, n: number) => `/api/wbo/sessions/${s}/messages/${m}/images/${n}`,
+    wboSelectModel: jest.fn(async (_s: string, body: { providerID: string; modelID: string; variant?: string }) => ({
+      ok: true,
+      selected_model: { ...body, name: 'Model 1' },
+    })),
     s2Streams: jest.fn(async () => true),
     // The app's own models, for the window a run's model has (no Context row here).
     models: jest.fn(async () => []),
@@ -230,7 +234,6 @@ async function show(d: WboDetail, t = en) {
       ],
     });
     const { client } = await show(s);
-    client.wboSelectModel = jest.fn(async () => ({ ok: true, selected_model: { providerID: 'workbench', modelID: 'm-1', name: 'Model 1' } }));
     expect(screen.getByTestId('wbo-model-picker')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('wbo-model-picker'));
     expect(screen.getByText('Model 1')).toBeTruthy();
@@ -251,8 +254,8 @@ async function show(d: WboDetail, t = en) {
   it('draws a system line when model is switched', async () => {
     const s = detail({
       messages: [
-        { id: 'msg_1', role: 'user', time: 1000, parts: [{ id: 't0', type: 'text', text: 'hi' }] },
-        { id: 'msg_sw', role: 'system', type: 'model-switched', time: 1500, model: { modelID: 'm-new', name: 'Model New', providerID: 'p' }, previous: { modelID: 'm-old', name: 'Model Old', providerID: 'p' }, by: 'chat', parts: [] },
+        { id: 'msg_1', role: 'user', time: 1000, done: null, parts: [{ id: 't0', type: 'text', text: 'hi' }] },
+        { id: 'msg_sw', role: 'system', type: 'model-switched', time: 1500, done: null, model: { modelID: 'm-new', name: 'Model New', providerID: 'p' }, previous: { modelID: 'm-old', name: 'Model Old', providerID: 'p' }, by: 'chat', parts: [] },
       ],
     });
     await show(s);
