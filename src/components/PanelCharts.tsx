@@ -9,7 +9,7 @@
  *
  * The server works the numbers out (backend/wb_panel.py's series), so the phone lays out what it is given.
  */
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 
@@ -130,11 +130,12 @@ export function FlowStrip({
   const H = 44;
   const STRIP_H = 34;
   const spans = useMemo(() => (series?.spans ?? []).filter((s) => s.cat !== 'text'), [series?.spans]);
-  const bands = series?.bands ?? [];
+  // As the series gives it: a fresh [] every render would make every memo under it redo its work.
+  const bands = useMemo(() => series?.bands ?? [], [series?.bands]);
   const win = useMemo(() => windowFor(range, spans, now, working), [range, spans, now, working]);
   const breaks = useMemo(() => breakAt(win, W), [win]);
 
-  const sx = (at: number) => xAt(win, at, W);
+  const sx = useCallback((at: number) => xAt(win, at, W), [win]);
   const sw = (from: number, to: number, min = 0.7) => Math.max(min, sx(to) - sx(from));
 
   const bandsIn = useMemo(
@@ -162,7 +163,7 @@ export function FlowStrip({
     [spans, win],
   );
 
-  const rateItems = series?.rate?.items ?? [];
+  const rateItems = useMemo(() => series?.rate?.items ?? [], [series?.rate?.items]);
   const rateStep = series?.rate?.step ?? 60_000;
   const rateLine = useMemo(() => {
     const rows = rateItems.filter((x) => x.at + rateStep >= win.from && x.at <= win.to);
@@ -176,7 +177,7 @@ export function FlowStrip({
           `${i ? 'L' : 'M'}${sx(r.at).toFixed(1)},${(bottom - (r.n / peak) * (bottom - top)).toFixed(1)}`,
       )
       .join(' ');
-  }, [rateItems, rateStep, win]);
+  }, [rateItems, rateStep, win, sx]);
 
   const stuck = useMemo(() => {
     if (!working) return false;

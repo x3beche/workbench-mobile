@@ -18,7 +18,8 @@ import type { WidgetState } from '../StatsWidget';
 /** What was asked of the launcher, in order: each drawing's state. */
 const drawn: WidgetState[] = [];
 jest.mock('react-native-android-widget', () => {
-  const React = require('react');
+  // jest.requireActual, not require: a factory cannot close over the imports above it (jest hoists it).
+  const React = jest.requireActual('react');
   return {
     __esModule: true,
     // The widget's own primitives, as plain views: a drawing is only looked at here.
@@ -42,9 +43,9 @@ const snapAt = (at: number): WidgetSnapshot => ({
 /** The server's answer, as `source.ts` would bring it back (a mock variable, so the factory may read it). */
 let mockServer: jest.Mock;
 jest.mock('../source', () => {
-  // The device's storage, as `source.ts` uses it (the AsyncStorage mock's own module).
-  const mod = require('@react-native-async-storage/async-storage');
-  const store = mod.default ?? mod;
+  // The device's storage, as `source.ts` uses it: the same jest mock (jest.setup.js installs it).
+  const mod = jest.requireMock('@react-native-async-storage/async-storage');
+  const store = (mod as { default?: typeof mod }).default ?? mod;
   return {
     fetchSnapshot: (...a: unknown[]) => mockServer(...a),
     readSnapshot: jest.fn(async () => {
@@ -58,7 +59,10 @@ jest.mock('../source', () => {
 });
 
 jest.mock('../words', () => ({
-  widgetWords: async () => ({ t: require('../../lib/settingsStrings').settingsStrings('en'), lang: 'en' }),
+  widgetWords: async () => ({
+    t: jest.requireActual('../../lib/settingsStrings').settingsStrings('en'),
+    lang: 'en',
+  }),
 }));
 
 beforeEach(async () => {

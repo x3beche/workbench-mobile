@@ -12,6 +12,15 @@ import * as BackgroundTask from 'expo-background-task';
 import { AppState, Platform } from 'react-native';
 import TestRenderer, { act } from 'react-test-renderer';
 
+import {
+  WIDGET_TASK,
+  WIDGET_TASK_MINUTES,
+  defineWidgetBackgroundTask,
+  registerWidgetBackground,
+} from '../background';
+import { useWidgetOnForeground } from '../presence';
+import { widgetTaskHandler } from '../task';
+
 const mockRefresh = jest.fn(async () => ({ outcome: 'ok', snap: null, at: Date.now() }));
 jest.mock('../refresh', () => ({
   refreshWidget: (...a: unknown[]) => mockRefresh(...(a as [])),
@@ -46,7 +55,10 @@ jest.mock('react-native-android-widget', () => ({
 }));
 
 jest.mock('../words', () => ({
-  widgetWords: async () => ({ t: require('../../lib/settingsStrings').settingsStrings('en'), lang: 'en' }),
+  widgetWords: async () => ({
+    t: jest.requireActual('../../lib/settingsStrings').settingsStrings('en'),
+    lang: 'en',
+  }),
 }));
 
 jest.mock('../log', () => ({
@@ -64,16 +76,6 @@ beforeEach(() => {
 afterEach(() => {
   jest.restoreAllMocks();
 });
-
-// Imported once the mocks above are in place: jest hoists them over these imports.
-import {
-  WIDGET_TASK,
-  WIDGET_TASK_MINUTES,
-  defineWidgetBackgroundTask,
-  registerWidgetBackground,
-} from '../background';
-import { useWidgetOnForeground } from '../presence';
-import { widgetTaskHandler } from '../task';
 
 describe('the background task', () => {
   it('is defined once, and its work is a refresh', async () => {

@@ -360,7 +360,8 @@ function FlowBody({
   onAllRecent: () => void;
 }) {
   const working = panel.session.status === 'busy' || panel.session.status === 'retry';
-  const recent = panel.series?.recent ?? [];
+  // The panel's own list, kept as it is between draws (a fresh [] would redo the memo under it every time).
+  const recent = useMemo(() => panel.series?.recent ?? [], [panel.series?.recent]);
   const lastCall = recent[recent.length - 1];
 
   const step = useMemo(() => {

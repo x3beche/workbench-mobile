@@ -701,28 +701,30 @@ function TurnRow({
 }) {
   const paths = (turn.images ?? []).map((p) => client?.wbcTurnImagePath(sid, p.req, p.n) ?? '');
   // The whole of it, once somebody asked: a page of turns carries the first part of a long one and says how
-  // much more there is (backend/wbclaude.py) - the answer is never cut in silence.
-  const [full, setFull] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [gone, setGone] = useState<number | null>(null);
-  useEffect(() => {
-    setFull(null);
-    setGone(null);
-    setBusy(false);
-  }, [turn.id, turn.role, turn.text]);
+  // much more there is (backend/wbclaude.py) - the answer is never cut in silence. What was read is kept with
+  // the turn it was read for, so another turn arriving in this row (or the same one, longer) starts empty
+  // without an effect to clear it.
+  const at = `${turn.id}:${turn.role}:${turn.text}`;
+  const [whole, setWhole] = useState<{ at: string; text: string } | null>(null);
+  const [goneFor, setGoneFor] = useState<{ at: string; count: number } | null>(null);
+  const [askingAt, setAskingAt] = useState<string | null>(null);
+  const full = whole?.at === at ? whole.text : null;
+  const gone = goneFor?.at === at ? goneFor.count : null;
+  const busy = askingAt === at;
   const more = Math.max(0, (turn.full_len ?? turn.text.length) - (turn.cut_at ?? turn.text.length));
   const openable = !!turn.truncated && more > 0 && full === null && gone === null;
   const open = async () => {
     if (!client || busy) return;
-    setBusy(true);
+    const asked = at;
+    setAskingAt(asked);
     try {
       const got = await client.wbcTurnText(sid, turn.id, turn.role);
-      if (got.text) setFull(got.text);
-      if (!got.available) setGone(got.kept || got.text.length || turn.text.length);
+      if (got.text) setWhole({ at: asked, text: got.text });
+      if (!got.available) setGoneFor({ at: asked, count: got.kept || got.text.length || turn.text.length });
     } catch {
-      setGone(turn.text.length);
+      setGoneFor({ at: asked, count: turn.text.length });
     } finally {
-      setBusy(false);
+      setAskingAt((now) => (now === asked ? null : now));
     }
   };
   const words = full ?? turn.text;

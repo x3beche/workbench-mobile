@@ -153,13 +153,11 @@ export function TeamSheet({
     });
 
   const open = data ? openTasks(data.tasks) : [];
-  /** The closed tasks are opened on the focused one, when that is where it is. */
-  useEffect(() => {
-    if (!data || !focusTask) return;
-    if (closedTasks(data.tasks).some((x) => x.task === focusTask)) setClosedOpen(true);
-    setShown((held) => (held.has(focusTask) ? held : new Set([...held, focusTask])));
-  }, [data, focusTask]);
   const closed = data ? closedTasks(data.tasks) : [];
+  /** The closed tasks are open on the focused one, when that is where it is - read here, not set from an effect. */
+  const closedShown = closedOpen || (!!focusTask && closed.some((x) => x.task === focusTask));
+  /** The focused task's own word is out from the first draw (the sheet is mounted for the task it was asked for). */
+  const wordsOpen = (id: string) => shown.has(id) || id === focusTask;
   const agents = data ? agentsInOrder(data.agents) : [];
   const working = agents.filter((a) => dotTone(a.state) === 'ok').length;
 
@@ -207,6 +205,7 @@ export function TeamSheet({
                   t={t}
                   now={now}
                   shown={shown}
+                  openWord={wordsOpen}
                   focus={focusTask}
                   ctxShown={ctxShown.has(a.agent)}
                   onOpenAgent={onOpenAgent}
@@ -222,16 +221,16 @@ export function TeamSheet({
             {closed.length ? (
               <View style={s.closedBox}>
                 <Pressable
-                  onPress={() => setClosedOpen(!closedOpen)}
+                  onPress={() => setClosedOpen(!closedShown)}
                   accessibilityRole="button"
-                  accessibilityState={{ expanded: closedOpen }}
+                  accessibilityState={{ expanded: closedShown }}
                   style={s.closedHead}
                   testID="team-closed"
                 >
-                  <Glyph icon={closedOpen ? ChevronDown : ChevronRight} size={11} color={colors.inkDim} />
+                  <Glyph icon={closedShown ? ChevronDown : ChevronRight} size={11} color={colors.inkDim} />
                   <Text style={s.dim}>{t.closed(closed.length)}</Text>
                 </Pressable>
-                {closedOpen
+                {closedShown
                   ? groupClosed(agents, closed).map((g) => (
                       <View key={g.agent} testID={`team-closed-group-${g.agent}`}>
                         <Text style={s.closedAgent} numberOfLines={1}>
@@ -267,6 +266,7 @@ function AgentBlock({
   t,
   now,
   shown,
+  openWord,
   focus,
   ctxShown,
   onOpenAgent,
@@ -279,6 +279,8 @@ function AgentBlock({
   t: TeamStrings;
   now: number;
   shown: ReadonlySet<string>;
+  /** Whether a task's own word is out (the tapped ones, and the one the sheet was opened on). */
+  openWord: (id: string) => boolean;
   /** The task a notification row asked for: its row is marked. */
   focus: string | null;
   /** The share's numbers are open under the row. */
@@ -340,7 +342,7 @@ function AgentBlock({
           task={task}
           t={t}
           now={now}
-          open={shown.has(task.task)}
+          open={openWord(task.task)}
           focus={focus === task.task}
           onFlip={() => onFlip(task.task)}
         />
