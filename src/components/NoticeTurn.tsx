@@ -71,18 +71,19 @@ export function NoticeTurn({
 const s = StyleSheet.create({
   wrap: {
     alignSelf: 'center',
+    alignItems: 'flex-start',
     marginVertical: 4,
     paddingHorizontal: 8,
     maxWidth: '92%',
   },
   taskBlock: {
     marginVertical: 2,
+    alignSelf: 'flex-start',
   },
   lineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    justifyContent: 'center',
     paddingVertical: 2,
   },
   dot: {
