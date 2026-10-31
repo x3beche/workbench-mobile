@@ -39,7 +39,9 @@ import {
   oneLine,
   openTasks,
   overPct,
+  lowConfidence,
   pctOf,
+  progressOf,
   reportLine,
   shortTask,
   tasksOf,
@@ -377,6 +379,9 @@ function TaskBlock({
   const line = reportLine(task, t);
   const reports = task.reports || [];
   const last = reports.length ? reports[reports.length - 1] : null;
+  const progress = progressOf(task);
+  const low = progress ? lowConfidence(progress) : false;
+  const [measured, setMeasured] = useState(false);
   return (
     <View style={[s.task, focus && s.taskFocus]} testID={`team-task-${task.task}`}>
       <Pressable
@@ -394,6 +399,33 @@ function TaskBlock({
           {t.status(task.status)} · {took(task, now)}
         </Text>
       </Pressable>
+      {progress ? (
+        <Pressable
+          onPress={() => setMeasured(!measured)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: measured }}
+          accessibilityLabel={`${t.progress(Math.round(progress.percent))}${progress.eta ? `, ${t.etaLeft(progress.eta)}` : ''}`}
+          hitSlop={{ top: 10, bottom: 10 }}
+          style={s.progressRow}
+          testID={`team-progress-${task.task}`}
+        >
+          <View style={[s.progressBar, low && s.progressBarLow]}>
+            <View
+              style={[s.progressFill, { width: `${Math.max(0, Math.min(100, progress.percent))}%` }, low && s.progressFillLow]}
+              testID={`team-progress-bar-${task.task}`}
+            />
+          </View>
+          <Text style={[s.progressPct, low && s.progressLow]} numberOfLines={1} testID={`team-progress-pct-${task.task}`}>
+            {t.progress(Math.round(progress.percent))}
+            {progress.eta ? ` · ${t.etaLeft(progress.eta)}` : ''}
+          </Text>
+        </Pressable>
+      ) : null}
+      {progress && measured ? (
+        <Text style={s.progressWhen} numberOfLines={1} testID={`team-progress-when-${task.task}`}>
+          {t.measured(when(progress.at, now), progress.model)}
+        </Text>
+      ) : null}
       {line ? (
         <Pressable
           onPress={onFlip}
@@ -493,6 +525,22 @@ const s = StyleSheet.create({
   id: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
   taskWhen: { flexShrink: 0, fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
   note: {
+    paddingLeft: 12,
+    paddingBottom: 1,
+    fontFamily: fonts.sans,
+    fontSize: 10.5,
+    lineHeight: 14.5,
+    color: colors.inkDim,
+  },
+  /* Jev's estimate: a thin bar and its share under the task's line - nothing at all when there is none. */
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 12, paddingTop: 2, paddingBottom: 1 },
+  progressBar: { width: 44, height: 3, borderRadius: 2, backgroundColor: colors.line, overflow: 'hidden' },
+  progressBarLow: { opacity: 0.6 },
+  progressFill: { height: '100%', borderRadius: 2, backgroundColor: colors.inkDim },
+  progressFillLow: { backgroundColor: colors.inkDim, opacity: 0.7 },
+  progressPct: { fontFamily: fonts.mono, fontSize: 10.5, color: colors.inkDim },
+  progressLow: { opacity: 0.65 },
+  progressWhen: {
     paddingLeft: 12,
     paddingBottom: 1,
     fontFamily: fonts.sans,

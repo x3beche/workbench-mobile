@@ -44,7 +44,14 @@
    ],
    "agent_state": "idle",
    "agent_name": "wbc_cont",
-   "agent_last": 1793472990.949
+   "agent_last": 1793472990.949,
+   "progress": {
+    "percent": 60,
+    "spread": 8,
+    "eta": "5-15m",
+    "at": 1793472605.517,
+    "model": "typesafe/jev"
+   }
   }
  ]
 }

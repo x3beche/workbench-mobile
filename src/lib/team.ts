@@ -4,7 +4,7 @@
  * and never written. The server sends some fields with more than one shape - a share or the pair behind it, the
  * work an agent holds or how much of it there is - so every reading here is defended, as the web's is.
  */
-import type { TeamAgent, TeamTask } from '../api/types';
+import type { TaskProgress, TeamAgent, TeamTask } from '../api/types';
 import type { TeamStrings } from './teamStrings';
 import type { LinkMap } from './agents';
 
@@ -103,6 +103,22 @@ export function openTasks(tasks: TeamTask[]): TeamTask[] {
 
 export function closedTasks(tasks: TeamTask[]): TeamTask[] {
   return tasks.filter((x) => x.status === 'closed' || x.status === 'failed');
+}
+
+/** The share Jev estimates for a task, or null: nothing measured, nothing to say, or a task that is closed or
+ *  failed - a finished task's last estimate is not its state. */
+export function progressOf(task: TeamTask): TaskProgress | null {
+  const p = task.progress;
+  if (!p || task.status === 'closed' || task.status === 'failed') return null;
+  if (typeof p.percent !== 'number' || !Number.isFinite(p.percent)) return null;
+  return p;
+}
+
+/** A wide spread is a low-confidence estimate: the row says it quietly. The server's spread is in points of the
+ *  same 0-100 scale; a fraction at most 1 is read as one (so 0.3 is 30 points). */
+export function lowConfidence(p: TaskProgress): boolean {
+  const spread = typeof p.spread === 'number' && Number.isFinite(p.spread) ? p.spread : 0;
+  return (spread <= 1 ? spread * 100 : spread) >= 25;
 }
 
 /** Moments come in seconds or milliseconds depending on who wrote them: one reading here. */

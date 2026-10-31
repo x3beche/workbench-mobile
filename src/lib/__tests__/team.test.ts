@@ -26,6 +26,8 @@ import {
   took,
   when,
   windowOf,
+  progressOf,
+  lowConfidence,
 } from '../team';
 
 const t = teamStrings('en');
@@ -218,5 +220,31 @@ describe('the closed tasks at the foot', () => {
       ['Worker two', ['c1']],
       ['Gone one', ['c3']],
     ]);
+  });
+});
+
+describe("Jev's estimate of a task", () => {
+  const task = (over: Record<string, unknown> = {}) => ({
+    task: 'a1', agent: 'wbo:a', agent_name: 'A', title: 'Route the rail', status: 'working',
+    created: 1, updated: 2, ...over,
+  }) as never;
+
+  it('shows the share while the task is open, and never for a closed or failed one', () => {
+    const progress = { percent: 60, spread: 8, eta: '5-15m', at: 2, model: 'typesafe/jev' };
+    expect(progressOf(task({ progress }))).toEqual(progress);
+    expect(progressOf(task({ progress, status: 'closed' }))).toBeNull();
+    expect(progressOf(task({ progress, status: 'failed' }))).toBeNull();
+    expect(progressOf(task())).toBeNull();
+    expect(progressOf(task({ progress: { ...progress, percent: '60' } }))).toBeNull();
+  });
+
+  it('reads a wide spread as low confidence, in points or as a fraction', () => {
+    const p = (spread: number) => ({ percent: 50, spread, at: 1, model: 'typesafe/jev' });
+    expect(lowConfidence(p(8))).toBe(false);
+    expect(lowConfidence(p(24))).toBe(false);
+    expect(lowConfidence(p(25))).toBe(true);
+    // A fraction of the scale (0-1) is the same estimate in other units.
+    expect(lowConfidence(p(0.1))).toBe(false);
+    expect(lowConfidence(p(0.3))).toBe(true);
   });
 });

@@ -970,6 +970,25 @@ export interface TeamAgent {
 }
 
 /** One task the manager gave one of its agents: worked out from the line it sent and the agent's state. */
+/**
+ * How much of a task is done, as Jev (typesafe/jev, a decision model returning calibrated probabilities)
+ * estimates it - not a report from the agent. Absent on an older server, and when the server has no key or
+ * plan for it, so nothing here may assume it.
+ */
+export interface TaskProgress {
+  /** 0-100: the share done. */
+  percent: number;
+  /** How wide the estimate is - wide means low confidence. In points of the same 0-100 scale (a fraction
+   *  at most 1 is read as one). */
+  spread: number;
+  /** How long is left, in a bucket; null or absent when the estimate did not give one. */
+  eta?: '<5m' | '5-15m' | '15-60m' | '>1h' | null;
+  /** When it was measured: an epoch, in seconds or milliseconds. */
+  at: number;
+  /** The model's own name ("typesafe/jev"). */
+  model: string;
+}
+
 export interface TeamTask {
   task: string;
   agent: string;
@@ -989,6 +1008,8 @@ export interface TeamTask {
   agent_last?: number | null;
   /** Why the line could not be delivered, when it could not. */
   error?: string;
+  /** What Jev makes of it, when the server measures the team: a share to show under the task. */
+  progress?: TaskProgress | null;
 }
 
 /** A manager session's whole team, as its right-hand column reads it. */

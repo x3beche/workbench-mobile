@@ -227,6 +227,58 @@ async function draw(client: WorkbenchClient, onOpenAgent = jest.fn(), hub: LiveH
     expect(screen.queryByText('Tasks')).toBeNull();
   });
 
+  it("shows Jev's share under the task with the time left, and when it was measured on a tap", async () => {
+    const data: TeamAnswer = {
+      ...DATA,
+      tasks: DATA.tasks.map((x) =>
+        x.task === 'a0f239'
+          ? { ...x, progress: { percent: 60, spread: 8, eta: '5-15m', at: NOW / 1000 - 120, model: 'typesafe/jev' } }
+          : x),
+    };
+    await draw(fake(data));
+    expect(screen.getByTestId('team-progress-pct-a0f239')).toHaveTextContent('~60% · ~5-15m left');
+    expect(screen.getByTestId('team-progress-bar-a0f239').props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ width: '60%' })]),
+    );
+    // The measurement waits for a tap: it is not what the row is for.
+    expect(screen.queryByTestId('team-progress-when-a0f239')).toBeNull();
+    await fireEvent.press(screen.getByTestId('team-progress-a0f239'));
+    expect(screen.getByTestId('team-progress-when-a0f239')).toHaveTextContent('measured 2m ago · typesafe/jev');
+  });
+
+  it('says nothing at all when nothing was measured, so the task keeps its lines', async () => {
+    await draw(fake());
+    expect(screen.queryByTestId('team-progress-a0f239')).toBeNull();
+    expect(screen.getByTestId('team-note-a0f239')).toBeTruthy();
+  });
+
+  it('dims a wide spread, and says no time left when the estimate has none', async () => {
+    const data: TeamAnswer = {
+      ...DATA,
+      tasks: DATA.tasks.map((x) =>
+        x.task === 'a0f239'
+          ? { ...x, progress: { percent: 40, spread: 35, at: NOW / 1000 - 60, model: 'typesafe/jev' } }
+          : x),
+    };
+    await draw(fake(data));
+    const pct = screen.getByTestId('team-progress-pct-a0f239');
+    expect(pct).toHaveTextContent('~40%');
+    expect(pct).not.toHaveTextContent('left');
+    expect(pct.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ opacity: 0.65 })]));
+  });
+
+  it('shows no share on a closed task', async () => {
+    const data: TeamAnswer = {
+      ...DATA,
+      tasks: DATA.tasks.map((x) =>
+        x.task === 'a0f239'
+          ? { ...x, status: 'closed', progress: { percent: 100, spread: 2, at: NOW / 1000, model: 'typesafe/jev' } }
+          : x),
+    };
+    await draw(fake(data));
+    expect(screen.queryByTestId('team-progress-a0f239')).toBeNull();
+  });
+
   it('says each agent its share from used/limit, amber near the top and "full" past the window', async () => {
     await draw(fake());
     expect(screen.getByText('95%')).toBeTruthy();

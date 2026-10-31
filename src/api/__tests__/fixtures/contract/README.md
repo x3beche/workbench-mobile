@@ -16,7 +16,7 @@ types can be checked against it on every `npm test` (`src/api/__tests__/contract
 | `wbo-models.json` | `GET /api/wbo/sessions/{sid}/models` | `WboModels` |
 | `wbo-context.json` | `PUT /api/wbo/sessions/{sid}/context` | `WboContext` |
 | `agents-links.json` | `GET /api/agents/links` | `AgentLinks` |
-| `agents-team.json` | `GET /api/agents/team/{manager}` | `TeamAnswer` |
+| `agents-team.json` | `GET /api/agents/team/{manager}` (its `progress` block is the planned Jev field, hand-added) | `TeamAnswer` |
 | `side.json` | `GET /api/me/side` | `SidePrefs` |
 | `release.json` | `GET /api/public/m/app.json`, as `parseRelease` reads it | `Release` |
 | `bus.json` | one record of the account's bus stream (`acct/<id>/bus`, S2) | `BusEvent` |

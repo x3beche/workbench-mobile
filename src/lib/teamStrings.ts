@@ -34,6 +34,10 @@ export interface TeamStrings {
   full: string;
   /** The numbers' own label, for a reader that cannot see the tap. */
   context: string;
+  /** Jev's estimate under a task: the share, the time left in its bucket, and when it was measured. */
+  progress: (pct: number) => string;
+  etaLeft: (eta: string) => string;
+  measured: (ago: string, model: string) => string;
 }
 
 const en: TeamStrings = {
@@ -54,6 +58,9 @@ const en: TeamStrings = {
   close: 'Close',
   full: 'full',
   context: 'Context',
+  progress: (pct) => `~${pct}%`,
+  etaLeft: (eta) => `~${eta} left`,
+  measured: (ago, model) => `measured ${ago} ago · ${model}`,
   status: (s) =>
     ({
       queued: 'queued',
@@ -85,6 +92,9 @@ const tr: TeamStrings = {
   close: 'Kapat',
   full: 'dolu',
   context: 'Bağlam',
+  progress: (pct) => `~${pct}%`,
+  etaLeft: (eta) => `~${eta} kaldı`,
+  measured: (ago, model) => `${ago} önce ölçüldü · ${model}`,
   status: (s) =>
     ({
       queued: 'sırada',
