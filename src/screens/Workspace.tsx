@@ -110,11 +110,22 @@ const AREA: Record<string, string> = {
   general: 'General',
 };
 
+/** One written question, unless the server (or an older record) handed over raw JSON instead. */
+function ideaText(value: unknown): string {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  if (/^```/.test(text) || /^[\[{]/.test(text) || /"questions"\s*:/.test(text)) return '';
+  return text;
+}
+
 /** The server's own example questions when it has written some, else the hand-written ones. */
 export function suggestionsFrom(ideas: Ideas | null): Suggestion[] {
-  const own = ideas?.source === 'llm' ? ideas.items.filter((i) => i.text?.trim()) : [];
+  const items = ideas?.source === 'llm' && Array.isArray(ideas.items) ? ideas.items : [];
+  const own = items
+    .map((i) => ({ kind: i.kind, text: ideaText(i.text) }))
+    .filter((i) => i.text);
   if (!own.length) return STARTERS;
-  return own.slice(0, 4).map((i) => ({ area: AREA[i.kind] ?? undefined, text: i.text.trim() }));
+  return own.slice(0, 4).map((i) => ({ area: AREA[i.kind] ?? undefined, text: i.text }));
 }
 
 /** What is open: a conversation (by id, with what the list knew of it) or a new one. */

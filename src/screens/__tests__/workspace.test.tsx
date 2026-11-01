@@ -260,6 +260,14 @@ describe('suggestionsFrom', () => {
     expect(suggestionsFrom(null)).toBe(STARTERS);
     expect(suggestionsFrom({ source: 'default', items: [] })).toBe(STARTERS);
     expect(suggestionsFrom({ source: 'llm', items: [{ kind: 'pcb', text: '  ' }] })).toBe(STARTERS);
+    expect(suggestionsFrom({
+      source: 'llm',
+      items: [{ kind: 'pcb', text: '{"questions": [{"kind": "pcb", "text": "truncated?"}' }],
+    })).toBe(STARTERS);
+    expect(suggestionsFrom({
+      source: 'llm',
+      items: [{ kind: 'firmware', text: 'Add a watchdog?' }],
+    })).toEqual([{ area: 'Firmware', text: 'Add a watchdog?' }]);
   });
 });
 
