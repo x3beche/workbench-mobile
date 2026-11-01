@@ -1323,13 +1323,20 @@ export interface OfficeLayout {
   kinds: { rooms: string[]; items: string[] };
 }
 
+/** The director's temper for an agent: the face the character wears, and how strongly (0-2). */
+export interface OfficeMood {
+  name: 'calm' | 'focused' | 'frustrated';
+  level: number;
+}
+
 /** The task a character carries on its card (an open task of its agent). */
 export interface OfficeTask {
   id: string;
   title: string;
   status: string;
-  /** How far the work is, in percent (the server sends it when it knows). */
-  progress?: number;
+  /** How far the work is: the app's own `TaskProgress` (percent, spread, the time left in a bucket) when the
+   *  server measured it, or a plain percent on a row from an older server. */
+  progress?: number | TaskProgress | null;
 }
 
 export interface OfficeLiveAgent {
@@ -1344,6 +1351,18 @@ export interface OfficeLiveAgent {
   /** When the activity began, in the server's epoch seconds: a walk is timed from it. */
   since: number;
   manager: string | null;
+  /** Where the server would draw it: the desk, the kitchen, the lounge, its manager, the door. */
+  pose?: string | null;
+  /** Who last spoke of this agent: the free rules, or Jev (the director). */
+  by?: 'rule' | 'jev' | null;
+  /** Jev's word for what it is doing ("debugging", "reading docs"). */
+  detail?: string | null;
+  /** Jev's temper for it, when it had a say. */
+  mood?: OfficeMood | null;
+  /** It wants the person: a small "?" over its head, and the bubble says "?". */
+  needs_manager?: boolean;
+  /** How sure Jev was, 0-1. */
+  confidence?: number | null;
 }
 
 export interface OfficeLive {

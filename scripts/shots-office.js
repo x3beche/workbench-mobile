@@ -7,12 +7,21 @@
  *   docker run ... scripts/shots-office.js
  * MOCK_OFFICE=real on the proxy serves the company backend/office.py builds
  * (scripts/mock-office.mjs) instead of the compact made-up one.
+ *
+ * SHOT_HOUR=21 puts the phone's clock at 21:30 Istanbul for the picture (the
+ * office's own day, lib/office/daylight.ts): the clock in the bar says it, and
+ * the drawing gets that hour's light. SHOT_PARTS=main takes only the first
+ * picture (no card, no zoom). SHOT_WHO=wbc:rail opens that character's card
+ * rather than the first one's.
  */
 const puppeteer = require('puppeteer');
 
 const MOCK = process.env.MOCK_URL || 'http://localhost:8091';
 const OUT = process.env.OUT || '/out';
 const NAME = process.env.NAME || '147-office';
+const HOUR = process.env.SHOT_HOUR ? Number(process.env.SHOT_HOUR) : null;
+const PARTS = (process.env.SHOT_PARTS || 'main,card,zoom').split(',');
+const WHO = process.env.SHOT_WHO || '';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const tid = (id) => `[data-testid="${id}"]`;
@@ -31,6 +40,27 @@ async function shot(page, name) {
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
   const page = await browser.newPage();
+  if (HOUR !== null && Number.isFinite(HOUR)) {
+    // The office's hour, for the picture: the phone's clock is moved to HOUR:30 Istanbul today, and keeps
+    // running from there (a walk still walks, the clock in the bar says this hour).
+    await page.evaluateOnNewDocument((hour) => {
+      const Real = Date;
+      const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul' }).format(new Real());
+      const target = Real.parse(`${day}T${String(hour).padStart(2, '0')}:30:00+03:00`);
+      const delta = target - Real.now();
+      class FakeDate extends Real {
+        constructor(...args) {
+          if (args.length === 0) super(FakeDate.now());
+          else super(...args);
+        }
+        static now() {
+          return Real.now() + delta;
+        }
+      }
+      // eslint-disable-next-line no-global-assign
+      window.Date = FakeDate;
+    }, HOUR);
+  }
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
   await page.goto(MOCK, { waitUntil: 'networkidle0', timeout: 60000 });
 
@@ -61,23 +91,31 @@ async function shot(page, name) {
   await page.waitForSelector('[data-testid^="office-person-"]', { timeout: 20000 });
   await sleep(1400); // the arrival walk is over
   await shot(page, NAME);
+  if (!PARTS.includes('card') && !PARTS.includes('zoom')) {
+    await browser.close();
+    return;
+  }
 
   // A character's card: the name, what it does, the task and its share.
-  const who = await page.evaluate(() => {
-    const p = document.querySelector('[data-testid^="office-person-"]');
+  const who = await page.evaluate((want) => {
+    const all = [...document.querySelectorAll('[data-testid^="office-person-"]')];
+    const named = want ? all.find((p) => p.getAttribute('data-testid').endsWith(want)) : null;
+    const p = named || all[0];
     return p ? p.getAttribute('data-testid') : null;
-  });
-  if (who) {
+  }, WHO);
+  if (who && PARTS.includes('card')) {
     await page.click(`[data-testid="${who}"]`);
     await page.waitForSelector(tid('office-card'), { timeout: 10000 });
     await shot(page, `${NAME}-card`);
-  } else {
+  } else if (PARTS.includes('card')) {
     console.log('no character to tap');
   }
 
   // ×2, for the pixels themselves (whole numbers only).
-  await page.click(tid('office-zoom-in'));
-  await shot(page, `${NAME}-zoom`);
+  if (PARTS.includes('zoom')) {
+    await page.click(tid('office-zoom-in'));
+    await shot(page, `${NAME}-zoom`);
+  }
 
   await browser.close();
 })();

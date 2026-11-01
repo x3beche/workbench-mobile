@@ -9,7 +9,7 @@ describe('the app’s contract with the server', () => {
   const result = checkFixtures();
 
   it('has a fixture for every answer the app reads', () => {
-    expect(result.fixtures).toBeGreaterThanOrEqual(13);
+    expect(result.fixtures).toBeGreaterThanOrEqual(14);
   });
 
   it('finds every field the app reads in the answer, in the type it says', () => {

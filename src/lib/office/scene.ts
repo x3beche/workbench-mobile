@@ -16,16 +16,26 @@
  * A walk is not state: the server says when an activity began (`since`), so a
  * character's place on the way to the kitchen / the manager / the door / its
  * seat is a tween of that time. After the walk it stands at the place, and the
- * view only redraws while something actually walks.
+ * view only redraws while something actually walks, drives, or waits for the
+ * coffee.
+ *
+ * The row's `pose` is the server's own word for where it would draw the
+ * character; the picture follows the activity instead, as the web engine does,
+ * because a `thinking` agent and a `typing` one are both "at the desk" and are
+ * not drawn alike.
  */
 import type { OfficeFloor, OfficeItem, OfficeLayout, OfficeLiveAgent, OfficeRoom, OfficeTask } from '../../api/types';
 import { activityOf, bubbleTone, faceOf, lookOf, type Activity, type Dir, type Pose } from './anim';
+import { carAt, carEntry, carHue, CAR_IN_MS, CAR_OUT_MS } from './cars';
+import { bubbleOf, directorOf, type Mood } from './director';
 import { TILE, tileCentre, tileSteps, type Point } from './grid';
 
 /** A walk's shortest and longest, in ms, and how long one tile adds. */
 export const WALK_MS_MIN = 450;
 export const WALK_MS_MAX = 1600;
 export const WALK_MS_PER_TILE = 160;
+/** The coffee machine's little wait before the cup appears (the web engine's `BREW_MS`). */
+export const BREW_MS = 2500;
 
 export interface SceneFloor {
   id: string;
@@ -70,6 +80,35 @@ export interface ScenePerson {
   pose: Pose;
   /** On the way somewhere: the view steps the legs and the screen keeps ticking. */
   walking: boolean;
+  /** At the coffee machine, before the cup: standing, waiting for it. */
+  brewing: boolean;
+  /** Jev refined this row: the "Jev" mark on the card. */
+  jev: boolean;
+  /** How sure it was, 0-1 (null when the rules alone spoke). */
+  confidence: number | null;
+  /** Its temper: the face the character wears (null when it has no say, or says nothing). */
+  mood: Mood | null;
+  /** Its word for what the agent does ("debugging"), under the activity in the card. */
+  detail: string | null;
+  /** It wants the person: the "?" over its head. */
+  needsManager: boolean;
+  /** In its car right now (driving in or out): drawn as the car, not as a person. */
+  inCar: boolean;
+  /** It has left, and its car is gone: not drawn at all. */
+  gone: boolean;
+}
+
+/** A car on the floor: driving in to the parking spot, or out of the yard. */
+export interface SceneCar {
+  /** The agent in it. */
+  key: string;
+  x: number;
+  y: number;
+  hue: number;
+  /** Entering from the top or bottom: drawn nose-up, not across. */
+  vertical: boolean;
+  /** Driving away (out of the yard) rather than in. */
+  out: boolean;
 }
 
 export interface Scene {
@@ -77,6 +116,9 @@ export interface Scene {
   rooms: SceneRoom[];
   items: SceneItem[];
   people: ScenePerson[];
+  cars: SceneCar[];
+  /** Something on this picture moves at `now`: a walk, a car, the coffee's wait. The view ticks only then. */
+  animating: boolean;
 }
 
 /** The fixed places of a floor, read once from the layout. */
@@ -86,6 +128,8 @@ export interface Areas {
   items: SceneItem[];
   seats: Map<string, Point>;
   car: Point;
+  /** The car park's own room, for the edge a car comes in from. */
+  carRoom: { x: number; y: number; w: number; h: number } | null;
   door: Point;
   kitchen: Point | null;
   lounge: Point | null;
@@ -135,10 +179,12 @@ export function areasOf(layout: OfficeLayout | null): Areas {
 
   const seatMap = seatsOf(layout);
   const car = firstItem(items, 'car_spot') ?? roomCentre(rooms, 'parking') ?? DEFAULT_CAR;
+  const park = rooms.find((r) => r.kind === 'parking') ?? null;
+  const carRoom = park ? { x: park.x, y: park.y, w: park.w, h: park.h } : null;
   const door = roomCentre(rooms, 'lobby') ?? car;
   const kitchen = beside(items, rooms, 'coffee') ?? roomCentre(rooms, 'kitchen');
   const lounge = beside(items, rooms, 'sofa') ?? roomCentre(rooms, 'lounge');
-  return { floor: sf, rooms, items, seats: seatMap, car, door, kitchen, lounge };
+  return { floor: sf, rooms, items, seats: seatMap, car, carRoom, door, kitchen, lounge };
 }
 
 function firstItem(items: SceneItem[], kind: string): Point | null {
@@ -228,40 +274,91 @@ export function walkPoint(from: Point, to: Point, progress: number): Point {
  * The whole picture at `nowS` (the server's clock, in seconds: the rows' `since` is on it).
  * Pure; calling it twice with the same arguments gives the same picture, so a test can read it.
  */
-export function sceneOf(layout: OfficeLayout | null, live: OfficeLiveAgent[] | null, nowS: number): Scene {
+export function sceneOf(
+  layout: OfficeLayout | null,
+  live: OfficeLiveAgent[] | null,
+  nowS: number,
+  opts: { reduced?: boolean } = {},
+): Scene {
   const areas = areasOf(layout);
+  const reduced = !!opts.reduced;
   const people: ScenePerson[] = [];
+  const cars: SceneCar[] = [];
+  let animating = false;
+  const entry = carEntry(areas.floor?.w ?? DEFAULT_FLOOR.w, areas.floor?.h ?? DEFAULT_FLOOR.h, areas.car,
+                         areas.carRoom);
   for (const row of live ?? []) {
     const activity = activityOf(row.activity);
     const look = lookOf(activity);
+    const info = directorOf(row);
     const seat = areas.seats.get(row.key) ?? null;
     const target = placeOf(row.key, activity, areas) ?? seat ?? areas.car;
     const from = activity === 'arrive' ? areas.car : seat ?? areas.car;
     const to = activity === 'arrive' ? seat ?? target : target;
     const ms = walkMsFor(from, to);
+    // An arrival comes in by car first: the character only steps out when it has parked (instant with
+    // reduced motion - the app's own rule: a car becomes a jump, never an animation).
     const began = typeof row.since === 'number' && row.since > 0 ? row.since : -Infinity;
-    const progress = began === -Infinity ? 1 : clamp01(((nowS - began) * 1000) / ms);
+    const carWait = activity === 'arrive' ? (reduced ? 0 : CAR_IN_MS / 1000) : 0;
+    const walkBegins = began === -Infinity ? -Infinity : began + carWait;
+    const progress = walkBegins === -Infinity ? 1 : clamp01(((nowS - walkBegins) * 1000) / ms);
     const walking = progress < 1 && (from.x !== to.x || from.y !== to.y);
+    // The coffee machine's little wait: standing there for a moment before the cup appears.
+    const there = began === -Infinity ? -Infinity : walkBegins + ms / 1000;
+    const brewing = activity === 'break' && nowS >= there && nowS < there + BREW_MS / 1000;
     const p = walking ? walkPoint(from, to, progress) : centre(to);
     const face = faceOf(to.x - from.x, to.y - from.y);
+    const hue = carHue(row.name);
+
+    // The car in the yard: driving in during the arrival's first moments, driving out after a departure's walk.
+    let inCar = false;
+    let gone = false;
+    if (!reduced && began !== -Infinity) {
+      if (activity === 'arrive' && nowS < began + CAR_IN_MS / 1000) {
+        const at = carAt(entry, areas.car, ((nowS - began) * 1000) / CAR_IN_MS);
+        cars.push({ key: row.key, x: at.x, y: at.y, hue, vertical: entry.vertical, out: false });
+        inCar = true;
+        animating = true;
+      } else if (activity === 'leave') {
+        const outAt = began + walkMsFor(seat ?? areas.door, areas.door) / 1000;
+        if (nowS >= outAt && nowS < outAt + CAR_OUT_MS / 1000) {
+          const at = carAt(entry, areas.car, 1 - ((nowS - outAt) * 1000) / CAR_OUT_MS);
+          cars.push({ key: row.key, x: at.x, y: at.y, hue, vertical: entry.vertical, out: true });
+          inCar = true;
+          animating = true;
+        } else if (nowS >= outAt + CAR_OUT_MS / 1000) {
+          gone = true;
+        }
+      }
+    }
+    if (walking || brewing) animating = true;
+
     people.push({
       key: row.key,
       name: row.name,
       kind: row.kind,
       state: row.state,
       activity,
-      bubble: row.bubble || null,
-      tone: bubbleTone(activity),
+      bubble: bubbleOf(row, row.bubble || null),
+      tone: info.needsManager ? 'ask' : bubbleTone(activity),
       task: row.task ?? null,
       x: p.x,
       y: p.y,
       dir: walking ? face : faceAtSeat(activity, face),
-      pose: walking ? 'walk' : look.pose,
+      pose: inCar || gone ? 'stand' : walking ? 'walk' : brewing ? 'stand' : look.pose,
       walking,
+      brewing,
+      jev: info.jev,
+      confidence: info.confidence,
+      mood: info.mood,
+      detail: info.detail,
+      needsManager: info.needsManager,
+      inCar,
+      gone,
     });
   }
   people.sort((a, b) => (a.y - b.y) || (a.x - b.x) || a.name.localeCompare(b.name));
-  return { floor: areas.floor, rooms: areas.rooms, items: areas.items, people };
+  return { floor: areas.floor, rooms: areas.rooms, items: areas.items, people, cars, animating };
 }
 
 /** A standing character faces the room the way it sat (the desk faces south in the placeholder art). */

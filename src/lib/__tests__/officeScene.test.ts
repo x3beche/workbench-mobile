@@ -150,15 +150,68 @@ describe('the picture', () => {
     expect(there).toMatchObject({ walking: false, pose: 'cup', x: 168, y: 40 });
   });
 
-  it('drives an arriving agent in from the car spot', () => {
-    const p = sceneOf(LAYOUT, [row({ activity: 'arrive', since: NOW - 0.2 })], NOW).people[0];
-    expect(p.walking).toBe(true);
-    expect(p.x).toBeGreaterThan(100);        // out by the car park, not at the desk yet
-    expect(p.dir).toBe('w');
+  it('drives an arriving agent in by car, and it steps out when the car has parked', () => {
+    const driving = sceneOf(LAYOUT, [row({ activity: 'arrive', since: NOW - 0.2 })], NOW);
+    expect(driving.cars).toHaveLength(1);
+    expect(driving.cars[0]).toMatchObject({ key: 'wbo:alice', vertical: true, out: false });
+    expect(driving.cars[0].y).toBeLessThan(40);           // still up by the yard's edge
+    expect(driving.people[0]).toMatchObject({ inCar: true, gone: false });
+    expect(driving.animating).toBe(true);
+
+    const out = sceneOf(LAYOUT, [row({ activity: 'arrive', since: NOW - 2 })], NOW);
+    expect(out.cars).toHaveLength(0);                     // parked: the car is not drawn
+    expect(out.people[0]).toMatchObject({ inCar: false, walking: true });
+    expect(out.people[0].x).toBeGreaterThan(24);          // on its way in from the car park
 
     const arrived = sceneOf(LAYOUT, [row({ activity: 'arrive', since: NOW - 30 })], NOW).people[0];
     expect(arrived.walking).toBe(false);
     expect(arrived).toMatchObject({ x: 24, y: 40 });
+  });
+
+  it('drives a leaving agent out: it walks to the door, the car goes, and then it is gone', () => {
+    const walking = sceneOf(LAYOUT, [row({ activity: 'leave', since: NOW - 0.2 })], NOW);
+    expect(walking.cars).toHaveLength(0);                 // still walking to the door
+    expect(walking.people[0]).toMatchObject({ walking: true, inCar: false, gone: false });
+
+    const driving = sceneOf(LAYOUT, [row({ activity: 'leave', since: NOW - 2 })], NOW);
+    expect(driving.cars).toHaveLength(1);
+    expect(driving.cars[0].out).toBe(true);
+    expect(driving.people[0]).toMatchObject({ inCar: true, gone: false });
+
+    const gone = sceneOf(LAYOUT, [row({ activity: 'leave', since: NOW - 4 })], NOW);
+    expect(gone.cars).toHaveLength(0);
+    expect(gone.people[0]).toMatchObject({ gone: true });
+    expect(gone.animating).toBe(false);
+  });
+
+  it('turns a car into a jump with reduced motion: no car, and the walk starts at once', () => {
+    const scene = sceneOf(LAYOUT, [row({ activity: 'arrive', since: NOW - 0.2 })], NOW, { reduced: true });
+    expect(scene.cars).toEqual([]);
+    expect(scene.people[0]).toMatchObject({ inCar: false, walking: true });
+    expect(scene.people[0].x).toBeGreaterThan(100);        // already walking in from the car park
+  });
+
+  it('waits at the coffee machine before the cup appears', () => {
+    const brewing = sceneOf(LAYOUT, [row({ activity: 'break', since: NOW - 2 })], NOW);
+    const p = brewing.people[0];
+    expect(p).toMatchObject({ walking: false, brewing: true, pose: 'stand', x: 168, y: 40 });
+    expect(brewing.animating).toBe(true);                  // the wait keeps the clock ticking
+    const cup = sceneOf(LAYOUT, [row({ activity: 'break', since: NOW - 10 })], NOW).people[0];
+    expect(cup).toMatchObject({ brewing: false, pose: 'cup' });
+  });
+
+  it('sits on the sofa in the lounge, and shows the director’s face and "?"', () => {
+    const lounging = sceneOf(LAYOUT, [row({ activity: 'lounge', since: NOW - 20 })], NOW).people[0];
+    expect(lounging).toMatchObject({ pose: 'sit', walking: false, x: 15 * 16 + 8, y: 2 * 16 + 8 });
+
+    const directed = sceneOf(LAYOUT, [row({
+      activity: 'typing', by: 'jev', confidence: 0.82, detail: 'debugging', mood: { name: 'focused', level: 1 },
+      needs_manager: true, bubble: '?', pose: 'desk',
+    })], NOW).people[0];
+    expect(directed).toMatchObject({
+      jev: true, confidence: 0.82, detail: 'debugging', mood: { name: 'focused', level: 1 },
+      needsManager: true, bubble: '?', tone: 'ask',
+    });
   });
 
   it('treats an unknown since as done walking, and a missing seat as the car park', () => {

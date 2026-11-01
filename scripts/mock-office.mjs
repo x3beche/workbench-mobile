@@ -95,25 +95,33 @@ export function officeLayout() {
 }
 
 /** The agents, by the keys the layout seats: what each is doing, in the live row's shape. */
+const PROGRESS = (percent, spread, eta) => ({ percent, spread, eta, at: Math.round(now()), model: 'typesafe/jev' });
+
 const ACTIVITY = [
   {
     key: 'wbc:rail', name: 'Sensor board rail sag', kind: 'Claude Code', state: 'working',
-    activity: 'typing', bubble: 'Routing the 3.3 V rail', since: 95,
-    task: { id: 'a0f239', title: 'Route the 3.3 V rail and run DRC', status: 'working', progress: 62 }, manager: null,
+    activity: 'typing', bubble: 'debugging', since: 95,
+    task: { id: 'a0f239', title: 'Route the 3.3 V rail and run DRC', status: 'working', progress: PROGRESS(62, 4, '15-60m') },
+    manager: null,
+    pose: 'desk', by: 'jev', confidence: 0.82, detail: 'debugging', mood: { name: 'focused', level: 1 },
   },
   {
     key: 'wbo:rail', name: 'Rail sag investigation', kind: 'OpenCode', state: 'waiting for the person',
     activity: 'asking', bubble: 'waiting for you', since: 240,
     task: { id: 'b1e4', title: 'Measure TP7 under the radio burst', status: 'waiting', progress: 40 }, manager: 'wbc:rail',
+    pose: 'manager',
   },
   {
     key: 'wbo:ota', name: 'OTA image and rollback', kind: 'OpenCode', state: 'working',
-    activity: 'typing', bubble: 'Reviewing the rollback plan', since: 40,
-    task: { id: 'c7a2', title: 'Sign the OTA image and keep the old slot', status: 'working', progress: 18 }, manager: 'wbc:rail',
+    activity: 'typing', bubble: 'writing docs', since: 40,
+    task: { id: 'c7a2', title: 'Sign the OTA image and keep the old slot', status: 'working', progress: PROGRESS(18, 11, '>1h') },
+    manager: 'wbc:rail',
+    pose: 'desk', by: 'jev', confidence: 0.66, detail: 'writing docs', mood: { name: 'calm', level: 1 },
   },
   {
     key: 'wbc:redline', name: 'PCB design release 1.9.30', kind: 'Claude Code', state: 'working',
-    activity: 'thinking', bubble: 'Checking the changelog', since: 12, task: null, manager: null,
+    activity: 'thinking', bubble: '?', since: 12, task: null, manager: null,
+    pose: 'desk', by: 'jev', confidence: 0.71, needs_manager: true, mood: { name: 'frustrated', level: 2 },
   },
   {
     key: 'wbo:lid', name: 'Lid sensor bring-up', kind: 'OpenCode', state: 'working',
@@ -146,6 +154,13 @@ export function officeLive() {
       ...(a.task ? { task: a.task } : {}),
       since: t - a.since,
       manager: a.manager,
+      // The director's layer, when it had a say (backend/office_director.py's blend).
+      ...(a.by ? { by: a.by } : {}),
+      ...(a.pose ? { pose: a.pose } : {}),
+      ...(a.detail ? { detail: a.detail } : {}),
+      ...(a.mood ? { mood: a.mood } : {}),
+      ...(a.needs_manager ? { needs_manager: true } : {}),
+      ...(a.confidence != null ? { confidence: a.confidence } : {}),
     };
   });
   return { agents, live_s: 10 };

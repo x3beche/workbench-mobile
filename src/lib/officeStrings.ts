@@ -31,6 +31,16 @@ export interface OfficeStrings {
   zoomOut: string;
   /** The words of a state as /api/office/live sends it. */
   state: Record<string, string>;
+  /** The director's mark on the card, and its confidence beside it ("Jev · 82%"). */
+  jev: string;
+  jevWith: (pct: number) => string;
+  /** Jev's temper, as the card names it under the activity. */
+  mood: Record<'calm' | 'focused' | 'frustrated', string>;
+  /** The "?" over a head: the director says this agent wants the person. */
+  wantsYou: string;
+  /** How far a task is: "~62%", and the time left in its bucket: "~<5m left" (the Team sheet's words). */
+  approxPct: (pct: number) => string;
+  etaLeft: (eta: string) => string;
   activity: Record<Activity, string>;
   /** "3 agents" for the header. */
   agents: (n: number) => string;
@@ -75,6 +85,12 @@ const en: OfficeStrings = {
     meeting: 'in a meeting',
   },
   agents: (n) => (n === 1 ? '1 agent' : `${n} agents`),
+  jev: 'Jev',
+  jevWith: (pct) => `Jev · ${pct}%`,
+  mood: { calm: 'calm', focused: 'focused', frustrated: 'frustrated' },
+  wantsYou: 'wants you',
+  approxPct: (pct) => `~${pct}%`,
+  etaLeft: (eta) => `~${eta} left`,
 };
 
 const tr: OfficeStrings = {
@@ -116,6 +132,12 @@ const tr: OfficeStrings = {
     meeting: 'toplantıda',
   },
   agents: (n) => `${n} ajan`,
+  jev: 'Jev',
+  jevWith: (pct) => `Jev · ${pct}%`,
+  mood: { calm: 'sakin', focused: 'odaklı', frustrated: 'gergin' },
+  wantsYou: 'sizi istiyor',
+  approxPct: (pct) => `~${pct}%`,
+  etaLeft: (eta) => `~${eta} kaldı`,
 };
 
 export function officeStrings(lang: UiLang): OfficeStrings {

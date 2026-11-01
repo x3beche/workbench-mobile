@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { WorkbenchClient } from '../api/client';
 import type { OfficeLayout, OfficeLiveAgent } from '../api/types';
 import { OfficeView } from '../components/OfficeView';
+import { useOfficeClock } from '../components/officeClock';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { LoadError } from '../components/ui';
 import { floorOf } from '../lib/office/scene';
@@ -141,6 +142,9 @@ export function OfficeScreen({
     void fetchLive();
   });
 
+  // The office's own hour: the clock in the bar, and the light over the drawing (lib/office/daylight.ts).
+  const { clock, phase } = useOfficeClock();
+
   const floor = useMemo(() => floorOf(layout), [layout]);
   const count = agents?.length ?? 0;
   const sub = layout ? `${t.summary(floor?.name || t.office, count)} · ${t.readOnly}` : undefined;
@@ -160,6 +164,11 @@ export function OfficeScreen({
         menuTestID="office-open-drawer"
         menuLabel={t.office}
         sub={sub ? <Text style={s.sub} numberOfLines={1}>{sub}</Text> : undefined}
+        right={
+          <Text style={s.clock} testID="office-clock" accessibilityLabel={clock}>
+            {clock}
+          </Text>
+        }
       />
       {!layout && loading ? (
         <View style={s.loading} testID="office-loading">
@@ -170,7 +179,7 @@ export function OfficeScreen({
         <LoadError text={layoutError || t.error} onRetry={retry} retryLabel={t.retry} centered testID="office-error" />
       ) : (
         <View style={s.body}>
-          <OfficeView layout={layout} live={agents} t={t} onOpen={onOpen} wide={wide} />
+          <OfficeView layout={layout} live={agents} t={t} onOpen={onOpen} wide={wide} phase={phase} />
           {liveError ? (
             <View style={s.banner} testID="office-live-error">
               <Text style={s.bannerText} numberOfLines={2}>
@@ -192,6 +201,14 @@ const s = StyleSheet.create({
     fontSize: type.micro,
     lineHeight: type.microLine,
     color: colors.inkDim,
+  },
+  clock: {
+    marginLeft: space.sm,
+    fontFamily: fonts.mono,
+    fontSize: type.small,
+    lineHeight: type.smallLine,
+    color: colors.inkDim,
+    fontVariant: ['tabular-nums'],
   },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   loadingText: {

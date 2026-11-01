@@ -70,6 +70,19 @@ describe('the office screen', () => {
     expect(screen.getByTestId('office-person-wbo:alice')).toBeTruthy();
   });
 
+  it('shows the office’s own hour in the bar, and the hour’s light over the drawing', async () => {
+    const c = client();
+    await show(c);
+    const clock = screen.getByTestId('office-clock');
+    expect(clock).toBeTruthy();
+    // Istanbul's wall clock, HH:MM (the phase itself is lib/office/daylight.ts's, tested there).
+    expect(clock.props.children).toMatch(/^\d{2}:\d{2}$/);
+    // Day or night: the wash is drawn only when the band is not the day's own.
+    const hour = Number(String(clock.props.children).slice(0, 2));
+    const day = hour >= 10 && hour < 17;
+    expect(screen.queryByTestId('office-daylight') === null).toBe(day);
+  });
+
   it('opens the session behind a tapped character', async () => {
     const c = client();
     const onOpen = await show(c);

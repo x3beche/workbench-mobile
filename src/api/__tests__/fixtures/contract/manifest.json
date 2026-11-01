@@ -76,5 +76,11 @@
   "at": "",
   "type": "BusEvent",
   "from": "the account bus stream (S2 acct/<id>/bus)"
+ },
+ {
+  "file": "office-live.json",
+  "at": "",
+  "type": "OfficeLive",
+  "from": "GET /api/office/live"
  }
 ]

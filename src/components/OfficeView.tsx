@@ -35,6 +35,9 @@ import {
 import type { OfficeLayout, OfficeLiveAgent } from '../api/types';
 import { colors, fonts, radius, space, type, withAlpha } from '../theme/tokens';
 import { walkFrame } from '../lib/office/anim';
+import { daylightTint, type Daylight } from '../lib/office/daylight';
+import { moodMouth } from '../lib/office/director';
+import { shareOf } from '../lib/office/task';
 import {
   centreCamera,
   clampCamera,
@@ -42,9 +45,10 @@ import {
   TILE,
   type Camera,
 } from '../lib/office/grid';
-import { extentOf, focusOf, sceneOf, type ScenePerson } from '../lib/office/scene';
+import { extentOf, focusOf, sceneOf, type SceneCar, type ScenePerson } from '../lib/office/scene';
 import type { OfficeStrings } from '../lib/officeStrings';
 import { X } from './icons';
+import { useReduceMotion } from './motion';
 import { Button } from './ui';
 
 /** The card's ceiling: a phone's width less its gutters. */
@@ -59,6 +63,7 @@ export function OfficeView({
   t,
   onOpen,
   wide = false,
+  phase = 'day',
   testID = 'office-view',
 }: {
   layout: OfficeLayout | null;
@@ -67,6 +72,8 @@ export function OfficeView({
   /** The session behind a character: `wbo:ses_…` or `wbc:ses_…`. */
   onOpen: (key: string) => void;
   wide?: boolean;
+  /** The office's hour (lib/office/daylight.ts): the wash over the drawing, and nothing at noon. */
+  phase?: Daylight;
   testID?: string;
 }) {
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -75,7 +82,9 @@ export function OfficeView({
   const [active, setActive] = useState(() => AppState.currentState === 'active');
   const [nowS, setNowS] = useState(() => Date.now() / 1000);
 
-  const scene = useMemo(() => sceneOf(layout, live, nowS), [layout, live, nowS]);
+  // A car and a walk are animations; reduced motion turns both into a jump (the app's own rule).
+  const reduced = useReduceMotion();
+  const scene = useMemo(() => sceneOf(layout, live, nowS, { reduced }), [layout, live, nowS, reduced]);
   const extent = useMemo(() => extentOf(scene), [scene]);
   const focus = useMemo(() => focusOf(scene), [scene]);
   const floorKey = scene.floor ? `${scene.floor.id}:${scene.floor.w}x${scene.floor.h}` : 'none';
@@ -134,7 +143,7 @@ export function OfficeView({
     return () => sub.remove();
   }, []);
 
-  const moving = active && scene.people.some((p) => p.walking);
+  const moving = active && scene.animating;
   useEffect(() => {
     if (!moving) return;
     const id = setInterval(() => {
@@ -248,6 +257,7 @@ export function OfficeView({
   const floorW = extent.w * TILE;
   const floorH = extent.h * TILE;
   const pickedPerson = picked ? scene.people.find((p) => p.key === picked) ?? null : null;
+  const tint = daylightTint(phase);
   /** Two agents at one place (a word at the manager's desk) stand shoulder to shoulder, not on each other. */
   const spread = useMemo(() => {
     const groups = new Map<string, string[]>();
@@ -315,9 +325,52 @@ export function OfficeView({
               );
             })}
           </Pressable>
-          {scene.people.map((p) =>
-            personView(p, spread.get(p.key) ?? 0, scale, picked === p.key, nowS, t, () => setPicked(p.key)),
-          )}
+          {scene.cars.map((c) => carView(c, scale))}
+          {scene.people
+            .filter((p) => !p.gone && !p.inCar && p.needsManager)
+            .map((p) => {
+              const nx = spread.get(p.key) ?? 0;
+              return (
+                <View
+                  key={`ask-${p.key}`}
+                  pointerEvents="none"
+                  testID={`office-asks-${p.key}`}
+                  style={[
+                    s.asks,
+                    {
+                      left: Math.round((p.x + nx) * scale - 5 * scale),
+                      top: Math.round(p.y * scale - 20 * scale - 9 * scale),
+                      width: Math.round(10 * scale),
+                      height: Math.round(10 * scale),
+                      borderRadius: Math.round(5 * scale),
+                    },
+                  ]}
+                >
+                  <Text style={[s.asksText, { fontSize: Math.max(8, Math.round(8 * scale)) }]}>?</Text>
+                </View>
+              );
+            })}
+          {scene.people
+            .filter((p) => !p.gone && !p.inCar)
+            .map((p) =>
+              personView(p, spread.get(p.key) ?? 0, scale, picked === p.key, nowS, t, () => setPicked(p.key)),
+            )}
+          {/* The office's hour over the drawing: a wash, never a dimmer - the names and the card are drawn
+              after it (lib/office/daylight.ts). */}
+          {tint ? (
+            <View
+              pointerEvents="none"
+              testID="office-daylight"
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: floorW * scale,
+                height: floorH * scale,
+                backgroundColor: tint,
+              }}
+            />
+          ) : null}
         </View>
 
         {/* Room names are drawn at screen size, not scaled with the floor: a 9 pt word stays readable
@@ -369,6 +422,15 @@ export function OfficeView({
               <Text style={s.cardName} numberOfLines={1}>
                 {pickedPerson.name}
               </Text>
+              {pickedPerson.jev ? (
+                <View style={s.cardJev} testID="office-card-jev">
+                  <Text style={s.cardJevText}>
+                    {pickedPerson.confidence == null
+                      ? t.jev
+                      : t.jevWith(Math.round(pickedPerson.confidence * 100))}
+                  </Text>
+                </View>
+              ) : null}
               <Pressable
                 testID="office-card-close"
                 accessibilityRole="button"
@@ -381,8 +443,20 @@ export function OfficeView({
               </Pressable>
             </View>
             <Text style={s.cardLine} numberOfLines={1}>
-              {`${t.activity[pickedPerson.activity]}${pickedPerson.state ? ` · ${t.state[pickedPerson.state] ?? pickedPerson.state}` : ''}`}
+              {`${t.activity[pickedPerson.activity]}${pickedPerson.state ? ` · ${t.state[pickedPerson.state] ?? pickedPerson.state}` : ''}${
+                pickedPerson.mood ? ` · ${t.mood[pickedPerson.mood.name]}` : ''
+              }`}
             </Text>
+            {pickedPerson.detail ? (
+              <Text style={s.cardDetail} numberOfLines={2} testID="office-card-detail">
+                {pickedPerson.detail}
+              </Text>
+            ) : null}
+            {pickedPerson.needsManager ? (
+              <Text style={s.cardAsk} numberOfLines={1} testID="office-card-asks">
+                {`? ${t.wantsYou}`}
+              </Text>
+            ) : null}
             <TaskLine person={pickedPerson} t={t} />
             <Button
               label={t.open}
@@ -394,6 +468,87 @@ export function OfficeView({
         ) : null}
       </View>
     </View>
+  );
+}
+
+/** A car on the floor: the agent's own colour, a windscreen and two wheels - nose-up when it comes in from the
+ *  top or the bottom of the yard (lib/office/cars.ts). */
+function carView(c: SceneCar, scale: number) {
+  const w = Math.round((c.vertical ? 14 : 22) * scale);
+  const h = Math.round((c.vertical ? 22 : 14) * scale);
+  const wheel = Math.max(1, Math.round(2 * scale));
+  const glass = Math.round(3 * scale);
+  const wheelStyle = c.vertical
+    ? { width: wheel, height: Math.round(6 * scale), top: Math.round(5 * scale) }
+    : { width: Math.round(4 * scale), height: wheel, bottom: -1 };
+  return (
+    <View
+      key={`car-${c.key}`}
+      pointerEvents="none"
+      testID={`office-car-${c.key}`}
+      style={{
+        position: 'absolute',
+        left: Math.round(c.x * scale - w / 2),
+        top: Math.round(c.y * scale - h / 2),
+        width: w,
+        height: h,
+      }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: w,
+          height: h,
+          borderRadius: Math.round(3 * scale),
+          backgroundColor: `hsl(${c.hue}, 55%, 52%)`,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          left: glass,
+          top: glass,
+          width: Math.max(1, w - glass * 2),
+          height: Math.max(1, h - glass * 3),
+          borderRadius: Math.round(1 * scale),
+          backgroundColor: withAlpha(colors.surface, 0.55),
+        }}
+      />
+      <View style={{ position: 'absolute', backgroundColor: colors.ink, borderRadius: 1, ...wheelStyle, left: -1 }} />
+      <View style={{ position: 'absolute', backgroundColor: colors.ink, borderRadius: 1, ...wheelStyle, right: -1 }} />
+    </View>
+  );
+}
+
+/**
+ * The director's temper on a head: two eyes, and a mouth whose shape says which - a smile for calm, a line for
+ * focused, a frown (and a red one) for frustrated. Nothing at level 0: that is the ordinary face.
+ */
+function moodFace(name: 'calm' | 'focused' | 'frustrated', scale: number) {
+  const px = Math.max(1, Math.round(scale));
+  const eye = withAlpha(colors.surface, 0.92);
+  const line = name === 'frustrated' ? colors.danger : eye;
+  const mouth = moodMouth({ name, level: 1 });
+  const y = Math.round(4.2 * scale);
+  const parts: { left: number; top: number }[] =
+    mouth === 'smile'
+      ? [{ left: 2, top: y + px * 0.4 }, { left: 3.2, top: y }, { left: 4.4, top: y + px * 0.4 }]
+      : mouth === 'frown'
+        ? [{ left: 2, top: y }, { left: 3.2, top: y + px * 0.4 }, { left: 4.4, top: y }]
+        : [{ left: 2, top: y }, { left: 3.2, top: y }, { left: 4.4, top: y }];
+  return (
+    <>
+      <View style={{ position: 'absolute', left: Math.round(2 * scale), top: Math.round(2.6 * scale), width: px, height: px, backgroundColor: eye }} />
+      <View style={{ position: 'absolute', left: Math.round(4.4 * scale), top: Math.round(2.6 * scale), width: px, height: px, backgroundColor: eye }} />
+      {parts.map((q, i) => (
+        <View
+          key={i}
+          style={{ position: 'absolute', left: Math.round(q.left * scale), top: Math.round(q.top), width: px, height: px, backgroundColor: line }}
+        />
+      ))}
+    </>
   );
 }
 
@@ -418,7 +573,7 @@ function personView(
       key={p.key}
       testID={`office-person-${p.key}`}
       accessibilityRole="button"
-      accessibilityLabel={`${p.name}, ${t.activity[p.activity]}`}
+      accessibilityLabel={`${p.name}, ${t.activity[p.activity]}${p.needsManager ? `, ${t.wantsYou}` : ''}`}
       onPress={onPress}
       hitSlop={10}
       style={{
@@ -486,6 +641,7 @@ function personView(
           backgroundColor: colors.ink,
         }}
       />
+      {p.mood && p.mood.level > 0 ? moodFace(p.mood.name, scale) : null}
       {p.pose === 'think' ? (
         <View
           style={{
@@ -575,18 +731,32 @@ function TaskLine({ person, t }: { person: ScenePerson; t: OfficeStrings }) {
       </Text>
     );
   }
-  const pct = typeof person.task.progress === 'number' ? Math.max(0, Math.min(100, Math.round(person.task.progress))) : null;
+  const share = shareOf(person.task);
+  const lines = share
+    ? [t.approxPct(share.percent), share.spread ? `±${share.spread}` : null, share.eta ? t.etaLeft(share.eta) : null]
+        .filter(Boolean)
+        .join(' · ')
+    : null;
   return (
     <View style={s.task}>
       <Text style={s.cardTask} numberOfLines={1}>
         {`${t.task}: ${person.task.title}`}
-        {pct === null ? '' : ` · ${pct}%`}
       </Text>
-      {pct === null ? null : (
-        <View style={s.track}>
-          <View style={[s.fill, { width: `${pct}%` }]} testID="office-card-progress" />
+      {share ? (
+        <View
+          style={s.taskShare}
+          accessible
+          accessibilityLabel={`${t.task}: ${lines}`}
+          testID="office-card-share"
+        >
+          <View style={s.track}>
+            <View style={[s.fill, { width: `${share.percent}%` }]} testID="office-card-progress" />
+          </View>
+          <Text style={s.taskPct} testID="office-card-pct">
+            {`${t.approxPct(share.percent)}${share.eta ? ` · ${t.etaLeft(share.eta)}` : ''}`}
+          </Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -758,6 +928,36 @@ const s = StyleSheet.create({
     color: colors.ink,
   },
   cardClose: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+  cardJev: {
+    marginLeft: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.lineStrong,
+  },
+  cardJevText: {
+    fontFamily: fonts.sansSemi,
+    fontSize: type.micro,
+    lineHeight: type.microLine,
+    color: colors.inkDim,
+  },
+  cardDetail: {
+    marginTop: 2,
+    fontFamily: fonts.sans,
+    fontSize: type.small,
+    lineHeight: type.smallLine,
+    color: colors.ink,
+  },
+  cardAsk: {
+    marginTop: 2,
+    fontFamily: fonts.sansSemi,
+    fontSize: type.small,
+    lineHeight: type.smallLine,
+    color: colors.warn,
+  },
+  asks: { position: 'absolute', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.warn },
+  asksText: { fontFamily: fonts.sansSemi, color: withAlpha(colors.surface, 0.95) },
   cardLine: {
     marginTop: 1,
     fontFamily: fonts.sans,
@@ -766,6 +966,13 @@ const s = StyleSheet.create({
     color: colors.inkDim,
   },
   task: { marginTop: 4 },
+  taskShare: { marginTop: 2 },
+  taskPct: {
+    fontFamily: fonts.sans,
+    fontSize: type.micro,
+    lineHeight: type.microLine,
+    color: colors.inkDim,
+  },
   cardTask: {
     fontFamily: fonts.sans,
     fontSize: type.small,

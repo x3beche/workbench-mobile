@@ -86,8 +86,11 @@ describe('the office view', () => {
     expect(screen.getByTestId('office-card')).toBeTruthy();
     expect(screen.getByText('Alice')).toBeTruthy();
     expect(screen.getByText('working at its desk · working')).toBeTruthy();
-    expect(screen.getByText(/Ship the office · 40%/)).toBeTruthy();
+    expect(screen.getByText('Task: Ship the office')).toBeTruthy();
+    expect(screen.getByText('~40%')).toBeTruthy();
     expect(screen.getByTestId('office-card-progress')).toBeTruthy();
+    // A plain percent is not a measured estimate: no "time left" is invented for it.
+    expect(screen.queryByText(/left$/)).toBeNull();
 
     await fireEvent.press(screen.getByTestId('office-card-open'));
     expect(onOpen).toHaveBeenCalledWith('wbo:alice');
@@ -109,6 +112,51 @@ describe('the office view', () => {
     await fireEvent.press(screen.getByTestId('office-person-wbo:alice'));
     expect(screen.getByText('Açık görev yok')).toBeTruthy();
     expect(screen.getByText('Oturumu aç')).toBeTruthy();
+  });
+
+  it('shows the director’s work on the card: the Jev mark, its word, the mood and the "?"', async () => {
+    await show([
+      row({
+        activity: 'typing', state: 'working', by: 'jev', confidence: 0.82, detail: 'debugging the rail',
+        mood: { name: 'focused', level: 1 }, needs_manager: true, bubble: '?',
+        task: {
+          id: 't1', title: 'Ship the office', status: 'working',
+          progress: { percent: 62, spread: 4, eta: '15-60m', at: 1_700_000_000, model: 'typesafe/jev' },
+        },
+      }),
+    ]);
+    // The "?" is over the head before any tap, and the card repeats it in words.
+    expect(screen.getByTestId('office-asks-wbo:alice', { includeHiddenElements: true })).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('office-person-wbo:alice'));
+    expect(screen.getByTestId('office-card-jev')).toBeTruthy();
+    expect(screen.getByText('Jev · 82%')).toBeTruthy();
+    expect(screen.getByText('working at its desk · working · focused')).toBeTruthy();
+    expect(screen.getByTestId('office-card-detail')).toHaveTextContent('debugging the rail');
+    expect(screen.getByTestId('office-card-asks')).toHaveTextContent('? wants you');
+    // The share, its "~", and the time left from the same measurement.
+    expect(screen.getByText('~62% · ~15-60m left')).toBeTruthy();
+  });
+
+  it('draws the row of the free rules without a Jev mark or a "?"', async () => {
+    await show([row()]);
+    expect(screen.queryByTestId('office-asks-wbo:alice', { includeHiddenElements: true })).toBeNull();
+    await fireEvent.press(screen.getByTestId('office-person-wbo:alice'));
+    expect(screen.queryByTestId('office-card-jev')).toBeNull();
+    expect(screen.queryByTestId('office-card-asks')).toBeNull();
+    expect(screen.queryByTestId('office-card-detail')).toBeNull();
+  });
+
+  it('puts the office’s hour over the drawing: a wash at night, nothing at noon', async () => {
+    await render(<OfficeView layout={LAYOUT} live={[row()]} t={officeStrings('en')} onOpen={jest.fn()} phase="night" />);
+    expect(screen.getByTestId('office-daylight')).toBeTruthy();
+    await render(<OfficeView layout={LAYOUT} live={[row()]} t={officeStrings('en')} onOpen={jest.fn()} phase="day" />);
+    expect(screen.queryByTestId('office-daylight')).toBeNull();
+  });
+
+  it('draws a car instead of a character while an agent drives in', async () => {
+    await show([row({ activity: 'arrive', since: Date.now() / 1000 - 0.2 })]);
+    expect(screen.getByTestId('office-car-wbo:alice', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByTestId('office-person-wbo:alice')).toBeNull();
   });
 
   it('keeps a clock only while someone walks, and none at all in the background', async () => {

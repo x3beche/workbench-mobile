@@ -1,0 +1,234 @@
+{
+ "agents": [
+  {
+   "key": "wbo:ses_fixture01",
+   "name": "Firmware notes",
+   "kind": "OpenCode",
+   "state": "working",
+   "activity": "thinking",
+   "bubble": "thinking",
+   "by": "rule",
+   "pose": "desk",
+   "seat": {
+    "item": "it_c5c6d89e2ce9",
+    "room": "rm_51a6210f8b79",
+    "floor": "fl_c4cf65b14f88"
+   },
+   "since": 1793494535.258469,
+   "manager": null
+  },
+  {
+   "key": "wbo:ses_fixture02",
+   "name": "Office design",
+   "kind": "OpenCode",
+   "state": "working",
+   "activity": "thinking",
+   "bubble": "thinking",
+   "by": "rule",
+   "pose": "desk",
+   "seat": {
+    "item": "it_e774e7532b20",
+    "room": "rm_797cc45fd767",
+    "floor": "fl_c4cf65b14f88"
+   },
+   "since": 1793494535.241617,
+   "manager": null
+  },
+  {
+   "key": "wbo:ses_fixture03",
+   "name": "Room layout",
+   "kind": "OpenCode",
+   "state": "working",
+   "activity": "thinking",
+   "bubble": "thinking",
+   "by": "rule",
+   "pose": "desk",
+   "seat": {
+    "item": "it_acf858219343",
+    "room": "rm_797cc45fd767",
+    "floor": "fl_c4cf65b14f88"
+   },
+   "since": 1793494535.2513022,
+   "manager": "wbo:ses_fixture02"
+  },
+  {
+   "key": "wbo:ses_fixture04",
+   "name": "Office server",
+   "kind": "OpenCode",
+   "state": "working",
+   "activity": "thinking",
+   "bubble": "thinking",
+   "by": "rule",
+   "pose": "desk",
+   "seat": {
+    "item": "it_88e57be37695",
+    "room": "rm_a30008273f08",
+    "floor": "fl_c4cf65b14f88"
+   },
+   "since": 1793494535.2461412,
+   "manager": "wbo:ses_fixture12"
+  },
+  {
+   "key": "wbo:ses_fixture05",
+   "name": "Sensor board rail sag",
+   "kind": "OpenCode",
+   "state": "working",
+   "activity": "typing",
+   "bubble": "debugging",
+   "by": "jev",
+   "pose": "desk",
+   "confidence": 0.82,
+   "mood": {
+    "name": "focused",
+    "level": 1
+   },
+   "detail": "debugging",
+   "seat": {
+    "item": "it_c17d6a0f0fc2",
+    "room": "rm_51a6210f8b79",
+    "floor": "fl_c4cf65b14f88"
+   },
+   "task": {
+    "id": "tsk_fixtureA1b2",
+    "title": "Route the 3.3 V rail and run DRC",
+    "status": "working",
+    "progress": {
+     "percent": 17,
+     "spread": 15.4,
+     "eta": "15-60m",
+     "at": 1793496003.7587743,
+     "model": "typesafe/jev"
+    }
+   },
+   "since": 1793496093.7587743,
+   "manager": null
+  },
+  {
+   "key": "wbo:ses_fixture06",
+   "name": "Archived work",
+   "kind": "OpenCode",
+   "state": "idle",
+   "activity": "lounge",
+   "bubble": "",
+   "by": "rule",
+   "pose": "lounge",
+   "seat": {
+    "item": "it_a7ab9590ea6b",
+    "room": "rm_51a6210f8b79",
+    "floor": "fl_c4cf65b14f88"
+   },
+   "since": 1793496123.835745,
+   "manager": null
+  },
+  {
+   "key": "wbo:ses_fixture07",
+   "name": "Firmware notes",
+   "kind": "OpenCode",
+   "state": "idle",
+   "activity": "lounge",
+   "bubble": "",
+   "by": "rule",
+   "pose": "lounge",
+   "seat": {
+    "item": "it_d2f9dc49c7d5",
+    "room": "rm_51a6210f8b79",
+    "floor": "fl_c4cf65b14f88"
+   },
+   "since": 1793495295.757776,
+   "manager": null
+  },
+  {
+   "key": "wbo:ses_fixture08",
+   "name": "Office behaviour",
+   "kind": "OpenCode",
+   "state": "idle",
+   "activity": "lounge",
+   "bubble": "",
+   "by": "rule",
+   "pose": "lounge",
+   "seat": {
+    "item": "it_26ebbae049c0",
+    "room": "rm_797cc45fd767",
+    "floor": "fl_c4cf65b14f88"
+   },
+   "since": 1793495295.7556767,
+   "manager": "wbo:ses_fixture02"
+  },
+  {
+   "key": "wbo:ses_fixture09",
+   "name": "Office art",
+   "kind": "OpenCode",
+   "state": "idle",
+   "activity": "lounge",
+   "bubble": "",
+   "by": "rule",
+   "pose": "lounge",
+   "seat": {
+    "item": "it_01fec68e3ada",
+    "room": "rm_a30008273f08",
+    "floor": "fl_c4cf65b14f88"
+   },
+   "since": 1793495295.751658,
+   "manager": "wbo:ses_fixture12"
+  },
+  {
+   "key": "wbo:ses_fixture10",
+   "name": "Old work",
+   "kind": "OpenCode",
+   "state": "offline",
+   "activity": "leave",
+   "bubble": "left",
+   "by": "rule",
+   "pose": "door",
+   "seat": {
+    "item": "it_8a40db61fb46",
+    "room": "rm_51a6210f8b79",
+    "floor": "fl_c4cf65b14f88"
+   },
+   "since": 1793496061.3996973,
+   "manager": null
+  },
+  {
+   "key": "wbo:ses_fixture11",
+   "name": "OTA image and rollback",
+   "kind": "OpenCode",
+   "state": "idle",
+   "activity": "typing",
+   "bubble": "?",
+   "by": "jev",
+   "pose": "desk",
+   "confidence": 0.71,
+   "mood": {
+    "name": "frustrated",
+    "level": 2
+   },
+   "detail": "writing docs",
+   "needs_manager": true,
+   "seat": {
+    "item": "it_c0a775597a8d",
+    "room": "rm_51a6210f8b79",
+    "floor": "fl_c4cf65b14f88"
+   },
+   "since": 1793496093.7587743,
+   "manager": null
+  },
+  {
+   "key": "wbo:ses_fixture12",
+   "name": "Release notes",
+   "kind": "OpenCode",
+   "state": "idle",
+   "activity": "lounge",
+   "bubble": "",
+   "by": "rule",
+   "pose": "lounge",
+   "seat": {
+    "item": "it_e54373693ef5",
+    "room": "rm_a30008273f08",
+    "floor": "fl_c4cf65b14f88"
+   },
+   "since": 1793495295.7463562,
+   "manager": null
+  }
+ ],
+ "live_s": 2
+}
