@@ -88,6 +88,16 @@ describe('the office view', () => {
     expect(screen.getByText('The office is quiet')).toBeTruthy();
   });
 
+  it('says how to pin an agent when the person has pinned none', async () => {
+    await render(<OfficeView layout={LAYOUT} live={[]} t={officeStrings('en')} onOpen={jest.fn()} pinned={0} />);
+    expect(screen.getByTestId('office-pin-prompt')).toBeTruthy();
+    expect(screen.getByText('Pin agents in the Chat’s Agents list to see them here.')).toBeTruthy();
+    expect(screen.queryByText('The office is quiet')).toBeNull();
+    // A pinned office with nobody drawn yet keeps the quiet words, not the pin prompt.
+    await render(<OfficeView layout={LAYOUT} live={[]} t={officeStrings('en')} onOpen={jest.fn()} pinned={2} />);
+    expect(screen.queryByTestId('office-pin-prompt')).toBeNull();
+  });
+
   it('opens a card on a tap: the name, what it does and the task with its share', async () => {
     const onOpen = await show([
       row({ activity: 'typing', state: 'working', task: { id: 't1', title: 'Ship the office', status: 'working', progress: 40 } }),

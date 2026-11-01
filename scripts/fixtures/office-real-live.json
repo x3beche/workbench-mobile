@@ -1,0 +1,232 @@
+{
+ "agents": [
+  {
+   "key": "wbo:ses_pin03",
+   "name": "OFFICE-DAVRANIS",
+   "kind": "OpenCode",
+   "state": "working",
+   "activity": "typing",
+   "bubble": "fetching \u00b7 69%",
+   "by": "rule",
+   "pose": "desk",
+   "seat": {
+    "item": "it_4cf1ff8c5ef9",
+    "room": "rm_7c39f6f12914",
+    "floor": "fl_0835d69955c0"
+   },
+   "task": {
+    "id": "dcdb15",
+    "title": "Office v2 sunucu: kantin (+\u00e7al\u0131\u015fan), tuvalet, bah\u00e7e, resepsiyon; NPC davran\u0131\u015flar\u0131 (#7f697e'den sonra)",
+    "status": "working",
+    "progress": {
+     "percent": 69,
+     "spread": 30.8,
+     "band": [
+      38,
+      99
+     ],
+     "eta": "5-15m",
+     "at": 1793524695.1733975,
+     "model": "typesafe/jev"
+    }
+   },
+   "since": 1793524733.8315232,
+   "manager": "wbc:pinmgr"
+  },
+  {
+   "key": "wbo:ses_pin04",
+   "name": "OFFICE-MOTOR",
+   "kind": "OpenCode",
+   "state": "working",
+   "activity": "typing",
+   "bubble": "working \u00b7 70%",
+   "by": "rule",
+   "pose": "desk",
+   "seat": {
+    "item": "it_84a517c3ae9b",
+    "room": "rm_7c39f6f12914",
+    "floor": "fl_0835d69955c0"
+   },
+   "task": {
+    "id": "a02107",
+    "title": "Office v2 motor: izometrik 2.5D \u00e7izim (#a9b2a5'ten sonra)",
+    "status": "working",
+    "progress": {
+     "percent": 70,
+     "spread": 24.7,
+     "band": [
+      45,
+      94
+     ],
+     "eta": "15-60m",
+     "at": 1793524559.6531518,
+     "model": "typesafe/jev"
+    }
+   },
+   "since": 1793524733.8319404,
+   "manager": "wbc:pinmgr"
+  },
+  {
+   "key": "wbc:pinmgr",
+   "name": "WORKBENCH-AGENT",
+   "kind": "Claude Code",
+   "state": "working",
+   "activity": "thinking",
+   "bubble": "thinking",
+   "by": "rule",
+   "pose": "desk",
+   "seat": {
+    "item": "it_1bfe8b991a32",
+    "room": "rm_7c39f6f12914",
+    "floor": "fl_0835d69955c0"
+   },
+   "since": 1793524733.8298101,
+   "manager": null
+  },
+  {
+   "key": "wbo:ses_pin02",
+   "name": "JEV-ILERLEME-YUZDESI",
+   "kind": "OpenCode",
+   "state": "idle",
+   "activity": "break",
+   "bubble": "coffee",
+   "by": "rule",
+   "pose": "kitchen",
+   "seat": {
+    "item": "it_3ce04ebbe0a0",
+    "room": "rm_7c39f6f12914",
+    "floor": "fl_0835d69955c0"
+   },
+   "task": {
+    "id": "f565ab",
+    "title": "Agents listesine \"Archive\": konu\u015fmayan oturumlar gruptan kalks\u0131n",
+    "status": "answered",
+    "progress": {
+     "percent": 87,
+     "spread": 18.3,
+     "band": [
+      69,
+      100
+     ],
+     "eta": "<5m",
+     "at": 1793520140.0497475,
+     "model": "typesafe/jev"
+    }
+   },
+   "since": 1793524733.8311403,
+   "manager": "wbc:pinmgr"
+  },
+  {
+   "key": "wbo:ses_pin07",
+   "name": "OFFICE-MOBIL",
+   "kind": "OpenCode",
+   "state": "idle",
+   "activity": "break",
+   "bubble": "coffee",
+   "by": "rule",
+   "pose": "kitchen",
+   "seat": {
+    "item": "it_f7d1fc471b16",
+    "room": "rm_7c39f6f12914",
+    "floor": "fl_0835d69955c0"
+   },
+   "task": {
+    "id": "72cbd0",
+    "title": "Mobil Office v2: web'in izometrik motorunu WebView ile birebir g\u00f6ster (kendi \u00e7iziminden vazge\u00e7)",
+    "status": "interrupted",
+    "progress": {
+     "percent": 78,
+     "spread": 8.9,
+     "band": [
+      69,
+      87
+     ],
+     "eta": "<5m",
+     "at": 1793524695.1733975,
+     "model": "typesafe/jev"
+    }
+   },
+   "since": 1793524733.8327494,
+   "manager": "wbc:pinmgr"
+  },
+  {
+   "key": "wbo:ses_pin05",
+   "name": "OFFICE-PIKSEL-ART",
+   "kind": "OpenCode",
+   "state": "idle",
+   "activity": "stuck",
+   "bubble": "!",
+   "by": "rule",
+   "pose": "desk",
+   "seat": {
+    "item": "it_43d14efd912a",
+    "room": "rm_7c39f6f12914",
+    "floor": "fl_0835d69955c0"
+   },
+   "task": {
+    "id": "1f560e",
+    "title": "Office faz 1 \u2014 \u00e7izim: \u00f6zg\u00fcn piksel sprite ve tile seti (kodla \u00fcretilen)",
+    "status": "answered",
+    "progress": {
+     "percent": 73,
+     "spread": 32.9,
+     "eta": "<5m",
+     "at": 1793498418.784436,
+     "model": "typesafe/jev"
+    }
+   },
+   "since": 1793524695.4874182,
+   "manager": "wbc:pinmgr"
+  },
+  {
+   "key": "wbo:ses_pin06",
+   "name": "OFFICE-TEST-PERF",
+   "kind": "OpenCode",
+   "state": "idle",
+   "activity": "break",
+   "bubble": "coffee",
+   "by": "rule",
+   "pose": "kitchen",
+   "seat": {
+    "item": "it_12f2aa104242",
+    "room": "rm_7c39f6f12914",
+    "floor": "fl_0835d69955c0"
+   },
+   "task": {
+    "id": "a13cfa",
+    "title": "Office u\u00e7tan uca test + performans: \u00e7ok ajanla canvas ve live",
+    "status": "answered",
+    "progress": {
+     "percent": 100,
+     "spread": 0.0,
+     "eta": "<5m",
+     "band": [
+      100,
+      100
+     ],
+     "at": 1793505215.8243635,
+     "model": "typesafe/jev"
+    }
+   },
+   "since": 1793524733.832394,
+   "manager": "wbc:pinmgr"
+  },
+  {
+   "key": "wbo:ses_pin01",
+   "name": "Opusagent",
+   "kind": "OpenCode",
+   "state": "idle",
+   "activity": "break",
+   "bubble": "coffee",
+   "by": "rule",
+   "pose": "kitchen",
+   "seat": {
+    "item": "it_b6adc6b9cdb2",
+    "room": "rm_7c39f6f12914",
+    "floor": "fl_0835d69955c0"
+   },
+   "since": 1793524733.830625,
+   "manager": "wbc:pinmgr"
+  }
+ ]
+}

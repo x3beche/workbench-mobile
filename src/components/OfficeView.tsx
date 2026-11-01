@@ -68,6 +68,7 @@ export function OfficeView({
   onOpen,
   wide = false,
   phase = 'day',
+  pinned = null,
   testID = 'office-view',
 }: {
   layout: OfficeLayout | null;
@@ -78,6 +79,8 @@ export function OfficeView({
   wide?: boolean;
   /** The office's hour (lib/office/daylight.ts): the wash over the drawing, and nothing at noon. */
   phase?: Daylight;
+  /** How many sessions the person pinned (the server says); 0 draws the calm "pin one" state. */
+  pinned?: number | null;
   testID?: string;
 }) {
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -411,8 +414,14 @@ export function OfficeView({
 
         {scene.people.length === 0 ? (
           <View style={s.empty} testID="office-empty">
-            <Text style={s.emptyTitle}>{t.empty}</Text>
-            <Text style={s.emptyText}>{t.emptyAbout}</Text>
+            {pinned === 0 ? (
+              <Text style={s.emptyText} testID="office-pin-prompt">{t.pinPrompt}</Text>
+            ) : (
+              <>
+                <Text style={s.emptyTitle}>{t.empty}</Text>
+                <Text style={s.emptyText}>{t.emptyAbout}</Text>
+              </>
+            )}
           </View>
         ) : (
           <View pointerEvents="none" style={s.hint}>

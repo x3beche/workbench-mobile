@@ -51,6 +51,8 @@ export function OfficeScreen({
 }) {
   const [layout, setLayout] = useState<OfficeLayout | null>(null);
   const [agents, setAgents] = useState<OfficeLiveAgent[] | null>(null);
+  /** How many sessions the person pinned; 0 draws the calm "pin an agent" state, not an empty office. */
+  const [pinned, setPinned] = useState<number | null>(null);
   /** The pace the server asked for, in a ref: the loop reads it after each answer, and does not restart. */
   const everyS = useRef(SLOW_S);
   /** Why the floor could not be read (the screen is empty), and why the last live read failed (a banner). */
@@ -110,6 +112,7 @@ export function OfficeScreen({
       const got = await client.officeLive();
       if (!alive.current) return;
       setAgents(Array.isArray(got?.agents) ? got.agents : []);
+      setPinned(typeof got?.pinned === 'number' && Number.isFinite(got.pinned) ? Math.max(0, Math.trunc(got.pinned)) : null);
       everyS.current = Math.max(FASTEST_S, Math.min(SLOWEST_S, Math.round(got?.live_s || SLOW_S)));
       setLiveError(null);
     } catch (e) {
@@ -137,9 +140,14 @@ export function OfficeScreen({
     };
   }, [fetchLive]);
 
-  // The bus says some agent's picture changed: read it now, not at the next tick.
-  useBus(['office'], () => {
-    void fetchLive();
+  // The bus says some agent's picture changed: read it now, not at the next tick. A pin changed who is in the
+  // office (its departments and Hot desks too), so that word reads the layout again as well.
+  useBus(['office'], (e) => {
+    if ((e?.p as { why?: string } | undefined)?.why === 'pins') {
+      void load().then(() => fetchLive());
+    } else {
+      void fetchLive();
+    }
   });
 
   // The office's own hour: the clock in the bar, and the light over the drawing (lib/office/daylight.ts).
@@ -179,7 +187,7 @@ export function OfficeScreen({
         <LoadError text={layoutError || t.error} onRetry={retry} retryLabel={t.retry} centered testID="office-error" />
       ) : (
         <View style={s.body}>
-          <OfficeView layout={layout} live={agents} t={t} onOpen={onOpen} wide={wide} phase={phase} />
+          <OfficeView layout={layout} live={agents} t={t} onOpen={onOpen} wide={wide} phase={phase} pinned={pinned} />
           {liveError ? (
             <View style={s.banner} testID="office-live-error">
               <Text style={s.bannerText} numberOfLines={2}>

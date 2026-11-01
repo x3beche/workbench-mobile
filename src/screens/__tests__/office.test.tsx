@@ -137,4 +137,10 @@ describe('the office screen', () => {
     await show(c);
     expect(screen.getByTestId('office-empty')).toBeTruthy();
   });
+
+  it('says how to pin an agent when the server says nothing is pinned', async () => {
+    const c = client({ officeLive: jest.fn(async () => ({ agents: [], live_s: 10, pinned: 0 })) });
+    await show(c);
+    expect(screen.getByTestId('office-pin-prompt')).toBeTruthy();
+  });
 });

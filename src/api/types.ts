@@ -1371,4 +1371,6 @@ export interface OfficeLive {
   agents: OfficeLiveAgent[];
   /** How often the server asks to be polled, in seconds. */
   live_s: number;
+  /** How many sessions the person pinned in the Chat's Agents group: 0 is the calm "pin one" office. */
+  pinned?: number;
 }

@@ -15,6 +15,8 @@ export interface OfficeStrings {
   /** Nothing to draw: no agents, or no office yet. */
   empty: string;
   emptyAbout: string;
+  /** No pin at all: the Office shows only pinned agents, so say how to put one here. */
+  pinPrompt: string;
   error: string;
   retry: string;
   loading: string;
@@ -52,6 +54,7 @@ const en: OfficeStrings = {
   hint: 'Pinch to zoom, drag to move · tap a character',
   empty: 'The office is quiet',
   emptyAbout: 'No agent of this account is connected yet. The rooms are here; the chairs fill in when one arrives.',
+  pinPrompt: 'Pin agents in the Chat’s Agents list to see them here.',
   error: 'The office could not be read.',
   retry: 'Try again',
   loading: 'Opening the office…',
@@ -99,6 +102,7 @@ const tr: OfficeStrings = {
   hint: 'Yakınlaştırmak için iki parmak · taşımak için sürükle · bir karaktere dokun',
   empty: 'Ofis sessiz',
   emptyAbout: 'Bu hesabın bağlı bir ajanı yok. Odalar burada; biri gelince sandalyesi dolar.',
+  pinPrompt: 'Burada görmek için Chat’in Ajanlar listesinden ajan sabitleyin.',
   error: 'Ofis okunamadı.',
   retry: 'Yeniden dene',
   loading: 'Ofis açılıyor…',

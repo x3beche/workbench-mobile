@@ -85,9 +85,17 @@ function compact() {
 }
 
 let real = null;
+let realLive = null;
 function realCompany() {
   if (!real) real = JSON.parse(fs.readFileSync(path.join(HERE, 'fixtures', 'office-real.json'), 'utf8'));
   return real;
+}
+
+/** The rows of the same real office (fixtures/office-real-live.json): what the live poll answered on the
+ *  server for the building above, ids replaced by stand-ins - the person's pinned agents, not made-up ones. */
+function realRows() {
+  if (!realLive) realLive = JSON.parse(fs.readFileSync(path.join(HERE, 'fixtures', 'office-real-live.json'), 'utf8'));
+  return realLive;
 }
 
 export function officeLayout() {
@@ -139,6 +147,10 @@ const ACTIVITY = [
 ];
 
 export function officeLive() {
+  if (process.env.MOCK_OFFICE === 'real') {
+    const rows = realRows();
+    return { agents: rows.agents.map((a) => ({ ...a })), live_s: 10, pinned: 1 };
+  }
   const layout = officeLayout();
   const t = now();
   const agents = ACTIVITY.map((a) => {
