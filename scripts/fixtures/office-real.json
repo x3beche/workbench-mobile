@@ -6,13 +6,13 @@
    "every_s": 180
   },
   "floors": [
-   "fl_aa9c760e0823"
+   "fl_ad065f68f640"
   ]
  },
  "tile": 16,
  "floors": [
   {
-   "id": "fl_aa9c760e0823",
+   "id": "fl_ad065f68f640",
    "name": "Ground floor",
    "order": 0,
    "w": 26,
@@ -21,8 +21,8 @@
  ],
  "rooms": [
   {
-   "id": "rm_5bd8970106ea",
-   "floor": "fl_aa9c760e0823",
+   "id": "rm_197a7056b69c",
+   "floor": "fl_ad065f68f640",
    "name": "WORKBENCH-AGENT",
    "kind": "department",
    "x": 1,
@@ -35,8 +35,8 @@
    }
   },
   {
-   "id": "rm_f57dafc4e9e7",
-   "floor": "fl_aa9c760e0823",
+   "id": "rm_2ec86f5b2ff5",
+   "floor": "fl_ad065f68f640",
    "name": "Workbench",
    "kind": "department",
    "x": 9,
@@ -49,8 +49,8 @@
    }
   },
   {
-   "id": "rm_e3e20f055d5b",
-   "floor": "fl_aa9c760e0823",
+   "id": "rm_309a97666071",
+   "floor": "fl_ad065f68f640",
    "name": "Hot desks",
    "kind": "department",
    "x": 17,
@@ -63,8 +63,8 @@
    }
   },
   {
-   "id": "rm_52b01b49b52a",
-   "floor": "fl_aa9c760e0823",
+   "id": "rm_b9f289b2f995",
+   "floor": "fl_ad065f68f640",
    "name": "Lobby",
    "kind": "lobby",
    "x": 1,
@@ -77,36 +77,36 @@
    }
   },
   {
-   "id": "rm_a811c71a61e0",
-   "floor": "fl_aa9c760e0823",
+   "id": "rm_1099637197e8",
+   "floor": "fl_ad065f68f640",
    "name": "Kitchen",
    "kind": "kitchen",
    "x": 7,
    "y": 8,
    "w": 5,
-   "h": 4,
+   "h": 5,
    "department": {
     "manager": "",
     "desks": 0
    }
   },
   {
-   "id": "rm_297243c58c13",
-   "floor": "fl_aa9c760e0823",
+   "id": "rm_a956e2567f84",
+   "floor": "fl_ad065f68f640",
    "name": "Lounge",
    "kind": "lounge",
    "x": 13,
    "y": 8,
    "w": 5,
-   "h": 4,
+   "h": 5,
    "department": {
     "manager": "",
     "desks": 0
    }
   },
   {
-   "id": "rm_03749e30378d",
-   "floor": "fl_aa9c760e0823",
+   "id": "rm_07cd89434e34",
+   "floor": "fl_ad065f68f640",
    "name": "Meeting",
    "kind": "meeting",
    "x": 19,
@@ -119,8 +119,8 @@
    }
   },
   {
-   "id": "rm_ebf57efe2ef6",
-   "floor": "fl_aa9c760e0823",
+   "id": "rm_cba187dcad5a",
+   "floor": "fl_ad065f68f640",
    "name": "Car park",
    "kind": "parking",
    "x": 1,
@@ -135,8 +135,8 @@
  ],
  "items": [
   {
-   "id": "it_074b51ae40a9",
-   "room": "rm_5bd8970106ea",
+   "id": "it_18066faa43a9",
+   "room": "rm_197a7056b69c",
    "kind": "desk",
    "x": 2,
    "y": 2,
@@ -144,96 +144,96 @@
    "manager": true
   },
   {
-   "id": "it_7016f0632fea",
-   "room": "rm_5bd8970106ea",
+   "id": "it_4ea568f18610",
+   "room": "rm_197a7056b69c",
    "kind": "pc",
    "x": 2,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_eea8110b4a4b",
-   "room": "rm_5bd8970106ea",
+   "id": "it_6f9721ca72ff",
+   "room": "rm_197a7056b69c",
    "kind": "chair",
    "x": 2,
    "y": 3,
    "dir": 0
   },
   {
-   "id": "it_4a3a628ef727",
-   "room": "rm_5bd8970106ea",
+   "id": "it_9fc847728b02",
+   "room": "rm_197a7056b69c",
    "kind": "desk",
    "x": 4,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_42b3fcaf6e02",
-   "room": "rm_5bd8970106ea",
+   "id": "it_4955248b28bd",
+   "room": "rm_197a7056b69c",
    "kind": "pc",
    "x": 4,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_954e71b41100",
-   "room": "rm_5bd8970106ea",
+   "id": "it_25c4a081bb36",
+   "room": "rm_197a7056b69c",
    "kind": "chair",
    "x": 4,
    "y": 3,
    "dir": 0
   },
   {
-   "id": "it_c81c7b25a4c7",
-   "room": "rm_5bd8970106ea",
+   "id": "it_7dcd8959e519",
+   "room": "rm_197a7056b69c",
    "kind": "desk",
    "x": 6,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_f80cb685cd4f",
-   "room": "rm_5bd8970106ea",
+   "id": "it_5d4ffa72b6f1",
+   "room": "rm_197a7056b69c",
    "kind": "pc",
    "x": 6,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_e83a7e0c4646",
-   "room": "rm_5bd8970106ea",
+   "id": "it_4ac098a11ce0",
+   "room": "rm_197a7056b69c",
    "kind": "chair",
    "x": 6,
    "y": 3,
    "dir": 0
   },
   {
-   "id": "it_b1f98e45cf72",
-   "room": "rm_5bd8970106ea",
+   "id": "it_d076cd1d25ec",
+   "room": "rm_197a7056b69c",
    "kind": "desk",
    "x": 2,
    "y": 4,
    "dir": 0
   },
   {
-   "id": "it_b6d5d112e9f9",
-   "room": "rm_5bd8970106ea",
+   "id": "it_f6c6d5de1754",
+   "room": "rm_197a7056b69c",
    "kind": "pc",
    "x": 2,
    "y": 4,
    "dir": 0
   },
   {
-   "id": "it_44a1ebafab85",
-   "room": "rm_5bd8970106ea",
+   "id": "it_5b4fd4eba47d",
+   "room": "rm_197a7056b69c",
    "kind": "chair",
    "x": 2,
    "y": 5,
    "dir": 0
   },
   {
-   "id": "it_71cda86d3803",
-   "room": "rm_f57dafc4e9e7",
+   "id": "it_87a0ec56339d",
+   "room": "rm_2ec86f5b2ff5",
    "kind": "desk",
    "x": 10,
    "y": 2,
@@ -241,280 +241,280 @@
    "manager": true
   },
   {
-   "id": "it_bc99710ab831",
-   "room": "rm_f57dafc4e9e7",
+   "id": "it_6effa875f9d8",
+   "room": "rm_2ec86f5b2ff5",
    "kind": "pc",
    "x": 10,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_309c5f4c5f01",
-   "room": "rm_f57dafc4e9e7",
+   "id": "it_e8461d8e0d62",
+   "room": "rm_2ec86f5b2ff5",
    "kind": "chair",
    "x": 10,
    "y": 3,
    "dir": 0
   },
   {
-   "id": "it_a58a21c0c8e5",
-   "room": "rm_f57dafc4e9e7",
+   "id": "it_2af93ac1612a",
+   "room": "rm_2ec86f5b2ff5",
    "kind": "desk",
    "x": 12,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_4dec0fc7c9ae",
-   "room": "rm_f57dafc4e9e7",
+   "id": "it_5a572302080c",
+   "room": "rm_2ec86f5b2ff5",
    "kind": "pc",
    "x": 12,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_36ea068d661e",
-   "room": "rm_f57dafc4e9e7",
+   "id": "it_bed881e955e0",
+   "room": "rm_2ec86f5b2ff5",
    "kind": "chair",
    "x": 12,
    "y": 3,
    "dir": 0
   },
   {
-   "id": "it_7789ea380061",
-   "room": "rm_f57dafc4e9e7",
+   "id": "it_107b6fb2f80f",
+   "room": "rm_2ec86f5b2ff5",
    "kind": "desk",
    "x": 14,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_d78a3680d251",
-   "room": "rm_f57dafc4e9e7",
+   "id": "it_bd99f49443e8",
+   "room": "rm_2ec86f5b2ff5",
    "kind": "pc",
    "x": 14,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_80195a2fcf8b",
-   "room": "rm_f57dafc4e9e7",
+   "id": "it_ad41f2468c82",
+   "room": "rm_2ec86f5b2ff5",
    "kind": "chair",
    "x": 14,
    "y": 3,
    "dir": 0
   },
   {
-   "id": "it_dff82bb72114",
-   "room": "rm_f57dafc4e9e7",
+   "id": "it_375be3a009c9",
+   "room": "rm_2ec86f5b2ff5",
    "kind": "desk",
    "x": 10,
    "y": 4,
    "dir": 0
   },
   {
-   "id": "it_91ca483fb700",
-   "room": "rm_f57dafc4e9e7",
+   "id": "it_d5709d9cdf03",
+   "room": "rm_2ec86f5b2ff5",
    "kind": "pc",
    "x": 10,
    "y": 4,
    "dir": 0
   },
   {
-   "id": "it_f14f6138e0fa",
-   "room": "rm_f57dafc4e9e7",
+   "id": "it_2c2a4472c707",
+   "room": "rm_2ec86f5b2ff5",
    "kind": "chair",
    "x": 10,
    "y": 5,
    "dir": 0
   },
   {
-   "id": "it_9b308b20c19f",
-   "room": "rm_e3e20f055d5b",
+   "id": "it_2ab046e7d99a",
+   "room": "rm_309a97666071",
    "kind": "desk",
    "x": 18,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_b0bedfb597ec",
-   "room": "rm_e3e20f055d5b",
+   "id": "it_713e0dd2b564",
+   "room": "rm_309a97666071",
    "kind": "pc",
    "x": 18,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_5238fca751b9",
-   "room": "rm_e3e20f055d5b",
+   "id": "it_bf5f0c075c98",
+   "room": "rm_309a97666071",
    "kind": "chair",
    "x": 18,
    "y": 3,
    "dir": 0
   },
   {
-   "id": "it_4374e54ab0a9",
-   "room": "rm_e3e20f055d5b",
+   "id": "it_a18c7cc13334",
+   "room": "rm_309a97666071",
    "kind": "desk",
    "x": 20,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_9d418fcce078",
-   "room": "rm_e3e20f055d5b",
+   "id": "it_595a2785b45a",
+   "room": "rm_309a97666071",
    "kind": "pc",
    "x": 20,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_dc7d16961ff3",
-   "room": "rm_e3e20f055d5b",
+   "id": "it_484dca136d50",
+   "room": "rm_309a97666071",
    "kind": "chair",
    "x": 20,
    "y": 3,
    "dir": 0
   },
   {
-   "id": "it_d755d3f730c1",
-   "room": "rm_e3e20f055d5b",
+   "id": "it_44ef77b7ed05",
+   "room": "rm_309a97666071",
    "kind": "desk",
    "x": 22,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_022b2acbf6fc",
-   "room": "rm_e3e20f055d5b",
+   "id": "it_8e60e90140e0",
+   "room": "rm_309a97666071",
    "kind": "pc",
    "x": 22,
    "y": 2,
    "dir": 0
   },
   {
-   "id": "it_52edee25c90d",
-   "room": "rm_e3e20f055d5b",
+   "id": "it_286ea79823c6",
+   "room": "rm_309a97666071",
    "kind": "chair",
    "x": 22,
    "y": 3,
    "dir": 0
   },
   {
-   "id": "it_266bf74c5a46",
-   "room": "rm_e3e20f055d5b",
+   "id": "it_4aa9236a0c35",
+   "room": "rm_309a97666071",
    "kind": "desk",
    "x": 18,
    "y": 4,
    "dir": 0
   },
   {
-   "id": "it_10bbb2b8e75d",
-   "room": "rm_e3e20f055d5b",
+   "id": "it_6c0f1e03bf55",
+   "room": "rm_309a97666071",
    "kind": "pc",
    "x": 18,
    "y": 4,
    "dir": 0
   },
   {
-   "id": "it_c5c40b2a25be",
-   "room": "rm_e3e20f055d5b",
+   "id": "it_571b52b77a5a",
+   "room": "rm_309a97666071",
    "kind": "chair",
    "x": 18,
    "y": 5,
    "dir": 0
   },
   {
-   "id": "it_73ad4f764585",
-   "room": "rm_52b01b49b52a",
+   "id": "it_592eca0f692d",
+   "room": "rm_b9f289b2f995",
    "kind": "plant",
    "x": 2,
    "y": 9,
    "dir": 0
   },
   {
-   "id": "it_4cce6461d150",
-   "room": "rm_52b01b49b52a",
+   "id": "it_5cc58d1af171",
+   "room": "rm_b9f289b2f995",
    "kind": "board",
    "x": 4,
    "y": 9,
    "dir": 0
   },
   {
-   "id": "it_f59ea99e16ae",
-   "room": "rm_a811c71a61e0",
+   "id": "it_8b08642f1469",
+   "room": "rm_1099637197e8",
    "kind": "coffee",
    "x": 8,
    "y": 9,
    "dir": 0
   },
   {
-   "id": "it_e3c2b25769b7",
-   "room": "rm_a811c71a61e0",
+   "id": "it_e390763b7e5a",
+   "room": "rm_1099637197e8",
    "kind": "plant",
    "x": 10,
    "y": 10,
    "dir": 0
   },
   {
-   "id": "it_2eefe487b1f6",
-   "room": "rm_297243c58c13",
+   "id": "it_740707c744b8",
+   "room": "rm_a956e2567f84",
    "kind": "sofa",
    "x": 14,
    "y": 9,
    "dir": 0
   },
   {
-   "id": "it_534d11729426",
-   "room": "rm_297243c58c13",
+   "id": "it_f41f4c5ade0d",
+   "room": "rm_a956e2567f84",
    "kind": "plant",
    "x": 16,
    "y": 10,
    "dir": 0
   },
   {
-   "id": "it_bdb111a4d30e",
-   "room": "rm_03749e30378d",
+   "id": "it_f29993ef9347",
+   "room": "rm_07cd89434e34",
    "kind": "board",
    "x": 20,
    "y": 9,
    "dir": 0
   },
   {
-   "id": "it_a47f551b63bd",
-   "room": "rm_03749e30378d",
+   "id": "it_d18b40f7fe40",
+   "room": "rm_07cd89434e34",
    "kind": "plant",
    "x": 23,
    "y": 11,
    "dir": 0
   },
   {
-   "id": "it_03735c610a16",
-   "room": "rm_ebf57efe2ef6",
+   "id": "it_6edf4b1f0873",
+   "room": "rm_cba187dcad5a",
    "kind": "car_spot",
    "x": 2,
    "y": 16,
    "dir": 0
   },
   {
-   "id": "it_5c09f09411b2",
-   "room": "rm_ebf57efe2ef6",
+   "id": "it_97f3ccd22dfc",
+   "room": "rm_cba187dcad5a",
    "kind": "car_spot",
    "x": 4,
    "y": 16,
    "dir": 0
   },
   {
-   "id": "it_937db888bb30",
-   "room": "rm_ebf57efe2ef6",
+   "id": "it_f5363fe9ea6f",
+   "room": "rm_cba187dcad5a",
    "kind": "car_spot",
    "x": 6,
    "y": 16,
    "dir": 0
   },
   {
-   "id": "it_688c3ee5c101",
-   "room": "rm_ebf57efe2ef6",
+   "id": "it_c27bf325ea05",
+   "room": "rm_cba187dcad5a",
    "kind": "car_spot",
    "x": 8,
    "y": 16,
@@ -524,51 +524,51 @@
  "seats": [
   {
    "agent": "wbc:rail",
-   "item": "it_074b51ae40a9",
-   "room": "rm_5bd8970106ea",
-   "floor": "fl_aa9c760e0823",
+   "item": "it_18066faa43a9",
+   "room": "rm_197a7056b69c",
+   "floor": "fl_ad065f68f640",
    "auto": true
   },
   {
    "agent": "wbc:redline",
-   "item": "it_71cda86d3803",
-   "room": "rm_f57dafc4e9e7",
-   "floor": "fl_aa9c760e0823",
+   "item": "it_87a0ec56339d",
+   "room": "rm_2ec86f5b2ff5",
+   "floor": "fl_ad065f68f640",
    "auto": true
   },
   {
    "agent": "wbo:rail",
-   "item": "it_4a3a628ef727",
-   "room": "rm_5bd8970106ea",
-   "floor": "fl_aa9c760e0823",
+   "item": "it_9fc847728b02",
+   "room": "rm_197a7056b69c",
+   "floor": "fl_ad065f68f640",
    "auto": true
   },
   {
    "agent": "wbo:ota",
-   "item": "it_c81c7b25a4c7",
-   "room": "rm_5bd8970106ea",
-   "floor": "fl_aa9c760e0823",
+   "item": "it_7dcd8959e519",
+   "room": "rm_197a7056b69c",
+   "floor": "fl_ad065f68f640",
    "auto": true
   },
   {
    "agent": "wbo:lid",
-   "item": "it_a58a21c0c8e5",
-   "room": "rm_f57dafc4e9e7",
-   "floor": "fl_aa9c760e0823",
+   "item": "it_2af93ac1612a",
+   "room": "rm_2ec86f5b2ff5",
+   "floor": "fl_ad065f68f640",
    "auto": true
   },
   {
    "agent": "wbo:off",
-   "item": "it_7789ea380061",
-   "room": "rm_f57dafc4e9e7",
-   "floor": "fl_aa9c760e0823",
+   "item": "it_107b6fb2f80f",
+   "room": "rm_2ec86f5b2ff5",
+   "floor": "fl_ad065f68f640",
    "auto": true
   },
   {
    "agent": "wbo:hot",
-   "item": "it_9b308b20c19f",
-   "room": "rm_e3e20f055d5b",
-   "floor": "fl_aa9c760e0823",
+   "item": "it_2ab046e7d99a",
+   "room": "rm_309a97666071",
+   "floor": "fl_ad065f68f640",
    "auto": true
   }
  ],
