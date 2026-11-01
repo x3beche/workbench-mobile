@@ -1093,6 +1093,7 @@ export function Workspace({
             <OfficeScreen
               client={client}
               t={of}
+              lang={ui}
               wide={wide}
               onMenu={() => setDrawer(true)}
               onOpen={openOfficeAgent}

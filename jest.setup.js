@@ -22,6 +22,30 @@ require('react-native-gesture-handler/jestSetup');
 jest.mock('react-native-worklets', () => require('react-native-worklets/lib/module/mock'));
 jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
 
+// The Office hosts the web's embed page in a WebView (src/components/OfficeEmbed.tsx). There is no native
+// binary in a test: a View with the same props, and a ref that remembers what the app told the page.
+jest.mock('react-native-webview', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const WebView = React.forwardRef((props, ref) => {
+    const api = React.useMemo(
+      () => ({
+        injectJavaScript: jest.fn((js) => {
+          globalThis.__webviewInjected = [...(globalThis.__webviewInjected || []), js];
+        }),
+        reload: jest.fn(),
+        stopLoading: jest.fn(),
+        goBack: jest.fn(),
+      }),
+      [],
+    );
+    React.useImperativeHandle(ref, () => api);
+    return React.createElement(View, props);
+  });
+  WebView.displayName = 'WebView';
+  return { WebView, default: WebView };
+});
+
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(async () => undefined),
   ImpactFeedbackStyle: { Light: 'light' },

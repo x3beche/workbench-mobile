@@ -19,7 +19,6 @@ types can be checked against it on every `npm test` (`src/api/__tests__/contract
 | `agents-team.json` | `GET /api/agents/team/{manager}` (its `progress` block is a real Jev measurement from the live server, ids scrubbed) | `TeamAnswer` |
 | `side.json` | `GET /api/me/side` | `SidePrefs` |
 | `release.json` | `GET /api/public/m/app.json`, as `parseRelease` reads it | `Release` |
-| `office-live.json` | `GET /api/office/live` (the director's layer and a measured task) | `OfficeLive` |
 | `bus.json` | one record of the account's bus stream (`acct/<id>/bus`, S2) | `BusEvent` |
 
 `manifest.json` says which file is checked against which type (and where in the file).
@@ -43,26 +42,11 @@ runs, and writing a fake session there would put it in the pool's real accountin
 `GET /api/wbc/sessions/{sid}/turns` answers for a synthetic request log - the same endpoint function, the same
 serializer - and it says so in the manifest.
 
-## The office's live answer
-
-`office-live.json` is a real `/api/office/live` answer, taken the same way on the test account and the same day:
-two OpenCode sessions written under it, with their computers (the server reads a bridge as connected when its
-`seen` is under 45 s old), one open task carrying a Jev progress block - the account's own measurement shape,
-`{percent, spread, eta, at, model}` - and a director row per agent (`office_moods.jev`, what
-`backend/office_director.py` writes). So the answer carries the director's layer the app now reads: `by: "jev"`,
-`confidence`, `mood: {name, level}`, `detail`, `needs_manager: true` with `bubble: "?"`, and `pose`.
-
-That answer is also where the app's `OfficeTask.progress` was corrected: the server passes the task's
-`TaskProgress` block through as it keeps it, not a bare percent, so the type reads a number *or* that block and
-the card draws the "~" and the time left from it. The mock data was deleted afterwards (the office the server
-builds for the account with it), as the sessions' own fixtures do.
-
 ## What was scrubbed
 
 Account id, name, e-mail, host name and home directories; every mock session/message/bridge id is a stand-in
-(`ses_fixture…`, `ask_fixture…`). In `office-live.json` every agent key is `wbo:ses_fixtureNN` and the names the
-parallel agents' own fixtures had left on the account are replaced by plain work titles. No token, cookie or
-secret is in any file. Release notes in `release.json` are the app's public changelog.
+(`ses_fixture…`, `ask_fixture…`). No token, cookie or secret is in any file. Release notes in `release.json` are
+the app's public changelog.
 
 ## Checking again
 

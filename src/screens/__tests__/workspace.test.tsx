@@ -89,17 +89,9 @@ const mockClient = {
   rooms: jest.fn(async (): Promise<Room[]> => []),
   // A room's thread, for the room the app opens into below.
   roomHistory: jest.fn(async () => []),
-  // The Office (docs/OFFICE.md): a quiet company, which is enough for the entry and Back.
-  office: jest.fn(async () => ({
-    company: { name: 'Acme', settings: {}, floors: ['f1'] },
-    tile: 16,
-    floors: [{ id: 'f1', name: 'Floor 1', order: 0, w: 24, h: 14 }],
-    rooms: [],
-    items: [],
-    seats: [],
-    kinds: { rooms: [], items: [] },
-  })),
-  officeLive: jest.fn(async () => ({ agents: [], live_s: 10 })),
+  // The Office (docs/OFFICE.md): the web's page is not here yet, so the app hosts its stand-in - enough for the
+  // entry and Back.
+  officeEmbedToken: jest.fn(async () => ({ ready: false, url: null, token: null, expires_in: 0 })),
   // The Orchestrator (1.5.4): none here, as from an older server - the drawer and lib tests cover it.
   orchestrator: jest.fn(async () => {
     throw new Error('Not Found');
@@ -721,8 +713,7 @@ describe('workspace', () => {
     await fireEvent.press(screen.getByTestId('open-drawer'));
     await fireEvent.press(screen.getByTestId('open-office'));
     expect(await screen.findByTestId('office-screen')).toBeTruthy();
-    expect(mockClient.office).toHaveBeenCalled();
-    expect(mockClient.officeLive).toHaveBeenCalled();
+    expect(mockClient.officeEmbedToken).toHaveBeenCalled();
     let handled: boolean | undefined;
     await act(async () => {
       handled = back();

@@ -1,14 +1,14 @@
 /**
- * The Office screen: the layout read once, the live rows polled at the pace the
- * server asks for, the card's way into a session - and no polling while the app
- * is in the background (the resilience rules).
+ * The Office screen: the web's page hosted, the ticket read once, the bridge's four messages, the freeze in the
+ * background - and the stand-in while the server has no page (#a02107), so the app's side is the real one.
  */
 import * as React from 'react';
 import { AppState } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ApiError, type WorkbenchClient } from '../../api/client';
-import type { OfficeLayout, OfficeLiveAgent } from '../../api/types';
+import type { OfficeEmbed } from '../../api/types';
+import type { PageMessage } from '../../lib/officeEmbed';
 import { officeStrings } from '../../lib/officeStrings';
 import { OfficeScreen } from '../OfficeScreen';
 
@@ -17,130 +17,146 @@ jest.mock(
   () => jest.requireActual('react-native-safe-area-context/jest/mock').default,
 );
 
-const NOW = Date.now() / 1000;
+const STRINGS = officeStrings('en');
+const STANDIN: OfficeEmbed = { ready: false, url: null, token: null, expires_in: 0 };
+const PAGE: OfficeEmbed = { ready: true, url: '/office/embed', token: 'ticket-abc', expires_in: 60 };
 
-const LAYOUT: OfficeLayout = {
-  company: { name: 'Acme', settings: {}, floors: ['f1'] },
-  tile: 16,
-  floors: [{ id: 'f1', name: 'Floor 1', order: 0, w: 20, h: 12 }],
-  rooms: [
-    { id: 'r-dep', floor: 'f1', name: 'Jev', kind: 'department', x: 0, y: 0, w: 6, h: 4, department: { manager: '', desks: 1 } },
-    { id: 'r-kit', floor: 'f1', name: 'Kitchen', kind: 'kitchen', x: 7, y: 0, w: 3, h: 3 },
-  ],
-  items: [
-    { id: 'i-a', room: 'r-dep', kind: 'chair', x: 1, y: 1, dir: 0 },
-    { id: 'i-coffee', room: 'r-kit', kind: 'coffee', x: 8, y: 1, dir: 0 },
-  ],
-  seats: [{ agent: 'wbo:alice', item: 'i-a', room: 'r-dep', floor: 'f1', auto: false }],
-  kinds: { rooms: [], items: [] },
-};
-
-const ROW: OfficeLiveAgent = {
-  key: 'wbo:alice', name: 'Alice', kind: 'OpenCode', state: 'working', activity: 'typing',
-  bubble: '', seat: { item: 'i-a', room: 'r-dep', floor: 'f1' }, since: NOW - 60, manager: null,
-};
-
-function client(over: Partial<Record<string, unknown>> = {}) {
-  return {
-    office: jest.fn(async () => LAYOUT),
-    officeLive: jest.fn(async () => ({ agents: [ROW], live_s: 5 })),
-    ...over,
-  } as unknown as WorkbenchClient;
+function client(answer: OfficeEmbed | Error = STANDIN, base = 'https://office.example') {
+  const officeEmbedToken = jest.fn(async () => {
+    if (answer instanceof Error) throw answer;
+    return answer;
+  });
+  return { base, officeEmbedToken } as unknown as WorkbenchClient & { officeEmbedToken: jest.Mock };
 }
 
 async function show(c: WorkbenchClient, onOpen = jest.fn()) {
-  await render(<OfficeScreen client={c} t={officeStrings('en')} onOpen={onOpen} />);
+  await render(<OfficeScreen client={c} t={STRINGS} lang="en" onOpen={onOpen} />);
   await act(async () => undefined);
   return onOpen;
 }
 
+/** The host as RNTL sees it: the source it loads, the ticket's header and whether the page is frozen. */
+function host() {
+  return screen.getByTestId('office-embed');
+}
+
+/** The page says something to the app (its own channel: a string in `postMessage`). */
+async function speaks(message: PageMessage) {
+  await act(async () => {
+    host().props.onMessage({ nativeEvent: { data: JSON.stringify(message) } });
+  });
+}
+
+/** What the app told the page: the injected calls, read back as the messages they carried. */
+function told(): Record<string, unknown>[] {
+  const all = (globalThis as { __webviewInjected?: string[] }).__webviewInjected ?? [];
+  const out: Record<string, unknown>[] = [];
+  for (const js of all) {
+    const m = js.match(/__workbenchOffice\(([\s\S]*)\);true;$/);
+    if (!m) continue;
+    try {
+      const inner = JSON.parse(m[1]);
+      out.push(typeof inner === 'string' ? JSON.parse(inner) : inner);
+    } catch {
+      // not a message of ours
+    }
+  }
+  return out;
+}
+
+/** Every `change` listener the screen registers, so a test can move the app to the background. */
+function watchAppState(): ((state: string) => void)[] {
+  const heard: ((state: string) => void)[] = [];
+  jest
+    .spyOn(AppState, 'addEventListener')
+    .mockImplementation(((event: string, cb: (state: string) => void) => {
+      if (event === 'change') heard.push(cb);
+      return { remove: jest.fn() } as never;
+    }) as never);
+  return heard;
+}
+
 beforeEach(() => {
   Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
+  (globalThis as { __webviewInjected?: string[] }).__webviewInjected = [];
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 describe('the office screen', () => {
-  it('reads the layout once, then the live rows, and draws the company', async () => {
-    const c = client();
+  it('asks the server for a ticket once, and hosts the stand-in while there is no page', async () => {
+    const c = client(STANDIN);
     await show(c);
-    expect(c.office).toHaveBeenCalledTimes(1);
-    expect(c.officeLive).toHaveBeenCalled();
+    expect(c.officeEmbedToken).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('office-screen')).toBeTruthy();
     expect(screen.getByText('Office')).toBeTruthy();
-    expect(screen.getByText('Floor 1 · 1 agent · Read only')).toBeTruthy();
-    expect(screen.getByTestId('office-person-wbo:alice')).toBeTruthy();
+    expect(host().props.source.html).toMatch(/__workbenchOffice/);
+    expect(host().props.source.uri).toBeUndefined();
+    expect(screen.getByTestId('office-clock')).toBeTruthy();
   });
 
-  it('shows the office’s own hour in the bar, and the hour’s light over the drawing', async () => {
-    const c = client();
+  it('hands the page the app’s theme, language, insets and server', async () => {
+    await show(client(PAGE));
+    const hello = told().find((m) => m.type === 'hello');
+    expect(hello).toMatchObject({ lang: 'en', server: 'https://office.example' });
+    expect(['dark', 'light']).toContain(String(hello?.theme));
+    expect(hello?.insets).toEqual(expect.objectContaining({ top: expect.any(Number), bottom: expect.any(Number) }));
+  });
+
+  it('opens the real page with the ticket in a header, never in the address', async () => {
+    await show(client(PAGE));
+    const source = host().props.source;
+    expect(source.uri).toBe('https://office.example/office/embed');
+    expect(source.headers).toEqual({ 'x-office-embed': 'ticket-abc' });
+    expect(source.uri).not.toContain('ticket-abc');
+    expect(source.html).toBeUndefined();
+  });
+
+  it('says what the page says: ready, the floor and its agents, a tap on a character', async () => {
+    const onOpen = await show(client(STANDIN));
+    await speaks({ type: 'ready' });
+    expect(screen.getByText('Read only')).toBeTruthy();
+    await speaks({ type: 'state', floor: 'Ground floor', agents: 4 });
+    expect(screen.getByText('Ground floor · 4 agents')).toBeTruthy();
+    await speaks({ type: 'open', agent: 'wbo:ses_demo1' });
+    expect(onOpen).toHaveBeenCalledWith('wbo:ses_demo1');
+  });
+
+  it('shows the page’s own reason when it could not draw, and reads a new ticket on Try again', async () => {
+    const c = client(STANDIN);
     await show(c);
-    const clock = screen.getByTestId('office-clock');
-    expect(clock).toBeTruthy();
-    // Istanbul's wall clock, HH:MM (the phase itself is lib/office/daylight.ts's, tested there).
-    expect(clock.props.children).toMatch(/^\d{2}:\d{2}$/);
-    // Day or night: the wash is drawn only when the band is not the day's own.
-    const hour = Number(String(clock.props.children).slice(0, 2));
-    const day = hour >= 10 && hour < 17;
-    expect(screen.queryByTestId('office-daylight') === null).toBe(day);
+    await speaks({ type: 'error', message: 'the layout was empty' });
+    expect(screen.getByTestId('office-embed-error')).toBeTruthy();
+    expect(screen.getByText(/the layout was empty/)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('office-embed-retry'));
+    expect(c.officeEmbedToken).toHaveBeenCalledTimes(2);
   });
 
-  it('opens the session behind a tapped character', async () => {
-    const c = client();
-    const onOpen = await show(c);
-    await fireEvent.press(screen.getByTestId('office-person-wbo:alice'));
-    await fireEvent.press(screen.getByTestId('office-card-open'));
-    expect(onOpen).toHaveBeenCalledWith('wbo:alice');
-  });
-
-  it('says so when the office cannot be read, and reads it again on Try again', async () => {
-    const office = jest
-      .fn()
-      .mockRejectedValueOnce(new ApiError(500, 'The office is on fire.'))
-      .mockResolvedValueOnce(LAYOUT);
-    const c = client({ office });
+  it('says so calmly when there is no ticket at all, and tries again on the button', async () => {
+    const c = client(new ApiError(503, 'The server had a problem (HTTP 503).'));
     await show(c);
     expect(screen.getByTestId('office-error')).toBeTruthy();
-    expect(screen.getByText('The office is on fire.')).toBeTruthy();
+    expect(screen.getByText('The server had a problem (HTTP 503).')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('office-error-retry'));
-    await act(async () => undefined);
-    expect(screen.getByTestId('office-person-wbo:alice')).toBeTruthy();
+    expect(c.officeEmbedToken).toHaveBeenCalledTimes(2);
   });
 
-  it('polls at the pace the server asks, and not while the app is behind another one', async () => {
-    jest.useFakeTimers();
-    const c = client();
-    await render(<OfficeScreen client={c} t={officeStrings('en')} onOpen={jest.fn()} />);
-    await act(async () => undefined);
-    const calls = () => (c.officeLive as jest.Mock).mock.calls.length;
-    expect(calls()).toBe(1);
-
-    await act(async () => {
-      jest.advanceTimersByTime(5_000);
-    });
-    expect(calls()).toBe(2);
-
-    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'background' });
-    await act(async () => {
-      jest.advanceTimersByTime(20_000);
-    });
-    expect(calls()).toBe(2);
-
-    Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
-    await act(async () => {
-      jest.advanceTimersByTime(5_000);
-    });
-    expect(calls()).toBe(3);
-    jest.useRealTimers();
+  it('freezes the page while the app is behind another one, and lets it go when it is back', async () => {
+    const handlers = watchAppState();
+    await show(client(STANDIN));
+    expect(told().map((m) => m.type)).toContain('hello');
+    expect(told().map((m) => m.type)).not.toContain('pause');
+    await act(async () => handlers.forEach((say) => say('background')));
+    expect(told().map((m) => m.type)).toContain('pause');      // stop drawing, stop asking
+    await act(async () => handlers.forEach((say) => say('active')));
+    expect(told().map((m) => m.type)).toContain('resume');
   });
 
-  it('says the office is quiet when no agent is connected', async () => {
-    const c = client({ officeLive: jest.fn(async () => ({ agents: [], live_s: 10 })) });
-    await show(c);
-    expect(screen.getByTestId('office-empty')).toBeTruthy();
-  });
-
-  it('says how to pin an agent when the server says nothing is pinned', async () => {
-    const c = client({ officeLive: jest.fn(async () => ({ agents: [], live_s: 10, pinned: 0 })) });
-    await show(c);
-    expect(screen.getByTestId('office-pin-prompt')).toBeTruthy();
+  it('says how to pin an agent when the page has nobody on the floor', async () => {
+    await show(client(STANDIN));
+    await speaks({ type: 'state', floor: 'Ground floor', agents: 0 });
+    expect(screen.getByText('Pin agents in the Chat’s Agents list to see them here.')).toBeTruthy();
   });
 });

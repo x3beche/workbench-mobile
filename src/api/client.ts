@@ -53,8 +53,7 @@ import type {
   SidePrefs,
   ChatDetail,
   TeamAnswer,
-  OfficeLayout,
-  OfficeLive,
+  OfficeEmbed,
   WbcDetail,
   WbcMessage,
   WboAnswer,
@@ -788,14 +787,12 @@ export class WorkbenchClient {
 
   // ---- the Office (backend/office.py) ---------------------------------------------
 
-  /** The company's layout: its floor, rooms, furniture and seats (GET /api/office). */
-  office(): Promise<OfficeLayout> {
-    return this.request<OfficeLayout>('GET', '/api/office');
-  }
-
-  /** What each agent is doing now, and how often the server wants to be asked again (GET /api/office/live). */
-  officeLive(): Promise<OfficeLive> {
-    return this.request<OfficeLive>('GET', '/api/office/live');
+  /**
+   * The Office's embed page and a one-off ticket to open it with (POST /api/office/embed-token): the picture is
+   * the web's own, in a WebView (lib/officeEmbed.ts). `ready: false` while the server has no page yet.
+   */
+  officeEmbedToken(): Promise<OfficeEmbed> {
+    return this.request<OfficeEmbed>('POST', '/api/office/embed-token');
   }
 
   /** One session: its last messages, the lines sent from Workbench, what it asks, who may write. */

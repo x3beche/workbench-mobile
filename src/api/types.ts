@@ -1267,110 +1267,20 @@ export interface HostHealth {
   containers: { name: string; state: string; status: string; unhealthy: boolean; restarting: boolean }[];
 }
 
-// ---- the Office (backend/office.py: GET /api/office, GET /api/office/live) ----------
+// ---- the Office (backend/office_embed.py: POST /api/office/embed-token) ----------------
 
-export type OfficeRoomKind = 'department' | 'kitchen' | 'meeting' | 'lounge' | 'lobby' | 'parking';
-
-export interface OfficeFloor {
-  id: string;
-  name: string;
-  order: number;
-  w: number;
-  h: number;
+/**
+ * The phone's ticket for the Office's embed page: the picture is the web's own, in a WebView, and the account's
+ * session never goes into a URL - so the page is opened with this instead. Single use, sixty seconds.
+ */
+export interface OfficeEmbed {
+  /** Whether the server has an embed page to show at all (`OFFICE_EMBED`); false: the app shows its stand-in. */
+  ready: boolean;
+  /** The page's address on that server, when there is one. */
+  url: string | null;
+  /** The one-off ticket, sent in the page's `x-office-embed` header; null when there is no page. */
+  token: string | null;
+  /** How long the ticket is worth, in seconds. */
+  expires_in: number;
 }
 
-export interface OfficeRoom {
-  id: string;
-  floor: string;
-  name: string;
-  kind: OfficeRoomKind;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  /** A department's manager (an agent key) and the desks it was built for. */
-  department?: { manager: string; desks: number };
-}
-
-/** One piece of furniture: `kind` is `desk`, `chair`, `pc`, `coffee`, `plant`, `sofa`, `board`, `car_spot`. */
-export interface OfficeItem {
-  id: string;
-  room: string;
-  kind: string;
-  x: number;
-  y: number;
-  dir: number;
-  /** A chair made for an agent: its key. */
-  seat_of?: string;
-  /** The desk at the head of a department: its manager's, drawn a little larger. */
-  manager?: boolean;
-}
-
-export interface OfficeSeat {
-  agent: string;
-  item: string;
-  room: string;
-  floor: string;
-  auto: boolean;
-}
-
-/** The company's layout: the floor, its rooms, its furniture and who sits where. */
-export interface OfficeLayout {
-  company: { name: string; settings: { director?: string; every_s?: number }; floors: string[] };
-  tile: number;
-  floors: OfficeFloor[];
-  rooms: OfficeRoom[];
-  items: OfficeItem[];
-  seats: OfficeSeat[];
-  kinds: { rooms: string[]; items: string[] };
-}
-
-/** The director's temper for an agent: the face the character wears, and how strongly (0-2). */
-export interface OfficeMood {
-  name: 'calm' | 'focused' | 'frustrated';
-  level: number;
-}
-
-/** The task a character carries on its card (an open task of its agent). */
-export interface OfficeTask {
-  id: string;
-  title: string;
-  status: string;
-  /** How far the work is: the app's own `TaskProgress` (percent, spread, the time left in a bucket) when the
-   *  server measured it, or a plain percent on a row from an older server. */
-  progress?: number | TaskProgress | null;
-}
-
-export interface OfficeLiveAgent {
-  key: string;
-  name: string;
-  kind: string;
-  state: string;
-  activity: string;
-  bubble: string;
-  seat: { item: string; room: string; floor: string } | null;
-  task?: OfficeTask;
-  /** When the activity began, in the server's epoch seconds: a walk is timed from it. */
-  since: number;
-  manager: string | null;
-  /** Where the server would draw it: the desk, the kitchen, the lounge, its manager, the door. */
-  pose?: string | null;
-  /** Who last spoke of this agent: the free rules, or Jev (the director). */
-  by?: 'rule' | 'jev' | null;
-  /** Jev's word for what it is doing ("debugging", "reading docs"). */
-  detail?: string | null;
-  /** Jev's temper for it, when it had a say. */
-  mood?: OfficeMood | null;
-  /** It wants the person: a small "?" over its head, and the bubble says "?". */
-  needs_manager?: boolean;
-  /** How sure Jev was, 0-1. */
-  confidence?: number | null;
-}
-
-export interface OfficeLive {
-  agents: OfficeLiveAgent[];
-  /** How often the server asks to be polled, in seconds. */
-  live_s: number;
-  /** How many sessions the person pinned in the Chat's Agents group: 0 is the calm "pin one" office. */
-  pinned?: number;
-}

@@ -1,92 +1,94 @@
 /**
- * The Office screen: the read-only, top-down view of the company (docs/OFFICE.md,
- * phase 4) and the data behind it.
+ * The Office screen: the web's own picture, hosted (docs/OFFICE.md, #a02107 for the page, #72cbd0 here).
  *
- * `GET /api/office` is read once, when the screen opens (the layout does not
- * move by itself); `GET /api/office/live` is polled at the pace the server asks
- * for (`live_s`, ten seconds unless it says otherwise), and at once when the
- * account's bus says the picture changed (`office`). Neither happens while the
- * app is in the background (the resilience rules): `inFront()` is asked before
- * every request, and drawing stops with the app.
+ * The app draws nothing of the office any more. It asks the server for a one-off ticket
+ * (`POST /api/office/embed-token`, `backend/office_embed.py`), opens `/office/embed` with it in a header - never in
+ * a URL, which a WebView keeps in its history - and hands the page its theme, its language and the phone's insets
+ * (`lib/officeEmbed.ts`). What comes back is a tap on a character (`open`), whether the picture is drawn
+ * (`ready`), the line for the bar (`state`), or that the page could not draw at all (`error`).
  *
- * Nothing here writes: there is no drag of a chair, no new room, no task
- * closed from the picture. The one thing a tap does is open the session behind
- * the character - the same read the drawer does.
+ * The page polls for itself, and only while the app is in front: `pause`/`resume` go to it with `AppState`, so
+ * nothing is drawn or asked for from the background (the resilience rules). Until the server has a page
+ * (`ready: false`), the app's stand-in is drawn in its place - the same protocol, so the switch is the server's.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { WorkbenchClient } from '../api/client';
-import type { OfficeLayout, OfficeLiveAgent } from '../api/types';
-import { OfficeView } from '../components/OfficeView';
+import type { OfficeEmbed as OfficeTicket } from '../api/types';
+import { OfficeEmbed } from '../components/OfficeEmbed';
 import { useOfficeClock } from '../components/officeClock';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { LoadError } from '../components/ui';
-import { floorOf } from '../lib/office/scene';
+import { Button, LoadError } from '../components/ui';
+import { helloOf, MOCK_EMBED_HTML, type PageMessage } from '../lib/officeEmbed';
 import type { OfficeStrings } from '../lib/officeStrings';
-import { inFront } from '../live/hub';
-import { useBus } from '../live/LiveContext';
-import { colors, fonts, space, type } from '../theme/tokens';
-
-/** How often the live rows are asked for when the server does not say (seconds). */
-const SLOW_S = 10;
-const FASTEST_S = 5;
-const SLOWEST_S = 60;
+import { colors, fonts, radius, space, theme, type } from '../theme/tokens';
+import type { UiLang } from '../update/strings';
 
 export function OfficeScreen({
   client,
   t,
+  lang,
   wide = false,
   onMenu,
   onOpen,
 }: {
   client: WorkbenchClient | null;
   t: OfficeStrings;
+  /** The app's language, for the page (it speaks both). */
+  lang: UiLang;
   wide?: boolean;
   /** The drawer's button (a phone); a wide screen keeps its column. */
   onMenu?: () => void;
-  /** A character's session: `wbo:ses_…` or `wbc:ses_…`. */
+  /** A character's session: `wbo:ses_…` or `wbc:ses_…`, as the page sent it. */
   onOpen: (key: string) => void;
 }) {
-  const [layout, setLayout] = useState<OfficeLayout | null>(null);
-  const [agents, setAgents] = useState<OfficeLiveAgent[] | null>(null);
-  /** How many sessions the person pinned; 0 draws the calm "pin an agent" state, not an empty office. */
-  const [pinned, setPinned] = useState<number | null>(null);
-  /** The pace the server asked for, in a ref: the loop reads it after each answer, and does not restart. */
-  const everyS = useRef(SLOW_S);
-  /** Why the floor could not be read (the screen is empty), and why the last live read failed (a banner). */
-  const [layoutError, setLayoutError] = useState<string | null>(null);
-  const [liveError, setLiveError] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
+  const { clock } = useOfficeClock();
+  /** The ticket read once when the screen opens; a retry reads a new one. */
+  const [ticket, setTicket] = useState<OfficeTicket | null>(null);
   const [loading, setLoading] = useState(true);
+  /** The line the screen cannot do without (no ticket: offline, or the server refused), and a retry. */
+  const [failed, setFailed] = useState<string | null>(null);
+  /** The page says it could not draw: a line over the space, and a reload. */
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [stats, setStats] = useState<{ floor?: string; agents?: number } | null>(null);
+  const [drawn, setDrawn] = useState(false);
+  const [paused, setPaused] = useState(() => AppState.currentState !== 'active');
+  /** A reload: a fresh ticket and a fresh page (the stand-in too). */
+  const [generation, setGeneration] = useState(0);
 
   const alive = useRef(true);
-  const busy = useRef(false);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
   const tRef = useRef(t);
   useEffect(() => {
     tRef.current = t;
   }, [t]);
-
-  useEffect(
-    () => () => {
-      alive.current = false;
-    },
-    [],
-  );
 
   const load = useCallback(async () => {
     if (!client) {
       setLoading(false);
       return;
     }
+    setLoading(true);
+    setFailed(null);
+    setPageError(null);
+    setDrawn(false);
     try {
-      const got = await client.office();
+      const got = await client.officeEmbedToken();
       if (!alive.current) return;
-      setLayout(got);
-      setLayoutError(null);
+      setTicket(got);
+      setGeneration((n) => n + 1);
     } catch (e) {
       if (!alive.current) return;
-      setLayoutError(e instanceof Error && e.message ? e.message : tRef.current.error);
+      setFailed(e instanceof Error && e.message ? e.message : tRef.current.error);
     } finally {
       if (alive.current) setLoading(false);
     }
@@ -94,7 +96,7 @@ export function OfficeScreen({
 
   useEffect(() => {
     let gone = false;
-    // After this turn, not during it: the read is the effect's, and its answers are the effect's.
+    // After this turn, not during it: the read is the effect's.
     const began = async () => {
       await Promise.resolve();
       if (!gone) await load();
@@ -105,64 +107,65 @@ export function OfficeScreen({
     };
   }, [load]);
 
-  const fetchLive = useCallback(async () => {
-    if (!client || busy.current) return;
-    busy.current = true;
-    try {
-      const got = await client.officeLive();
-      if (!alive.current) return;
-      setAgents(Array.isArray(got?.agents) ? got.agents : []);
-      setPinned(typeof got?.pinned === 'number' && Number.isFinite(got.pinned) ? Math.max(0, Math.trunc(got.pinned)) : null);
-      everyS.current = Math.max(FASTEST_S, Math.min(SLOWEST_S, Math.round(got?.live_s || SLOW_S)));
-      setLiveError(null);
-    } catch (e) {
-      if (!alive.current) return;
-      setLiveError(e instanceof Error && e.message ? e.message : tRef.current.error);
-    } finally {
-      busy.current = false;
-    }
-  }, [client]);
-
-  // The poll: a request, then a rest of the server's own length; nothing while
-  // the app is behind another one. Restarting it (a new pace) asks once more.
+  // The page is frozen while the app is behind another one: nothing is drawn, nothing is asked for.
   useEffect(() => {
-    let go = true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const loop = async () => {
-      if (!go) return;
-      if (inFront()) await fetchLive();
-      if (go) timer = setTimeout(loop, everyS.current * 1000);
-    };
-    void loop();
-    return () => {
-      go = false;
-      if (timer) clearTimeout(timer);
-    };
-  }, [fetchLive]);
+    const sub = AppState.addEventListener('change', (st) => setPaused(st !== 'active'));
+    return () => sub.remove();
+  }, []);
 
-  // The bus says some agent's picture changed: read it now, not at the next tick. A pin changed who is in the
-  // office (its departments and Hot desks too), so that word reads the layout again as well.
-  useBus(['office'], (e) => {
-    if ((e?.p as { why?: string } | undefined)?.why === 'pins') {
-      void load().then(() => fetchLive());
-    } else {
-      void fetchLive();
-    }
-  });
+  const hello = useMemo(
+    () =>
+      helloOf({
+        theme: theme.light ? 'light' : 'dark',
+        themeId: theme.id,
+        lang,
+        insets: {
+          top: Math.round(insets.top),
+          bottom: Math.round(insets.bottom),
+          left: Math.round(insets.left),
+          right: Math.round(insets.right),
+        },
+        server: client?.base ?? '',
+      }),
+    [client?.base, insets.bottom, insets.left, insets.right, insets.top, lang],
+  );
 
-  // The office's own hour: the clock in the bar, and the light over the drawing (lib/office/daylight.ts).
-  const { clock, phase } = useOfficeClock();
-
-  const floor = useMemo(() => floorOf(layout), [layout]);
-  const count = agents?.length ?? 0;
-  const sub = layout ? `${t.summary(floor?.name || t.office, count)} · ${t.readOnly}` : undefined;
+  const hear = useCallback(
+    (message: PageMessage) => {
+      switch (message.type) {
+        case 'ready':
+          setDrawn(true);
+          break;
+        case 'open':
+          onOpen(message.agent);
+          break;
+        case 'state':
+          setStats({ ...(message.floor ? { floor: message.floor } : {}), ...(message.agents !== undefined ? { agents: message.agents } : {}) });
+          break;
+        case 'error':
+          setPageError(message.message);
+          break;
+      }
+    },
+    [onOpen],
+  );
 
   const retry = useCallback(() => {
-    setLoading(true);
-    setLayoutError(null);
-    setLiveError(null);
-    void load().then(() => fetchLive());
-  }, [load, fetchLive]);
+    void load();
+  }, [load]);
+
+  const page = ticket?.ready ? ticket : null;
+  const uri = page?.url ? absoluteUrl(client?.base, page.url) : null;
+  // The page says what it has: a floor and its agents, or nobody - and the person's own rule for that is to point
+  // at where agents are pinned (the office is the pinned agents and their tree, never the whole account).
+  const sub =
+    stats && stats.agents === 0
+      ? t.pinPrompt
+      : stats?.floor
+        ? `${t.summary(stats.floor, stats.agents ?? 0)}`
+        : drawn
+          ? t.readOnly
+          : undefined;
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'left', 'right', 'bottom']} testID="office-screen">
@@ -178,27 +181,46 @@ export function OfficeScreen({
           </Text>
         }
       />
-      {!layout && loading ? (
+      {loading ? (
         <View style={s.loading} testID="office-loading">
           <ActivityIndicator color={colors.inkDim} />
           <Text style={s.loadingText}>{t.loading}</Text>
         </View>
-      ) : !layout ? (
-        <LoadError text={layoutError || t.error} onRetry={retry} retryLabel={t.retry} centered testID="office-error" />
+      ) : failed ? (
+        <LoadError text={failed} onRetry={retry} retryLabel={t.retry} centered testID="office-error" />
       ) : (
         <View style={s.body}>
-          <OfficeView layout={layout} live={agents} t={t} onOpen={onOpen} wide={wide} phase={phase} pinned={pinned} />
-          {liveError ? (
-            <View style={s.banner} testID="office-live-error">
+          <OfficeEmbed
+            key={generation}
+            testID="office-embed"
+            uri={uri}
+            {...(uri && page?.token ? { headers: { 'x-office-embed': page.token } } : {})}
+            {...(uri ? {} : { html: MOCK_EMBED_HTML })}
+            baseUrl={client?.base}
+            hello={hello}
+            paused={paused}
+            onMessage={hear}
+            onError={(why) => setPageError(why)}
+          />
+          {pageError ? (
+            <View style={s.banner} testID="office-embed-error">
               <Text style={s.bannerText} numberOfLines={2}>
-                {liveError}
+                {`${t.pageError} ${pageError}`}
               </Text>
+              <Button label={t.retry} onPress={retry} testID="office-embed-retry" style={s.bannerGo} />
             </View>
           ) : null}
         </View>
       )}
     </SafeAreaView>
   );
+}
+
+/** The page's address as the WebView should ask for it: the server's own, when the server sent a path. */
+export function absoluteUrl(base: string | undefined, url: string): string {
+  if (/^[a-z]+:/i.test(url) || url.startsWith('//')) return url;
+  if (!base) return url;
+  return base.replace(/\/+$/, '') + (url.startsWith('/') ? url : `/${url}`);
 }
 
 const s = StyleSheet.create({
@@ -230,15 +252,20 @@ const s = StyleSheet.create({
     left: space.md,
     right: space.md,
     bottom: space.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
     paddingHorizontal: space.sm,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     backgroundColor: colors.warnSoft,
   },
   bannerText: {
+    flex: 1,
     fontFamily: fonts.sans,
     fontSize: type.small,
     lineHeight: type.smallLine,
     color: colors.warn,
   },
+  bannerGo: { marginLeft: 'auto' },
 });
