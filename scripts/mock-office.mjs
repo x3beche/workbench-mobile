@@ -29,7 +29,7 @@ function compact() {
       department: { manager: 'wbc:rail', desks: 3 },
     },
     {
-      id: 'rm_redline', floor: 'fl_1', name: 'Redline', kind: 'department', x: 9, y: 5, w: 7, h: 5,
+      id: 'rm_redline', floor: 'fl_1', name: 'PCB design', kind: 'department', x: 9, y: 5, w: 7, h: 5,
       department: { manager: 'wbc:redline', desks: 3 },
     },
     { id: 'rm_hot', floor: 'fl_1', name: 'Hot desks', kind: 'department', x: 17, y: 5, w: 5, h: 5 },
@@ -112,7 +112,7 @@ const ACTIVITY = [
     task: { id: 'c7a2', title: 'Sign the OTA image and keep the old slot', status: 'working', progress: 18 }, manager: 'wbc:rail',
   },
   {
-    key: 'wbc:redline', name: 'Redline release 1.9.30', kind: 'Claude Code', state: 'working',
+    key: 'wbc:redline', name: 'PCB design release 1.9.30', kind: 'Claude Code', state: 'working',
     activity: 'thinking', bubble: 'Checking the changelog', since: 12, task: null, manager: null,
   },
   {
