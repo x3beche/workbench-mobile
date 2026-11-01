@@ -88,7 +88,8 @@ describe('actSpan', () => {
     expect(c.activity).toHaveBeenLastCalledWith('1h');
     expect((await readActPrefs('acct-1')).range).toBe('1h');
 
-    // One's own: a bad one is not taken, a good one is.
+    // One's own: the box comes with Custom, and a bad one is not taken, a good one is.
+    await fireEvent.press(screen.getByTestId('activity-range-custom'));
     await fireEvent.changeText(screen.getByTestId('activity-own-range'), '40x');
     await fireEvent(screen.getByTestId('activity-own-range'), 'submitEditing');
     await settle();
@@ -103,7 +104,9 @@ describe('actSpan', () => {
     expect(screen.queryByTestId('activity-dot-on')).toBeNull();
     expect((await readActPrefs('acct-1')).show).not.toContain('tps');
 
-    // Selecting 'today': asked for with device timezone, strip shows 'since 00:00'
+    // Selecting 'today': it is under "More" (eleven equal segments do not fit a phone), then asked for with the
+    // device's timezone, and the strip says 'since 00:00'
+    await fireEvent.press(screen.getByTestId('activity-range-more'));
     await fireEvent.press(screen.getByTestId('activity-range-today'));
     await settle();
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -116,6 +119,8 @@ describe('actSpan', () => {
     await fireEvent.press(screen.getByTestId('activity-range-1h'));
     await settle();
     expect((await readActPrefs('acct-1')).range).toBe('1h');
+    // the box was opened for the range before; the chip toggles it, so only tap it when it is away
+    if (!screen.queryByTestId('activity-own-range')) await fireEvent.press(screen.getByTestId('activity-range-custom'));
     await fireEvent.changeText(screen.getByTestId('activity-own-range'), 'today');
     await fireEvent(screen.getByTestId('activity-own-range'), 'submitEditing');
     await settle();
@@ -134,10 +139,41 @@ describe('actSpan', () => {
     expect(screen.getByText('Sohbet 30.0 · Orkestratör 12.4')).toBeTruthy();
 
     // In Turkish, today range button is 'Bugün' and strip says "00:00'dan beri"
+    await fireEvent.press(screen.getByTestId('activity-range-more'));
     await fireEvent.press(screen.getByTestId('activity-range-today'));
     await settle();
     expect(screen.getByText("tok · 00:00'dan beri")).toBeTruthy();
     expect(screen.getByText('Token · Bugün')).toBeTruthy();
+  });
+
+  it("shows five presets, the rest under More, and one's own behind Custom", async () => {
+    await render(<ActivityStrip client={client()} scope="acct-5" lang="en" />);
+    await settle();
+    await fireEvent.press(screen.getByTestId('activity-strip'));
+
+    // the five that fit: each a chip of its own words, and nothing else on the row
+    for (const id of ['1h', '6h', '24h', '7d', '30d']) expect(screen.getByTestId(`activity-range-${id}`)).toBeTruthy();
+    expect(screen.queryByTestId('activity-range-today')).toBeNull();
+    expect(screen.queryByTestId('activity-range-30m')).toBeNull();
+    expect(screen.queryByTestId('activity-range-3d')).toBeNull();
+    // the range in use is marked as chosen
+    expect(screen.getByTestId('activity-range-24h').props.accessibilityState).toEqual({ checked: true });
+
+    // More: the other five, and one of them can be chosen
+    await fireEvent.press(screen.getByTestId('activity-range-more'));
+    for (const id of ['today', '30m', '3h', '12h', '3d']) expect(screen.getByTestId(`activity-range-${id}`)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('activity-range-3d'));
+    await settle();
+    expect((await readActPrefs('acct-5')).range).toBe('3d');
+
+    // Custom: the box is not there until asked for, and then it is the only thing under the row
+    expect(screen.queryByTestId('activity-own-range')).toBeNull();
+    await fireEvent.press(screen.getByTestId('activity-range-custom'));
+    expect(screen.getByTestId('activity-own-range')).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId('activity-own-range'), '15m');
+    await fireEvent(screen.getByTestId('activity-own-range'), 'submitEditing');
+    await settle();
+    expect((await readActPrefs('acct-5')).range).toBe('15m');
   });
 
   it('drops a saved "claude prompts" figure: the pool is a source, not a figure', async () => {

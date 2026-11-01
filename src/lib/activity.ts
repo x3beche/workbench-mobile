@@ -19,6 +19,30 @@ export const SOURCES: { id: ActSource; label: string }[] = [
   { id: 'opencode', label: 'OpenCode' },
 ];
 
+/** The ranges on the row: five presets, the rest under "More", and one's own.
+ *  Eleven equal segments do not fit a phone (Today wrapped into "Toda / y"): the
+ *  row is chips sized to their words, scrolling sideways when they must, and the
+ *  five that are used most stand in it. */
+export const PRESETS = ['1h', '6h', '24h', '7d', '30d'];
+/** The rest, a tap away under "More": still one tap out of reach of nobody. */
+export const MORE = ['today', '30m', '3h', '12h', '3d'];
+
+/** Whether a range is one the row or "More" names (as opposed to one of one's own, "15m"). */
+export function isNamedRange(r: string): boolean {
+  return r === 'today' || PRESETS.includes(r) || MORE.includes(r);
+}
+
+/** What the row shows for a range: the five presets, the range in use beside them when it is one of "More"
+ *  or one's own (so what is chosen is always on screen), and which chip covers it. */
+export function rangeChips(current: string): { chips: string[]; more: boolean; custom: boolean } {
+  const named = isNamedRange(current);
+  return {
+    chips: [...PRESETS, ...(current && !PRESETS.includes(current) && !MORE.includes(current) ? [current] : [])],
+    more: named && MORE.includes(current),
+    custom: !!current && !named,
+  };
+}
+
 export type ActMetric = 'tps' | 'spark' | 'tokens' | 'jobs' | 'cpu' | 'ram';
 export const METRICS: { id: ActMetric; label: string }[] = [
   { id: 'tps', label: 'Tokens a second' },

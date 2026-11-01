@@ -38,6 +38,8 @@ import {
   DEFAULT_PREFS,
   METRICS,
   RANGES,
+  MORE,
+  rangeChips,
   SOURCES,
   cpu,
   everyMs,
@@ -85,6 +87,18 @@ export function useActivity(client: WorkbenchClient | null, scope: string): Acti
   const [err, setErr] = useState(false);
   const [ready, setReady] = useState(false);
 
+  /** The `at` of the newest payload taken, in ms: an older one never replaces a newer. */
+  const fresh = useRef(0);
+  const take = useCallback((n: ActivityNow | null) => {
+    if (!n || typeof n.at !== 'number') return;
+    // A range's answer carries its own "now" (the server keeps it up to 45 s for the longer ranges). Taking it
+    // unconditionally is how the phone showed 0 MB and 0 containers while the web, a moment later, had 552 MB:
+    // the cached machine of a quieter minute kept overwriting the live one.
+    if (fresh.current && n.at * 1000 < fresh.current) return;
+    fresh.current = n.at * 1000;
+    setNow(n);
+  }, []);
+
   useEffect(() => {
     let live = true;
     readActPrefs(scope).then((p) => {
@@ -115,7 +129,7 @@ export function useActivity(client: WorkbenchClient | null, scope: string): Acti
           (d) => {
             if (gone || d.range !== r) return;
             setData(d);
-            setNow(d);
+            take(d);
             setErr(false);
           },
           () => !gone && setErr(true),
@@ -135,14 +149,11 @@ export function useActivity(client: WorkbenchClient | null, scope: string): Acti
       gone = true;
       clearInterval(t);
     };
-  }, [client, ready, prefs.range]);
+  }, [client, ready, prefs.range, take]);
 
   // Now: the stream while it is up, else a look every 5 s.
   const hub = useLive();
   const streaming = useRef(false);
-  const take = useCallback((n: ActivityNow | null) => {
-    if (n && typeof n.at === 'number') setNow(n);
-  }, []);
   useEffect(() => {
     if (!hub) return;
     const f = hub.follow<ActivityNow>(take, { onLive: (l) => (streaming.current = l) });
@@ -153,7 +164,13 @@ export function useActivity(client: WorkbenchClient | null, scope: string): Acti
     if (!client) return;
     let gone = false;
     const t = setInterval(() => {
-      if (streaming.current || !inFront()) return;
+      // The figures are skipped by the poll while the stream is up, and while the app is not in front - but a
+      // stream that stays open and delivers nothing (a gate that trimmed its history, a socket lost without the
+      // phone knowing), or an AppState that says "background" while the sheet is on screen, would freeze them for
+      // ever. Figures that have not moved for three looks are asked for, whoever else was meant to be telling.
+      const stale = !fresh.current || Date.now() - fresh.current > NOW_MS * 3;
+      if (streaming.current && !stale) return;
+      if (!inFront() && !stale) return;
       Promise.resolve()
         .then(() => client.activityNow())
         .then(
@@ -291,7 +308,10 @@ export function ActivitySheet({ feed, lang, onClose }: { feed: ActivityFeed; lan
   const { data: d, now, prefs, setPrefs } = feed;
   const [hide, setHide] = useState<ReadonlySet<ActSource>>(new Set());
   const [draft, setDraft] = useState('');
-  const custom = !RANGES.some((r) => r.id === prefs.range);
+  const [more, setMore] = useState(false);
+  const [own, setOwn] = useState(false);
+  const row = rangeChips(prefs.range);
+  const custom = row.custom;
   const bad = !!draft.trim() && !isActRange(draft);
   const apply = () => {
     const v = draft.trim().toLowerCase();
@@ -354,45 +374,103 @@ export function ActivitySheet({ feed, lang, onClose }: { feed: ActivityFeed; lan
       testID="activity-sheet"
     >
       <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
-        <View style={s.ranges} accessibilityRole="radiogroup" accessibilityLabel={t('Range')}>
-          {RANGES.map((r, i) => {
-            const sel = prefs.range === r.id;
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.rangeRow}
+          accessibilityRole="radiogroup"
+          accessibilityLabel={t('Range')}
+        >
+          {row.chips.map((id) => {
+            const sel = prefs.range === id;
+            const long = RANGES.find((r) => r.id === id)?.long ?? '';
             return (
               <Pressable
-                key={r.id}
-                onPress={() => setPrefs({ ...prefs, range: r.id })}
+                key={id}
+                onPress={() => setPrefs({ ...prefs, range: id })}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: sel }}
-                accessibilityLabel={t(r.long)}
-                style={({ pressed }) => [s.seg, i === 0 && s.segFirst, sel && s.segOn, pressed && s.segPressed]}
-                testID={`activity-range-${r.id}`}
+                accessibilityLabel={long ? t(long) : id}
+                style={({ pressed }) => [s.chip, sel && s.chipOn, pressed && s.segPressed]}
+                testID={`activity-range-${id}`}
               >
-                <Text style={[s.segText, sel && s.segTextOn]}>{r.id === 'today' ? t('Today') : t(r.id)}</Text>
+                <Text style={[s.chipText, sel && s.chipTextOn]} numberOfLines={1}>
+                  {id === 'today' ? t('Today') : id}
+                </Text>
               </Pressable>
             );
           })}
-        </View>
-        <View style={s.ownRow}>
-          <TextInput
-            value={draft || (custom ? prefs.range : '')}
-            onChangeText={setDraft}
-            onSubmitEditing={apply}
-            onBlur={apply}
-            placeholder={t('e.g. 15m')}
-            placeholderTextColor={colors.inkDim}
-            maxLength={6}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="done"
-            accessibilityLabel={t('Your own range')}
-            accessibilityHint={t('Your own range: a number and m, h or d - 1m, 15m, 2h, 3d (up to 30d).')}
-            style={[s.own, custom && !draft && s.ownOn, bad && s.ownBad]}
-            testID="activity-own-range"
-          />
-          <Text style={s.ownHint} numberOfLines={2}>
-            {t('Your own range: a number and m, h or d - 1m, 15m, 2h, 3d (up to 30d).')}
-          </Text>
-        </View>
+          <Pressable
+            onPress={() => setMore((v) => !v)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: more }}
+            accessibilityLabel={t('More ranges')}
+            style={({ pressed }) => [s.chip, (more || row.more) && s.chipOn, pressed && s.segPressed]}
+            testID="activity-range-more"
+          >
+            <Text style={[s.chipText, (more || row.more) && s.chipTextOn]} numberOfLines={1}>
+              ···
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setOwn((v) => !v)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: own }}
+            accessibilityLabel={t('Custom…')}
+            style={({ pressed }) => [s.chip, (own || custom) && s.chipOn, pressed && s.segPressed]}
+            testID="activity-range-custom"
+          >
+            <Text style={[s.chipText, (own || custom) && s.chipTextOn]} numberOfLines={1}>
+              {custom ? prefs.range : t('Custom…')}
+            </Text>
+          </Pressable>
+        </ScrollView>
+        {more ? (
+          <View style={s.moreRow} accessibilityLabel={t('More ranges')}>
+            {MORE.map((id) => {
+              const sel = prefs.range === id;
+              const long = RANGES.find((r) => r.id === id)?.long ?? '';
+              return (
+                <Pressable
+                  key={id}
+                  onPress={() => setPrefs({ ...prefs, range: id })}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: sel }}
+                  accessibilityLabel={t(long)}
+                  style={({ pressed }) => [s.chip, sel && s.chipOn, pressed && s.segPressed]}
+                  testID={`activity-range-${id}`}
+                >
+                  <Text style={[s.chipText, sel && s.chipTextOn]} numberOfLines={1}>
+                    {id === 'today' ? t('Today') : id}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+        {own || custom ? (
+          <View style={s.ownRow}>
+            <TextInput
+              value={draft || (custom ? prefs.range : '')}
+              onChangeText={setDraft}
+              onSubmitEditing={apply}
+              onBlur={apply}
+              placeholder={t('e.g. 15m')}
+              placeholderTextColor={colors.inkDim}
+              maxLength={6}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              accessibilityLabel={t('Your own range')}
+              accessibilityHint={t('Your own range: a number and m, h or d - 1m, 15m, 2h, 3d (up to 30d).')}
+              style={[s.own, custom && !draft && s.ownOn, bad && s.ownBad]}
+              testID="activity-own-range"
+            />
+            <Text style={s.ownHint} numberOfLines={1}>
+              {t('a number and m, h or d · 1m to 30d')}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={s.figs}>
           {figs.map((f) => (
@@ -665,32 +743,40 @@ const s = StyleSheet.create({
 
   body: { paddingHorizontal: gutter, paddingBottom: space.xl, gap: space.md },
   // One segmented row, as the web's.
-  ranges: {
+  /* The range: chips sized to their words, one line, scrolling sideways - eleven equal segments wrapped
+     "Today" into two lines on a 412 px phone. 44 px is a fingertip. */
+  rangeRow: {
     flexDirection: 'row',
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-    marginTop: space.xs,
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
+    paddingTop: space.xs,
   },
-  seg: {
-    flex: 1,
-    minHeight: 34,
+  moreRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingTop: 6,
+  },
+  chip: {
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: 10,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: colors.line,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
   },
-  segFirst: { borderLeftWidth: 0 },
-  segOn: { backgroundColor: colors.hover },
-  ownRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: -space.xs },
+  chipOn: { backgroundColor: colors.hover, borderColor: colors.inkDim },
+  chipText: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
+  chipTextOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
+  ownRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: 6 },
   ownHint: { flex: 1, fontFamily: fonts.sans, fontSize: type.micro, lineHeight: type.microLine, color: colors.inkDim },
   segPressed: { backgroundColor: colors.pressed },
-  segText: { fontFamily: fonts.sans, fontSize: type.tiny, color: colors.inkDim },
-  segTextOn: { fontFamily: fonts.sansSemi, color: colors.inkBright },
   own: {
-    minHeight: 32,
+    minHeight: 44,
     width: 84,
     paddingHorizontal: 8,
     paddingVertical: 4,
