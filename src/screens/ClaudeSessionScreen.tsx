@@ -39,7 +39,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError, type VoiceLang, type WorkbenchClient } from '../api/client';
-import type { User, WbcDetail, WbcMessage, WbcSession, WbcTurn } from '../api/types';
+import type { User, WbcDetail, WbcMessage, WbcSession, WbcTurn, WbcTurnsPage } from '../api/types';
 import { Appear } from '../components/Appear';
 import { ChatHeader } from '../components/ChatHeader';
 import { Composer } from '../components/Composer';
@@ -176,27 +176,42 @@ export function ClaudeSessionScreen({
     [t],
   );
 
-  /** The newest page, kept under the older pages already read. */
-  const latest = useCallback((): Promise<void> => {
+  /**
+   * The newest page, kept under the older pages already read.
+   *
+   * `ask: 'new'` is a poll asking only what it does not have: the turns after the newest one held
+   * (`backend/wbclaude.py`, `since`), which is what keeps a long session cheap - the whole page every few
+   * seconds was the stutter (the web's own 529d4a0). An answer that says `full` means the window cut the
+   * history, and the page is read whole instead.
+   */
+  const latest = useCallback((ask: 'full' | 'new' = 'full'): Promise<void> => {
     if (!client) return Promise.resolve();
-    return client.wbcTurns(sid, TURNS_PAGE).then(
+    const place = (page: WbcTurnsPage): void => {
+      if (!mounted.current) return;
+      const held = turnsRef.current;
+      const { turns: laid, gap } = layTurns(held, page);
+      const next = keepSame(held, laid);
+      if (held === null || gap) {
+        setMore(page.more);
+        before.current = page.before;
+      }
+      const newest = next[next.length - 1];
+      const was = held?.[held.length - 1];
+      if (held?.length && newest && (!was || turnKey(newest) !== turnKey(was)) && !reader.atBottom()) setBelow(true);
+      setTurns((now) => (now === next ? now : next));
+      setSuggestion(page.suggestion || null);
+    };
+    const since = ask === 'new' ? turnsRef.current?.[turnsRef.current.length - 1]?.at ?? null : null;
+    return client.wbcTurns(sid, TURNS_PAGE, null, since).then(
       (page) => {
-        if (!mounted.current) return;
-        const held = turnsRef.current;
-        const { turns: laid, gap } = layTurns(held, page);
-        const next = keepSame(held, laid);
-        if (held === null || gap) {
-          setMore(page.more);
-          before.current = page.before;
-        }
-        const newest = next[next.length - 1];
-        const was = held?.[held.length - 1];
-        if (held?.length && newest && (!was || turnKey(newest) !== turnKey(was)) && !reader.atBottom()) setBelow(true);
-        setTurns((now) => (now === next ? now : next));
-        setSuggestion(page.suggestion || null);
+        // A part of a history is not a history: read the page itself.
+        if (page.full) return client.wbcTurns(sid, TURNS_PAGE).then(place, () => undefined);
+        place(page);
       },
       (e) => {
         if (!mounted.current) return;
+        // A poll that fails keeps what is read; the first read has nothing to keep.
+        if (turnsRef.current?.length) return;
         setTurns((now) => now ?? []);
         setError(fail(e, t.cantRead));
       },
@@ -204,7 +219,7 @@ export function ClaudeSessionScreen({
   }, [client, sid, fail, t, reader]);
 
   const refresh = useCallback(
-    (withTurns = false): Promise<void> => {
+    (withTurns = false, ask: 'full' | 'new' = 'full'): Promise<void> => {
       if (!client) return Promise.resolve();
       const detail = client.wbcSession(sid).then(
         (d) => {
@@ -214,7 +229,7 @@ export function ClaudeSessionScreen({
         },
         (e) => mounted.current && setError(fail(e, t.cantRead)),
       );
-      return Promise.all([detail, withTurns ? latest() : null]).then(() => undefined);
+      return Promise.all([detail, withTurns ? latest(ask) : null]).then(() => undefined);
     },
     [client, sid, latest, fail, t],
   );
@@ -268,7 +283,7 @@ export function ClaudeSessionScreen({
       soon.current = null;
       const both = turnsToo.current;
       turnsToo.current = false;
-      refresh(both);
+      refresh(both, both ? 'full' : 'new');
       onChanged?.();
     }, GATHER_MS);
   });
@@ -279,7 +294,7 @@ export function ClaudeSessionScreen({
     if (!live) return;
     const timer = setInterval(() => {
       if (!inFront()) return;
-      if (!pace || pace.due()) refresh(true);
+      if (!pace || pace.due()) refresh(true, 'new');
     }, EVERY);
     return () => clearInterval(timer);
   }, [live, pace, refresh]);

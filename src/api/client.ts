@@ -685,9 +685,14 @@ export class WorkbenchClient {
   }
 
   /** Its turns, newest last: the newest `limit`, or those before `before` (the answer's own `before`). */
-  wbcTurns(sid: string, limit: number, before?: number | null): Promise<WbcTurnsPage> {
+  /** A page of the conversation, or - with `since` - only the turns after that moment: what a poll asks for,
+   *  so a long session does not send its whole page every few seconds (backend/wbclaude.py, `since`). The
+   *  answer says `full` when the window cut the history: read the page again without it. */
+  wbcTurns(sid: string, limit: number, before?: number | null, since?: number | null): Promise<WbcTurnsPage> {
     const back = before ? `&before=${encodeURIComponent(String(before))}` : '';
-    return this.request<WbcTurnsPage>('GET', `/api/wbc/sessions/${encodeURIComponent(sid)}/turns?limit=${limit}${back}`);
+    const after = since ? `&since=${encodeURIComponent(String(since))}` : '';
+    return this.request<WbcTurnsPage>(
+      'GET', `/api/wbc/sessions/${encodeURIComponent(sid)}/turns?limit=${limit}${back}${after}`);
   }
 
   /** Rename one's own OpenCode session: its own title, changed on that computer too, so the TUI shows the same

@@ -175,7 +175,7 @@ const scrollOf = (y: number) => ({
   it('opens at its newest turns, ten at a time, with the remote mark', async () => {
     const c = client();
     await open(c);
-    expect(c.wbcTurns).toHaveBeenCalledWith('s1', 10);
+    expect(c.wbcTurns).toHaveBeenCalledWith('s1', 10, null, null);   // the first read: the page itself
     expect(screen.getByText('Why does the rail sag?')).toBeTruthy();
     expect(screen.getByText('Run the DRC')).toBeTruthy();
     expect(screen.getByText('from Workbench')).toBeTruthy();
@@ -335,6 +335,21 @@ const scrollOf = (y: number) => ({
     say({ k: 'wbc', p: { sid: 's1', what: 'bridge' } });
     await tick(200);
     expect(c.wbcTurns.mock.calls.length).toBe(pages + 1);
+  });
+
+  it('asks a poll for only what is new, and reads the page when the window cut it', async () => {
+    const c = client();
+    await open(c, fakeHub(false).hub);
+    expect(c.wbcTurns).toHaveBeenLastCalledWith('s1', 10, null, null);
+    // A poll carries the newest turn held: the turns after it, not the page again (backend/wbclaude.py, `since`).
+    await tick(5000);
+    expect(c.wbcTurns).toHaveBeenLastCalledWith('s1', 10, null, TURNS[TURNS.length - 1].at);
+    // An answer that says the window cut the history is not trusted: the page itself is read, once.
+    c.wbcTurns.mockImplementation(async (_sid: string, _limit: number, _before?: number | null, since?: number | null) =>
+      since ? { turns: [], more: false, before: null, full: true } : { turns: TURNS, more: false, before: NOW - 600 });
+    await tick(5000);
+    expect(c.wbcTurns).toHaveBeenLastCalledWith('s1', 10);
+    expect(screen.getByText('Why does the rail sag?')).toBeTruthy();
   });
 
   it('polls while active when the bus is down, and rests while it is up', async () => {

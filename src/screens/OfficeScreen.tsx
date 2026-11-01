@@ -59,6 +59,9 @@ export function OfficeScreen({
   /** A reload: a fresh ticket and a fresh page (the stand-in too). */
   const [generation, setGeneration] = useState(0);
 
+  /** When the app went behind another one (`AppState`), for how long is too long: module constant below. */
+  const behindAt = useRef(0);
+
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -107,11 +110,24 @@ export function OfficeScreen({
     };
   }, [load]);
 
-  // The page is frozen while the app is behind another one: nothing is drawn, nothing is asked for.
+  // The page is frozen while the app is behind another one: nothing is drawn, nothing is asked for. Left behind
+  // long enough it is a page whose picture has aged and whose build may have been replaced: it comes back with a
+  // fresh ticket and a fresh load (a few seconds), not as a picture that quietly lies. Anything shorter than
+  // BEHIND_RELOAD_MS is a glance away - the page resumes where it was.
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (st) => setPaused(st !== 'active'));
+    const sub = AppState.addEventListener('change', (st) => {
+      const behind = st !== 'active';
+      setPaused(behind);
+      if (behind) {
+        if (!behindAt.current) behindAt.current = Date.now();
+        return;
+      }
+      const away = behindAt.current ? Date.now() - behindAt.current : 0;
+      behindAt.current = 0;
+      if (away > BEHIND_RELOAD_MS) void load();
+    });
     return () => sub.remove();
-  }, []);
+  }, [load]);
 
   const hello = useMemo(
     () =>
@@ -215,6 +231,11 @@ export function OfficeScreen({
     </SafeAreaView>
   );
 }
+
+/** Behind another app for longer than this, the Office is loaded again on the way back: its own page session is
+ *  fresh (a screenshot's ten minutes would have been nothing - backend/auth.py, EMBED_MINUTES), the build may be
+ *  newer, and nothing of the picture is worth keeping stale. */
+const BEHIND_RELOAD_MS = 15 * 60 * 1000;
 
 /** The page's address as the WebView should ask for it: the server's own, when the server sent a path. */
 export function absoluteUrl(base: string | undefined, url: string): string {

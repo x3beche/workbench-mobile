@@ -723,6 +723,9 @@ export interface WbcTurnsPage {
   before: number | null;
   /** The newest page only: what Claude Code suggests typing next, with nothing typed after it. */
   suggestion?: string | null;
+  /** Asked with `since` and the window was too small for the history: the part is not to be trusted, read the
+   *  page itself (backend/wbclaude.py). A server older than `since` says nothing, and nothing is `false`. */
+  full?: boolean;
 }
 
 // ---- OpenCode sessions (backend/wbopencode.py: /api/wbo/*) ---------------------
