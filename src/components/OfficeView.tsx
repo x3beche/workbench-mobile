@@ -319,7 +319,8 @@ export function OfficeView({
                 testID: `office-item-${it.id}`,
               });
               if (art) return art.el;
-              const box = itemBox(it.kind);
+              // A manager's desk is at the head of its department, drawn a little larger in the fallback art.
+              const box = itemBox(it.kind, it.manager === true);
               return (
                 <View
                   key={it.id}
@@ -926,11 +927,14 @@ function roomTint(kind: string): string {
   }
 }
 
-/** A placeholder piece of furniture, in world pixels from its tile's corner. */
-function itemBox(kind: string): { w: number; h: number; ox: number; oy: number; fill: string; line?: string; round?: number } {
+/** A placeholder piece of furniture, in world pixels from its tile's corner. The manager's desk at the head of
+ * its department is a little larger, and drawn with a line so the head of the room reads at phone size. */
+function itemBox(kind: string, manager = false): { w: number; h: number; ox: number; oy: number; fill: string; line?: string; round?: number } {
   switch (kind) {
     case 'desk':
-      return { w: 26, h: 12, ox: -5, oy: 1, fill: withAlpha(colors.inkDim, 0.5), round: 1 };
+      return manager
+        ? { w: 34, h: 14, ox: -9, oy: 0, fill: withAlpha(colors.inkDim, 0.6), line: withAlpha(colors.accent, 0.55), round: 1 }
+        : { w: 26, h: 12, ox: -5, oy: 1, fill: withAlpha(colors.inkDim, 0.5), round: 1 };
     case 'pc':
       return { w: 6, h: 6, ox: 5, oy: 2, fill: colors.accent, round: 1 };
     case 'chair':

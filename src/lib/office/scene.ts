@@ -62,6 +62,8 @@ export interface SceneItem {
   x: number;
   y: number;
   dir: number;
+  /** The head desk of a department, its manager's. */
+  manager?: boolean;
 }
 
 export interface ScenePerson {
@@ -175,7 +177,8 @@ export function areasOf(layout: OfficeLayout | null): Areas {
   const byRoom = new Set(rooms.map((r) => r.id));
   const items: SceneItem[] = (layout?.items ?? [])
     .filter((it: OfficeItem) => byRoom.has(it.room))
-    .map((it) => ({ id: it.id, kind: it.kind, x: it.x, y: it.y, dir: it.dir ?? 0 }));
+    .map((it) => ({ id: it.id, kind: it.kind, x: it.x, y: it.y, dir: it.dir ?? 0,
+                    manager: it.manager === true }));
 
   const seatMap = seatsOf(layout);
   const car = firstItem(items, 'car_spot') ?? roomCentre(rooms, 'parking') ?? DEFAULT_CAR;

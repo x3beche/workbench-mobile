@@ -1302,6 +1302,8 @@ export interface OfficeItem {
   dir: number;
   /** A chair made for an agent: its key. */
   seat_of?: string;
+  /** The desk at the head of a department: its manager's, drawn a little larger. */
+  manager?: boolean;
 }
 
 export interface OfficeSeat {
