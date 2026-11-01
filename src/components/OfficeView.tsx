@@ -22,7 +22,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
+  Image,
   PanResponder,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -34,7 +36,9 @@ import {
 
 import type { OfficeLayout, OfficeLiveAgent } from '../api/types';
 import { colors, fonts, radius, space, type, withAlpha } from '../theme/tokens';
-import { walkFrame } from '../lib/office/anim';
+import { thinkingFrame, typingFrame, walkFrame, type Dir } from '../lib/office/anim';
+import { itemSprite, poseSprite, spriteFrame, variantOf, walkSprite } from '../lib/office/atlas';
+import { OFFICE_ART, OFFICE_ATLAS } from '../lib/office/art';
 import { daylightTint, type Daylight } from '../lib/office/daylight';
 import { moodMouth } from '../lib/office/director';
 import { shareOf } from '../lib/office/task';
@@ -307,6 +311,14 @@ export function OfficeView({
               />
             ))}
             {scene.items.map((it) => {
+              // The atlas's own sprite, from the item's tile corner (a desk is 32 wide and covers the next
+              // tile too, as on the web); the drawn shape only where the atlas has none.
+              const art = officeSprite(itemSprite(it.kind), 0, undefined, scale, {
+                left: it.x * TILE,
+                top: it.y * TILE,
+                testID: `office-item-${it.id}`,
+              });
+              if (art) return art.el;
               const box = itemBox(it.kind);
               return (
                 <View
@@ -523,8 +535,75 @@ function carView(c: SceneCar, scale: number) {
 }
 
 /**
+ * One frame of the sheet, at the world's own pixels blown up by `scale`: the whole sheet inside a window the
+ * frame's size, shifted so the frame lands in it - a low-res sprite drawn on whole pixels, never between two.
+ * Null when the app has no art, or the atlas has no such sprite: the caller keeps its own shape.
+ */
+function officeSprite(
+  name: string,
+  frame: number,
+  dir: Dir | undefined,
+  scale: number,
+  at: { left: number; top: number; testID: string },
+): { el: React.ReactElement; w: number; h: number } | null {
+  if (!OFFICE_ART || !OFFICE_ATLAS) return null;
+  const f = spriteFrame(OFFICE_ATLAS, name, frame, dir);
+  if (!f) return null;
+  const sheet = OFFICE_ATLAS.sheet;
+  return {
+    w: f.w,
+    h: f.h,
+    el: (
+      <View
+        key={at.testID}
+        testID={at.testID}
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: Math.round(at.left * scale),
+          top: Math.round(at.top * scale),
+          width: Math.round(f.w * scale),
+          height: Math.round(f.h * scale),
+          overflow: 'hidden',
+        }}
+      >
+        <Image
+          source={OFFICE_ART}
+          resizeMode="stretch"
+          fadeDuration={0}
+          style={{
+            position: 'absolute',
+            left: -Math.round(f.x * scale),
+            top: -Math.round(f.y * scale),
+            width: Math.round(sheet.w * scale),
+            height: Math.round(sheet.h * scale),
+            // The web build is a browser: without this a ×2 sprite is resampled, not blown up.
+            ...(PIXELATED as object),
+          }}
+        />
+      </View>
+    ),
+  };
+}
+
+/** The web build is a browser; RN native has no nearest-neighbour switch, and no need for the key. */
+const PIXELATED = Platform.select({ web: { imageRendering: 'pixelated' }, default: {} });
+
+/** The frame an agent stands in: its look's pose or walk, and the animation frame the picture is on now. */
+function personFrame(p: ScenePerson, look: string, ms: number): { name: string; frame: number; dir?: Dir } {
+  if (p.walking) return { name: walkSprite(p.dir, look), frame: walkFrame(ms), dir: p.dir };
+  const name = poseSprite(p.pose, look);
+  const frame = p.pose === 'type' ? typingFrame(ms)
+    : p.pose === 'think' ? thinkingFrame(ms)
+      : p.pose === 'sit' ? thinkingFrame(ms)
+        : 0;
+  return { name, frame };
+}
+
+/**
  * The director's temper on a head: two eyes, and a mouth whose shape says which - a smile for calm, a line for
- * focused, a frown (and a red one) for frustrated. Nothing at level 0: that is the ordinary face.
+ * focused, a frown (and a red one) for frustrated. Nothing at level 0: that is the ordinary face. Only the
+ * placeholder figure has a face drawn on it - a sprite comes with its own, as on the web.
  */
 function moodFace(name: 'calm' | 'focused' | 'frustrated', scale: number) {
   const px = Math.max(1, Math.round(scale));
@@ -562,10 +641,50 @@ function personView(
   t: OfficeStrings,
   onPress: () => void,
 ) {
+  // The art first: the sprite of the pose it is in, in the look its name wears. Its feet land on the
+  // character's own point, as the web draws it (`fy - h + 2`).
+  const ms = nowS * 1000;
+  const look = variantOf(p.name, OFFICE_ATLAS);
+  const drawn = personFrame(p, look, ms);
+  const sprite = officeSprite(drawn.name, drawn.frame, drawn.dir, scale, {
+    left: 0,
+    top: 0,
+    testID: `office-art-${p.key}`,
+  });
+  if (sprite) {
+    const sw = Math.round(sprite.w * scale);
+    const sh = Math.round(sprite.h * scale);
+    return (
+      <Pressable
+        key={p.key}
+        testID={`office-person-${p.key}`}
+        accessibilityRole="button"
+        accessibilityLabel={`${p.name}, ${t.activity[p.activity]}${p.needsManager ? `, ${t.wantsYou}` : ''}`}
+        onPress={onPress}
+        hitSlop={10}
+        style={{
+          position: 'absolute',
+          left: Math.round(p.x * scale + nx * scale - sw / 2),
+          top: Math.round(p.y * scale - sh + 2 * scale),
+          width: sw,
+          height: sh,
+        }}
+      >
+        {sprite.el}
+        {selected ? (
+          <View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, { borderWidth: 1, borderColor: colors.focus, borderRadius: 3 }]}
+          />
+        ) : null}
+      </Pressable>
+    );
+  }
+
   const W = 12 * scale;
   const H = 20 * scale;
   const tone = toneOf(p);
-  const frame = p.walking ? walkFrame(nowS * 1000) : 0;
+  const frame = p.walking ? walkFrame(ms) : 0;
   const bodyH = Math.round((p.pose === 'sit' ? 7 : 9) * scale);
   const legs = p.walking ? (frame === 1 ? 3 : 2) : 0;
   return (

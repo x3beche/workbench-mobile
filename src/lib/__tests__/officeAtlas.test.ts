@@ -1,10 +1,20 @@
 /**
- * The Office's art interface (lib/office/atlas.ts): the web's manifest.json and
- * atlas.png, read here. The art has not landed - `image` is null and there are
- * no sprites - so the interface must say so and the view keep its shapes.
+ * The Office's art interface (lib/office/atlas.ts): the web's manifest.json, read here - frames, the sheet's
+ * size, the walk's four ways, and the look an agent's name picks.
  */
 import manifest from '../../../assets/office/manifest.json';
-import { atlasOf, hasArt, itemSprite, poseSprite, spriteFrame, type Atlas } from '../office/atlas';
+import {
+  atlasOf,
+  fnv1a32,
+  hasArt,
+  itemSprite,
+  poseSprite,
+  spriteFrame,
+  variantOf,
+  walkSprite,
+  withLook,
+  type Atlas,
+} from '../office/atlas';
 
 const MANIFEST = {
   version: 1,
@@ -20,9 +30,10 @@ const MANIFEST = {
 };
 
 describe("the office's atlas", () => {
-  it('reads the manifest the web ships while the art is missing', () => {
+  it('reads a manifest with no picture, and says there is nothing to draw', () => {
     const atlas = atlasOf({ version: 1, tile: 16, image: null, sprites: {} });
-    expect(atlas).toEqual({ version: 1, tile: 16, image: null, sprites: {} });
+    expect(atlas).toMatchObject({ version: 1, tile: 16, image: null, sprites: {}, variants: [] });
+    expect(atlas?.sheet).toEqual({ w: 1, h: 1 });      // nothing to measure
     expect(hasArt(atlas)).toBe(false);
     expect(spriteFrame(atlas, 'agent.walk', 0, 'e')).toBeNull();
   });
@@ -35,6 +46,14 @@ describe("the office's atlas", () => {
     expect(spriteFrame(atlas, 'agent.walk', 1, 'e')).toEqual({ x: 24, y: 0, w: 12, h: 20 }); // wrapped
     expect(spriteFrame(atlas, 'item.desk', 9)).toEqual({ x: 0, y: 40, w: 24, h: 16 });
     expect(spriteFrame(atlas, 'item.plant')).toBeNull();
+    // No `image_size` in the manifest: the sheet is measured from the frames it holds.
+    expect(atlas.sheet).toEqual({ w: 36, h: 56 });   // the furthest frame edge
+  });
+
+  it('takes the sheet’s own size when the manifest names it, and the variants it lists', () => {
+    const atlas = atlasOf({ ...MANIFEST, image_size: { w: 512, h: 217 }, variants: ['v0', 'v1', 'v2'] });
+    expect(atlas?.sheet).toEqual({ w: 512, h: 217 });
+    expect(atlas?.variants).toEqual(['v0', 'v1', 'v2']);
   });
 
   it('says no to a manifest that is not one, and keeps the frames it can use', () => {
@@ -54,17 +73,37 @@ describe("the office's atlas", () => {
 
   it('reads the manifest the app ships, copied from the web app', () => {
     const shipped = atlasOf(manifest);
-    expect(shipped).not.toBeNull();
+    expect(hasArt(shipped)).toBe(true);
     expect(shipped?.tile).toBe(16);
     expect(shipped?.version).toBe(1);
-    // Until the art lands the web's own manifest names no picture: the view keeps its placeholders.
-    expect(shipped?.image).toBeNull();
+    expect(shipped?.image).toBe('atlas.png');
+    expect(shipped?.sheet.w).toBeGreaterThan(100);
+    expect(Object.keys(shipped?.sprites ?? {}).length).toBeGreaterThan(100);
+    expect(shipped?.variants).toEqual(['v0', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6', 'v7']);
   });
 
-  it('names the sprite a pose and a piece of furniture would use', () => {
+  it('picks a look from the agent’s name, the way the generator does', () => {
+    const atlas = atlasOf(manifest);
+    expect(fnv1a32('Sensor board rail sag')).toBe(fnv1a32('Sensor board rail sag'));
+    expect(fnv1a32('a')).not.toBe(fnv1a32('b'));
+    const looks = new Set(['Sensor board rail sag', 'OTA image and rollback', 'Firmware notes', 'PCB design']
+      .map((n) => variantOf(n, atlas)));
+    expect(looks.size).toBeGreaterThan(1);            // not everybody in the same shirt
+    for (const look of looks) expect(atlas?.variants).toContain(look);
+    expect(variantOf('anyone', null)).toBe('');       // no manifest: the plain names
+  });
+
+  it('names the sprite a pose, a piece of furniture and a walk would use', () => {
     expect(poseSprite('type')).toBe('agent.type');
+    expect(poseSprite('type', 'v3')).toBe('agent.v3.type');
+    expect(poseSprite('stand')).toBe('agent.idle');
     expect(poseSprite('walk')).toBe('agent.walk');
     expect(poseSprite('something')).toBe('agent.walk');
     expect(itemSprite('coffee')).toBe('item.coffee');
+    expect(walkSprite('w')).toBe('agent.walk');
+    expect(walkSprite('w', 'v0')).toBe('agent.walk');
+    expect(walkSprite('w', 'v3')).toBe('agent.v3.walk.left');
+    expect(walkSprite('s', 'v3')).toBe('agent.v3.walk.down');
+    expect(withLook('item.desk', 'v3')).toBe('item.desk');   // only the agents wear a look
   });
 });

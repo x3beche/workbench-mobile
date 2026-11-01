@@ -61,6 +61,16 @@ beforeEach(() => {
 });
 
 describe('the office view', () => {
+  it('draws the atlas’s own art: a sprite per piece of furniture and one per character', async () => {
+    await show([row()]);
+    // The sprites are drawn under the picture and never take a touch, so a query names the hidden ones.
+    expect(screen.getByTestId('office-item-i-a', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByTestId('office-art-wbo:alice', { includeHiddenElements: true })).toBeTruthy();
+    // The character is still the thing a finger finds, and the card still opens on it.
+    await fireEvent.press(screen.getByTestId('office-person-wbo:alice'));
+    expect(screen.getByTestId('office-card')).toBeTruthy();
+  });
+
   it('draws the rooms and a character per agent, and says nothing is happening when there is nobody', async () => {
     await show([row(), row({ key: 'wbo:bob', name: 'Bob', activity: 'break', since: NOW - 60 })]);
     expect(screen.getByTestId('office-view')).toBeTruthy();
